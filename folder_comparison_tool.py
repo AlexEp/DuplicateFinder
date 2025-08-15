@@ -1,5 +1,7 @@
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, ttk, messagebox
+import os
+from pathlib import Path
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -83,15 +85,18 @@ class FolderComparisonApp:
         compare_button.pack()
 
         # --- Results Display ---
-        results_frame = tk.LabelFrame(main_frame, text="Results", padx=10, pady=10)
+        results_frame = tk.LabelFrame(main_frame, text="Results (double-click to open folder)", padx=10, pady=10)
         results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        self.results_text = tk.Text(results_frame, height=10, width=50)
-        self.results_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.results_tree = ttk.Treeview(results_frame, columns=('File',), show='headings')
+        self.results_tree.heading('File', text='File')
+        self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        scrollbar = tk.Scrollbar(results_frame, command=self.results_text.yview)
+        scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.results_text.config(yscrollcommand=scrollbar.set)
+        self.results_tree.config(yscrollcommand=scrollbar.set)
+
+        self.results_tree.bind('<Double-1>', self._on_double_click)
 
 
     def select_folder1(self):
@@ -104,17 +109,77 @@ class FolderComparisonApp:
         if folder_selected:
             self.folder2_path.set(folder_selected)
 
+    def _get_files(self, folder_path, recursive):
+        """Generator to yield files from a directory."""
+        base_path = Path(folder_path)
+        if not base_path.is_dir():
+            return
+
+        if recursive:
+            for item in base_path.rglob('*'):
+                if item.is_file():
+                    yield item.relative_to(base_path)
+        else:
+            for item in base_path.iterdir():
+                if item.is_file():
+                    yield item.relative_to(base_path)
+
+    def _on_double_click(self, event):
+        """Event handler for double-clicking a result."""
+        item_id = self.results_tree.focus()
+        if not item_id:
+            return
+
+        item = self.results_tree.item(item_id)
+        relative_path = item['values'][0]
+
+        folder1 = self.folder1_path.get()
+        if not folder1:
+            return
+
+        full_path = Path(folder1) / relative_path
+        containing_folder = full_path.parent
+
+        try:
+            os.startfile(containing_folder)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open folder:\n{e}")
+
     def compare_folders(self):
-        # Placeholder for comparison logic
-        self.results_text.delete('1.0', tk.END)  # Clear previous results
-        self.results_text.insert(tk.END, "Comparison started...\n")
-        self.results_text.insert(tk.END, f"Folder 1: {self.folder1_path.get()}\n")
-        self.results_text.insert(tk.END, f"Folder 2: {self.folder2_path.get()}\n")
-        self.results_text.insert(tk.END, f"Include subfolders: {self.include_subfolders.get()}\n")
-        self.results_text.insert(tk.END, f"Match by Name: {self.compare_name.get()}\n")
-        self.results_text.insert(tk.END, f"Match by Date: {self.compare_date.get()}\n")
-        self.results_text.insert(tk.END, f"Match by Size: {self.compare_size.get()}\n")
-        self.results_text.insert(tk.END, f"File type: {self.file_type.get()}\n")
+        # Clear previous results
+        for i in self.results_tree.get_children():
+            self.results_tree.delete(i)
+
+        # Get paths and options
+        folder1 = self.folder1_path.get()
+        folder2 = self.folder2_path.get()
+        recursive = self.include_subfolders.get()
+
+        # Validate paths
+        if not folder1 or not folder2:
+            messagebox.showerror("Error", "Please select both folders.")
+            return
+        if not Path(folder1).is_dir() or not Path(folder2).is_dir():
+            messagebox.showerror("Error", "Selected paths must be directories.")
+            return
+
+        # For now, only implement "compare by name" as requested
+        if not self.compare_name.get():
+            messagebox.showinfo("Info", "Comparison is currently only implemented for matching by name.")
+            return
+
+        # Get file sets
+        files1 = set(self._get_files(folder1, recursive))
+        files2 = set(self._get_files(folder2, recursive))
+
+        common_files = sorted(list(files1.intersection(files2)))
+
+        # Populate results
+        if not common_files:
+            self.results_tree.insert('', tk.END, values=("No common files found.",))
+        else:
+            for file_path in common_files:
+                self.results_tree.insert('', tk.END, values=(str(file_path.as_posix()),))
 
 
 if __name__ == "__main__":
