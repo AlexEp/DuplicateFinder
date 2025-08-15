@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
 from pathlib import Path
+import logic
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -109,21 +110,6 @@ class FolderComparisonApp:
         if folder_selected:
             self.folder2_path.set(folder_selected)
 
-    def _get_files(self, folder_path, recursive):
-        """Generator to yield files from a directory."""
-        base_path = Path(folder_path)
-        if not base_path.is_dir():
-            return
-
-        if recursive:
-            for item in base_path.rglob('*'):
-                if item.is_file():
-                    yield item.relative_to(base_path)
-        else:
-            for item in base_path.iterdir():
-                if item.is_file():
-                    yield item.relative_to(base_path)
-
     def _on_double_click(self, event):
         """Event handler for double-clicking a result."""
         item_id = self.results_tree.focus()
@@ -137,6 +123,7 @@ class FolderComparisonApp:
         if not folder1:
             return
 
+        # Use Path for robust path manipulation
         full_path = Path(folder1) / relative_path
         containing_folder = full_path.parent
 
@@ -159,30 +146,17 @@ class FolderComparisonApp:
         if not folder1 or not folder2:
             messagebox.showerror("Error", "Please select both folders.")
             return
-        if not Path(folder1).is_dir() or not Path(folder2).is_dir():
-            messagebox.showerror("Error", "Selected paths must be directories.")
-            return
 
         # For now, only implement "compare by name" as requested
         if not self.compare_name.get():
             messagebox.showinfo("Info", "Comparison is currently only implemented for matching by name.")
             return
 
-        # Get file sets
-        files1 = set(self._get_files(folder1, recursive))
-        files2 = set(self._get_files(folder2, recursive))
-
-        common_files = sorted(list(files1.intersection(files2)))
+        common_files = logic.find_common_files(folder1, folder2, recursive)
 
         # Populate results
         if not common_files:
             self.results_tree.insert('', tk.END, values=("No common files found.",))
         else:
             for file_path in common_files:
-                self.results_tree.insert('', tk.END, values=(str(file_path.as_posix()),))
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = FolderComparisonApp(root)
-    root.mainloop()
+                self.results_tree.insert('', tk.END, values=(file_path,))
