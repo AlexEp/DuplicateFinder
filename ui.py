@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import logic
 from models import FileNode, FolderNode
+from strategies import find_common_strategy, find_duplicates_strategy
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -24,11 +25,11 @@ class FolderComparisonApp:
         self.compare_name = tk.BooleanVar(value=True)
         self.compare_date = tk.BooleanVar()
         self.compare_size = tk.BooleanVar()
-        self.compare_content = tk.BooleanVar()
+        self.compare_content_md5 = tk.BooleanVar()
 
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
-        self.compare_content.trace_add('write', self._toggle_md5_warning)
+        self.compare_content_md5.trace_add('write', self._toggle_md5_warning)
 
         self.create_widgets()
         self._set_main_ui_state('disabled')
@@ -82,7 +83,7 @@ class FolderComparisonApp:
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
         tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5); tk.Checkbutton(match_frame, text="Date", variable=self.compare_date).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5); tk.Checkbutton(match_frame, text="Content (MD5)", variable=self.compare_content).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5); tk.Checkbutton(match_frame, text="Content (MD5 Hash)", variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
         sub_opts_frame = tk.Frame(options_frame); sub_opts_frame.pack(fill=tk.X, anchor=tk.W, pady=(5,0))
         self.include_subfolders_cb = tk.Checkbutton(sub_opts_frame, text="Include subfolders", variable=self.include_subfolders); self.include_subfolders_cb.pack(side=tk.LEFT)
         self.md5_warning_label = tk.Label(sub_opts_frame, text="Warning: Content comparison is slow.", fg="red")
@@ -116,7 +117,7 @@ class FolderComparisonApp:
 
     def _clear_all_settings(self):
         self.folder1_path.set(""); self.folder2_path.set(""); self.include_subfolders.set(False); self.compare_name.set(True)
-        self.compare_date.set(False); self.compare_size.set(False); self.compare_content.set(False)
+        self.compare_date.set(False); self.compare_size.set(False); self.compare_content_md5.set(False)
         self.current_project_path = None; self.folder1_structure = None; self.folder2_structure = None
         self.root.title("Folder Comparison Tool")
         if hasattr(self, 'results_tree'):
@@ -127,7 +128,7 @@ class FolderComparisonApp:
     def select_folder2(self): path = filedialog.askdirectory(); self.folder2_path.set(path) if path else None
     def _on_double_click(self, event): pass
     def _toggle_md5_warning(self, *args):
-        if self.compare_content.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
+        if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
         else: self.md5_warning_label.pack_forget()
 
     def _build_metadata(self, folder_num):
@@ -163,7 +164,7 @@ class FolderComparisonApp:
             for btn in build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
-        settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content": self.compare_content.get()}}
+        settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content_md5": self.compare_content_md5.get()}}
         metadata = {}
         if self.folder1_structure: metadata["folder1"] = [node.to_dict() for node in self.folder1_structure]
         if self.folder2_structure: metadata["folder2"] = [node.to_dict() for node in self.folder2_structure]
@@ -219,38 +220,42 @@ class FolderComparisonApp:
         for i in self.results_tree.get_children():
             self.results_tree.delete(i)
 
+        # The options from the UI now directly map to the strategy orchestrators
         opts = self._gather_settings()['options']
         mode = self.app_mode.get()
 
-        if mode == "compare":
-            if not self.folder1_structure or not self.folder2_structure:
-                messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
-                return
+        try:
+            if mode == "compare":
+                if not self.folder1_structure or not self.folder2_structure:
+                    messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
+                    return
 
-            base_path1 = self.folder1_path.get()
-            base_path2 = self.folder2_path.get()
-            results = logic.find_common_files(self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts)
+                base_path1 = self.folder1_path.get()
+                base_path2 = self.folder2_path.get()
+                results = find_common_strategy.run(self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts)
 
-            if not results:
-                self.results_tree.insert('', tk.END, values=("No matching files found.",))
-            else:
-                for file_path in results:
-                    self.results_tree.insert('', tk.END, values=(file_path,))
+                if not results:
+                    self.results_tree.insert('', tk.END, values=("No matching files found.",))
+                else:
+                    for file_path in results:
+                        self.results_tree.insert('', tk.END, values=(file_path,))
 
-        elif mode == "duplicates":
-            if not self.folder1_structure:
-                messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
-                return
+            elif mode == "duplicates":
+                if not self.folder1_structure:
+                    messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
+                    return
 
-            base_path1 = self.folder1_path.get()
-            results = logic.find_duplicate_files(self.folder1_structure, base_path1, opts)
+                base_path1 = self.folder1_path.get()
+                results = find_duplicates_strategy.run(self.folder1_structure, base_path1, opts)
 
-            if not results:
-                self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
-            else:
-                for i, group in enumerate(results, 1):
-                    # Add a header for the duplicate set
-                    parent = self.results_tree.insert('', tk.END, values=(f"Duplicate Set {i} ({len(group)} files)",), open=True)
-                    # Add the file paths as children
-                    for file_path in group:
-                        self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
+                if not results:
+                    self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
+                else:
+                    for i, group in enumerate(results, 1):
+                        # Add a header for the duplicate set
+                        parent = self.results_tree.insert('', tk.END, values=(f"Duplicate Set {i} ({len(group)} files)",), open=True)
+                        # Add the file paths as children
+                        for file_path in group:
+                            self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
+        except Exception as e:
+            messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
