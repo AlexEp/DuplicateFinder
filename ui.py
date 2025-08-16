@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import logic
 from models import FileNode, FolderNode
+from strategies import find_common_strategy, find_duplicates_strategy
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -219,38 +220,42 @@ class FolderComparisonApp:
         for i in self.results_tree.get_children():
             self.results_tree.delete(i)
 
+        # The options from the UI now directly map to the strategy orchestrators
         opts = self._gather_settings()['options']
         mode = self.app_mode.get()
 
-        if mode == "compare":
-            if not self.folder1_structure or not self.folder2_structure:
-                messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
-                return
+        try:
+            if mode == "compare":
+                if not self.folder1_structure or not self.folder2_structure:
+                    messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
+                    return
 
-            base_path1 = self.folder1_path.get()
-            base_path2 = self.folder2_path.get()
-            results = logic.find_common_files(self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts)
+                base_path1 = self.folder1_path.get()
+                base_path2 = self.folder2_path.get()
+                results = find_common_strategy.run(self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts)
 
-            if not results:
-                self.results_tree.insert('', tk.END, values=("No matching files found.",))
-            else:
-                for file_path in results:
-                    self.results_tree.insert('', tk.END, values=(file_path,))
+                if not results:
+                    self.results_tree.insert('', tk.END, values=("No matching files found.",))
+                else:
+                    for file_path in results:
+                        self.results_tree.insert('', tk.END, values=(file_path,))
 
-        elif mode == "duplicates":
-            if not self.folder1_structure:
-                messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
-                return
+            elif mode == "duplicates":
+                if not self.folder1_structure:
+                    messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
+                    return
 
-            base_path1 = self.folder1_path.get()
-            results = logic.find_duplicate_files(self.folder1_structure, base_path1, opts)
+                base_path1 = self.folder1_path.get()
+                results = find_duplicates_strategy.run(self.folder1_structure, base_path1, opts)
 
-            if not results:
-                self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
-            else:
-                for i, group in enumerate(results, 1):
-                    # Add a header for the duplicate set
-                    parent = self.results_tree.insert('', tk.END, values=(f"Duplicate Set {i} ({len(group)} files)",), open=True)
-                    # Add the file paths as children
-                    for file_path in group:
-                        self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
+                if not results:
+                    self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
+                else:
+                    for i, group in enumerate(results, 1):
+                        # Add a header for the duplicate set
+                        parent = self.results_tree.insert('', tk.END, values=(f"Duplicate Set {i} ({len(group)} files)",), open=True)
+                        # Add the file paths as children
+                        for file_path in group:
+                            self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
+        except Exception as e:
+            messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
