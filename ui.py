@@ -64,16 +64,19 @@ class FolderComparisonApp:
         self.compare_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folders to Compare", padx=10, pady=10)
         row1 = tk.Frame(self.compare_mode_frame); row1.pack(fill=tk.X, pady=2)
         tk.Label(row1, text="Folder 1:").pack(side=tk.LEFT); tk.Entry(row1, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT); tk.Button(row1, text="Build", command=lambda: self._build_metadata(1)).pack(side=tk.LEFT, padx=(5,0))
+        tk.Button(row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
+        self.build_button_compare1 = tk.Button(row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_compare1.pack(side=tk.LEFT, padx=(5,0))
         row2 = tk.Frame(self.compare_mode_frame); row2.pack(fill=tk.X, pady=2)
         tk.Label(row2, text="Folder 2:").pack(side=tk.LEFT); tk.Entry(row2, textvariable=self.folder2_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(row2, text="Browse...", command=self.select_folder2).pack(side=tk.LEFT); tk.Button(row2, text="Build", command=lambda: self._build_metadata(2)).pack(side=tk.LEFT, padx=(5,0))
+        tk.Button(row2, text="Browse...", command=self.select_folder2).pack(side=tk.LEFT)
+        self.build_button_compare2 = tk.Button(row2, text="Build", command=lambda: self._build_metadata(2)); self.build_button_compare2.pack(side=tk.LEFT, padx=(5,0))
 
         # --- Duplicates Mode UI ---
         self.duplicates_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Analyze", padx=10, pady=10)
         dupes_row = tk.Frame(self.duplicates_mode_frame); dupes_row.pack(fill=tk.X, pady=2)
         tk.Label(dupes_row, text="Folder:").pack(side=tk.LEFT); tk.Entry(dupes_row, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(dupes_row, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT); tk.Button(dupes_row, text="Build", command=lambda: self._build_metadata(1)).pack(side=tk.LEFT, padx=(5,0))
+        tk.Button(dupes_row, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
+        self.build_button_dupes1 = tk.Button(dupes_row, text="Build", command=lambda: self._build_metadata(1)); self.build_button_dupes1.pack(side=tk.LEFT, padx=(5,0))
 
         # ... (rest of UI is the same)
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
@@ -90,6 +93,11 @@ class FolderComparisonApp:
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview); scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_tree.config(yscrollcommand=scrollbar.set); self.results_tree.bind('<Double-1>', self._on_double_click)
+
+        # --- Status Bar ---
+        self.status_label = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+
         self._on_mode_change()
 
     def _on_mode_change(self, *args):
@@ -123,21 +131,36 @@ class FolderComparisonApp:
         else: self.md5_warning_label.pack_forget()
 
     def _build_metadata(self, folder_num):
-        if not self._save_project():
-            messagebox.showwarning("Save Cancelled", "Metadata build aborted because the project was not saved.")
-            return
-        path_var = self.folder1_path if folder_num == 1 else self.folder2_path
-        path = path_var.get()
-        if not path or not Path(path).is_dir():
-            messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_num}.")
-            return
+        build_buttons = [self.build_button_compare1, self.build_button_compare2, self.build_button_dupes1]
 
-        structure = logic.build_folder_structure(path)
-        if folder_num == 1: self.folder1_structure = structure
-        else: self.folder2_structure = structure
+        try:
+            # Disable buttons and show status
+            for btn in build_buttons: btn.config(state='disabled')
+            self.status_label.config(text=f"Building metadata for Folder {folder_num}...")
+            self.root.update_idletasks()
 
-        messagebox.showinfo("Success", f"Metadata built for Folder {folder_num}. Saving project...")
-        self._save_project()
+            if not self._save_project():
+                messagebox.showwarning("Save Cancelled", "Metadata build aborted because the project was not saved.")
+                return
+            path_var = self.folder1_path if folder_num == 1 else self.folder2_path
+            path = path_var.get()
+            if not path or not Path(path).is_dir():
+                messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_num}.")
+                return
+
+            structure = logic.build_folder_structure(path)
+            if folder_num == 1: self.folder1_structure = structure
+            else: self.folder2_structure = structure
+
+            self.status_label.config(text=f"Metadata built for Folder {folder_num}. Saving project...")
+            self.root.update_idletasks()
+            self._save_project()
+            messagebox.showinfo("Success", f"Metadata built and saved for Folder {folder_num}.")
+
+        finally:
+            # Re-enable buttons and clear status
+            self.status_label.config(text="")
+            for btn in build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
         settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content": self.compare_content.get()}}
