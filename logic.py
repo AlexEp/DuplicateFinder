@@ -1,5 +1,7 @@
 import hashlib
 from pathlib import Path
+from models import FileNode, FolderNode
+from collections import defaultdict
 
 def _calculate_md5(file_path):
     """Calculates the MD5 hash of a file."""
@@ -11,74 +13,6 @@ def _calculate_md5(file_path):
         return hash_md5.hexdigest()
     except IOError:
         return None
-
-def _get_file_info(folder_path, recursive, calculate_md5=False):
-    """
-    Gathers information about each file in a directory.
-    Returns a dictionary mapping relative paths to their info.
-    """
-    base_path = Path(folder_path)
-    if not base_path.is_dir():
-        return {}
-
-    file_info = {}
-
-    if recursive:
-        file_iterator = base_path.rglob('*')
-    else:
-        file_iterator = base_path.iterdir()
-
-    for item in file_iterator:
-        if item.is_file():
-            relative_path = item.relative_to(base_path)
-            stat = item.stat()
-            info = {
-                "size": stat.st_size,
-                "mtime": stat.st_mtime
-            }
-            if calculate_md5:
-                info["md5"] = _calculate_md5(item)
-            file_info[relative_path] = info
-
-    return file_info
-
-def find_common_files(folder1, folder2, opts):
-    """
-    Finds common files in two folders based on selected criteria.
-    """
-    if not folder1 or not folder2 or not Path(folder1).is_dir() or not Path(folder2).is_dir():
-        return []
-
-    # Get file information for both folders
-    # Only calculate MD5 if the user has requested it
-    calc_md5 = opts.get('by_content', False)
-    info1 = _get_file_info(folder1, opts['recursive'], calc_md5)
-    info2 = _get_file_info(folder2, opts['recursive'], calc_md5)
-
-    # Find the intersection of file names (relative paths)
-    common_names = set(info1.keys()).intersection(info2.keys())
-
-    results = []
-
-    for name in common_names:
-        file1_info = info1[name]
-        file2_info = info2[name]
-
-        # Check against selected criteria
-        match = True
-        if opts.get('by_date') and file1_info['mtime'] != file2_info['mtime']:
-            match = False
-        if opts.get('by_size') and file1_info['size'] != file2_info['size']:
-            match = False
-        if opts.get('by_content') and file1_info.get('md5') != file2_info.get('md5'):
-            match = False
-
-        if match:
-            results.append(str(name.as_posix()))
-
-    return sorted(results)
-
-from models import FileNode, FolderNode
 
 def build_folder_structure(root_path):
     """
@@ -98,3 +32,108 @@ def build_folder_structure(root_path):
             file_node = FileNode(item)
             content.append(file_node)
     return content
+
+def _flatten_structure(structure, base_path, calculate_md5=False):
+    """
+    Flattens the object tree into a dictionary of file info,
+    similar to the old _get_file_info method.
+    """
+    file_info = {}
+
+    # Need a recursive helper to traverse the tree
+    def traverse(node, current_path):
+        if isinstance(node, FileNode):
+            # Construct the relative path
+            relative_path = current_path / node.name
+
+            # Get metadata
+            p = Path(node.fullpath)
+            if not p.exists(): return
+
+            stat = p.stat()
+            info = {
+                "size": stat.st_size,
+                "mtime": stat.st_mtime
+            }
+            if calculate_md5:
+                info["md5"] = _calculate_md5(p)
+            file_info[relative_path] = info
+
+        elif isinstance(node, FolderNode):
+            for child in node.content:
+                traverse(child, current_path / node.name)
+
+    # Start traversal from the root of the structure
+    for root_node in structure:
+        traverse(root_node, Path())
+
+    return file_info
+
+def find_common_files(structure1, structure2, base_path1, base_path2, opts):
+    """
+    Finds common files in two pre-built structures based on selected criteria.
+    """
+    if not structure1 or not structure2:
+        return []
+
+    calc_md5 = opts.get('by_content', False)
+    info1 = _flatten_structure(structure1, base_path1, calc_md5)
+    info2 = _flatten_structure(structure2, base_path2, calc_md5)
+
+    common_names = set(info1.keys()).intersection(info2.keys())
+
+    results = []
+
+    for name in common_names:
+        file1_info = info1[name]
+        file2_info = info2[name]
+
+        match = True
+        if opts.get('by_date') and file1_info['mtime'] != file2_info['mtime']:
+            match = False
+        if opts.get('by_size') and file1_info['size'] != file2_info['size']:
+            match = False
+        if opts.get('by_content') and file1_info.get('md5') != file2_info.get('md5'):
+            match = False
+
+        if match:
+            results.append(str(name.as_posix()))
+
+    return sorted(results)
+
+def find_duplicate_files(structure, base_path, opts):
+    """
+    Finds duplicate files within a single pre-built structure.
+    """
+    if not structure:
+        return []
+
+    calc_md5 = opts.get('by_content', False)
+    all_files_info = _flatten_structure(structure, base_path, calc_md5)
+
+    # Group files by the selected criteria
+    groups = defaultdict(list)
+    for path, info in all_files_info.items():
+        # Build a key based on the selected options
+        key_parts = []
+        if opts.get('by_name'):
+             # Note: finding duplicates by name is only useful across subdirs
+            key_parts.append(path.name)
+        if opts.get('by_date'):
+            key_parts.append(info['mtime'])
+        if opts.get('by_size'):
+            key_parts.append(info['size'])
+        if opts.get('by_content'):
+            key_parts.append(info.get('md5'))
+
+        # Use the tuple of key parts as the dictionary key
+        if key_parts:
+            groups[tuple(key_parts)].append(str(path.as_posix()))
+
+    # Filter for groups with more than one file (i.e., duplicates)
+    duplicates = []
+    for key, files in groups.items():
+        if len(files) > 1:
+            duplicates.append(files)
+
+    return duplicates
