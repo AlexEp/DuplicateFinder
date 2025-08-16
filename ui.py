@@ -10,6 +10,8 @@ class FolderComparisonApp:
         self.root = root
         self.root.title("Folder Comparison Tool")
         self.current_project_path = None
+        self.folder1_structure = None
+        self.folder2_structure = None
 
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
@@ -135,6 +137,8 @@ class FolderComparisonApp:
         for i in self.results_tree.get_children():
             self.results_tree.delete(i)
         self.current_project_path = None
+        self.folder1_structure = None
+        self.folder2_structure = None
         self.root.title("Folder Comparison Tool")
 
     def _new_project(self):
@@ -262,6 +266,11 @@ class FolderComparisonApp:
         if not any([opts['by_name'], opts['by_date'], opts['by_size'], opts['by_content']]):
              messagebox.showerror("Error", "Please select at least one matching criterion.")
              return
+
+        # Build the in-memory file system structure
+        self.folder1_structure = logic.build_folder_structure(folder1)
+        self.folder2_structure = logic.build_folder_structure(folder2)
+        messagebox.showinfo("In-Memory Scan", "Folder structures have been scanned into memory.")
 
         common_files = logic.find_common_files(folder1, folder2, opts)
 
