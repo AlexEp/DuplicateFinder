@@ -3,7 +3,7 @@ from . import utils
 from . import key_by_name
 from . import key_by_date
 from . import key_by_size
-from . import key_by_content
+from . import key_by_content_md5
 
 def run(structure, base_path, opts):
     """
@@ -14,7 +14,7 @@ def run(structure, base_path, opts):
         return []
 
     # Determine if MD5 calculation is needed
-    calc_md5 = opts.get('compare_content', False)
+    calc_md5 = opts.get('compare_content_md5', False)
     all_files_info = utils.flatten_structure(structure, base_path, calc_md5)
 
     # Build a list of active key-building strategies based on options
@@ -27,8 +27,8 @@ def run(structure, base_path, opts):
         active_key_strategies.append(key_by_date.get_key)
     if opts.get('compare_size'):
         active_key_strategies.append(key_by_size.get_key)
-    if opts.get('compare_content'):
-        active_key_strategies.append(key_by_content.get_key)
+    if opts.get('compare_content_md5'):
+        active_key_strategies.append(key_by_content_md5.get_key)
 
     # Group files by the selected criteria
     groups = defaultdict(list)

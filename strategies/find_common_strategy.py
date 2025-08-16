@@ -1,7 +1,7 @@
 from . import utils
 from . import compare_by_date
 from . import compare_by_size
-from . import compare_by_content
+from . import compare_by_content_md5
 
 def run(structure1, structure2, base_path1, base_path2, opts):
     """
@@ -12,7 +12,7 @@ def run(structure1, structure2, base_path1, base_path2, opts):
         return []
 
     # Determine if MD5 calculation is needed
-    calc_md5 = opts.get('compare_content', False)
+    calc_md5 = opts.get('compare_content_md5', False)
 
     # Flatten the directory structures into dictionaries
     info1 = utils.flatten_structure(structure1, base_path1, calc_md5)
@@ -27,8 +27,8 @@ def run(structure1, structure2, base_path1, base_path2, opts):
         active_strategies.append(compare_by_date.compare)
     if opts.get('compare_size'):
         active_strategies.append(compare_by_size.compare)
-    if opts.get('compare_content'):
-        active_strategies.append(compare_by_content.compare)
+    if opts.get('compare_content_md5'):
+        active_strategies.append(compare_by_content_md5.compare)
 
     results = []
     for path in common_paths:
