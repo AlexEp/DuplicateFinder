@@ -13,10 +13,13 @@ def calculate_md5(file_path):
     except IOError:
         return None
 
-def flatten_structure(structure, base_path, calculate_md5_flag=False):
+def flatten_structure(structure, base_path, opts=None):
     """
-    Flattens the object tree into a dictionary of file info.
+    Flattens the object tree into a dictionary of file info, calculating
+    metadata only for the options specified.
     """
+    if opts is None:
+        opts = {}
     file_info = {}
 
     # Need a recursive helper to traverse the tree
@@ -25,17 +28,24 @@ def flatten_structure(structure, base_path, calculate_md5_flag=False):
             # Construct the relative path
             relative_path = current_path / node.name
 
-            # Get metadata
+            # Get metadata only if needed
             p = Path(node.fullpath)
             if not p.exists(): return
 
-            stat = p.stat()
-            info = {
-                "size": stat.st_size,
-                "mtime": stat.st_mtime
-            }
-            if calculate_md5_flag:
-                info["md5"] = calculate_md5(p)
+            info = {}
+            # Check if we need to get file stats (for size or date)
+            needs_stat = opts.get('compare_size') or opts.get('compare_date')
+            if needs_stat:
+                stat = p.stat()
+                if opts.get('compare_size'):
+                    info['size'] = stat.st_size
+                if opts.get('compare_date'):
+                    info['mtime'] = stat.st_mtime
+
+            # Check if we need to calculate MD5
+            if opts.get('compare_content_md5'):
+                info['md5'] = calculate_md5(p)
+
             file_info[relative_path] = info
 
         elif isinstance(node, FolderNode):
