@@ -11,12 +11,9 @@ def run(structure1, structure2, base_path1, base_path2, opts):
     if not structure1 or not structure2:
         return []
 
-    # Determine if MD5 calculation is needed
-    calc_md5 = opts.get('compare_content_md5', False)
-
     # Flatten the directory structures into dictionaries
-    info1 = utils.flatten_structure(structure1, base_path1, calc_md5)
-    info2 = utils.flatten_structure(structure2, base_path2, calc_md5)
+    info1 = utils.flatten_structure(structure1, base_path1, opts)
+    info2 = utils.flatten_structure(structure2, base_path2, opts)
 
     # Find the common files by relative path
     common_paths = set(info1.keys()).intersection(info2.keys())

@@ -13,9 +13,8 @@ def run(structure, base_path, opts):
     if not structure:
         return []
 
-    # Determine if MD5 calculation is needed
-    calc_md5 = opts.get('compare_content_md5', False)
-    all_files_info = utils.flatten_structure(structure, base_path, calc_md5)
+    # Flatten the directory structure into a dictionary
+    all_files_info = utils.flatten_structure(structure, base_path, opts)
 
     # Build a list of active key-building strategies based on options
     # Note: The UI calls these 'compare_name', etc. but for duplicates,
