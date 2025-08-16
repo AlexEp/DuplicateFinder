@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
 from pathlib import Path
+import json
 import logic
 
 class FolderComparisonApp:
@@ -27,6 +28,17 @@ class FolderComparisonApp:
         self.create_widgets()
 
     def create_widgets(self):
+        # --- Menu Bar ---
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Load Project", command=self._load_project)
+        file_menu.add_command(label="Save Project As...", command=self._save_project_as)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
+        menubar.add_cascade(label="File", menu=file_menu)
+
         # Frame for the application
         main_frame = tk.Frame(self.root, padx=10, pady=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -145,6 +157,65 @@ class FolderComparisonApp:
             self.md5_warning_label.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=5)
         else:
             self.md5_warning_label.grid_forget()
+
+    def _save_project_as(self):
+        """Saves the current settings to a project file."""
+        project_path = filedialog.asksaveasfilename(
+            defaultextension=".cfp",
+            filetypes=[("Comparison Project Files", "*.cfp"), ("All Files", "*.*")]
+        )
+        if not project_path:
+            return
+
+        settings = {
+            "folder1_path": self.folder1_path.get(),
+            "folder2_path": self.folder2_path.get(),
+            "options": {
+                "include_subfolders": self.include_subfolders.get(),
+                "compare_name": self.compare_name.get(),
+                "compare_date": self.compare_date.get(),
+                "compare_size": self.compare_size.get(),
+                "compare_content": self.compare_content.get(),
+                "file_type": self.file_type.get()
+            }
+        }
+
+        try:
+            with open(project_path, 'w') as f:
+                json.dump(settings, f, indent=4)
+            messagebox.showinfo("Success", f"Project saved to {project_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not save project file:\n{e}")
+
+    def _load_project(self):
+        """Loads settings from a project file."""
+        project_path = filedialog.askopenfilename(
+            filetypes=[("Comparison Project Files", "*.cfp"), ("All Files", "*.*")]
+        )
+        if not project_path:
+            return
+
+        try:
+            with open(project_path, 'r') as f:
+                settings = json.load(f)
+
+            # Load folder paths
+            self.folder1_path.set(settings.get("folder1_path", ""))
+            self.folder2_path.set(settings.get("folder2_path", ""))
+
+            # Load options
+            opts = settings.get("options", {})
+            self.include_subfolders.set(opts.get("include_subfolders", False))
+            self.compare_name.set(opts.get("compare_name", True))
+            self.compare_date.set(opts.get("compare_date", False))
+            self.compare_size.set(opts.get("compare_size", False))
+            self.compare_content.set(opts.get("compare_content", False))
+            self.file_type.set(opts.get("file_type", "All"))
+
+            messagebox.showinfo("Success", f"Project loaded from {project_path}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load project file:\n{e}")
 
     def compare_folders(self):
         # Clear previous results
