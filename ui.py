@@ -17,7 +17,10 @@ class FolderComparisonApp:
         self.compare_name = tk.BooleanVar(value=True)
         self.compare_date = tk.BooleanVar()
         self.compare_size = tk.BooleanVar()
+        self.compare_content = tk.BooleanVar()
         self.file_type = tk.StringVar(value='All')
+
+        self.compare_content.trace_add('write', self._toggle_md5_warning)
 
 
         # Create and place widgets
@@ -67,6 +70,9 @@ class FolderComparisonApp:
         cb_size = tk.Checkbutton(match_frame, text="Size", variable=self.compare_size)
         cb_size.pack(side=tk.LEFT, padx=5)
 
+        cb_content = tk.Checkbutton(match_frame, text="Content (MD5)", variable=self.compare_content)
+        cb_content.pack(side=tk.LEFT, padx=5)
+
         # Other options
         cb_subfolders = tk.Checkbutton(options_frame, text="Include subfolders", variable=self.include_subfolders)
         cb_subfolders.grid(row=1, column=0, sticky=tk.W, pady=5)
@@ -77,6 +83,8 @@ class FolderComparisonApp:
         file_type_combo = ttk.Combobox(options_frame, textvariable=self.file_type, values=['All', 'Images'], state='readonly')
         file_type_combo.grid(row=2, column=1, sticky=tk.W, pady=5)
 
+        self.md5_warning_label = tk.Label(options_frame, text="Warning: Content comparison can be slow.", fg="red")
+        # Initially hidden, shown by _toggle_md5_warning
 
         # --- Action Buttons ---
         action_frame = tk.Frame(main_frame, pady=10)
@@ -132,6 +140,12 @@ class FolderComparisonApp:
         except Exception as e:
             messagebox.showerror("Error", f"Could not open folder:\n{e}")
 
+    def _toggle_md5_warning(self, *args):
+        if self.compare_content.get():
+            self.md5_warning_label.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=5)
+        else:
+            self.md5_warning_label.grid_forget()
+
     def compare_folders(self):
         # Clear previous results
         for i in self.results_tree.get_children():
@@ -140,19 +154,26 @@ class FolderComparisonApp:
         # Get paths and options
         folder1 = self.folder1_path.get()
         folder2 = self.folder2_path.get()
-        recursive = self.include_subfolders.get()
+
+        opts = {
+            "recursive": self.include_subfolders.get(),
+            "by_name": self.compare_name.get(),
+            "by_date": self.compare_date.get(),
+            "by_size": self.compare_size.get(),
+            "by_content": self.compare_content.get()
+        }
 
         # Validate paths
         if not folder1 or not folder2:
             messagebox.showerror("Error", "Please select both folders.")
             return
 
-        # For now, only implement "compare by name" as requested
-        if not self.compare_name.get():
-            messagebox.showinfo("Info", "Comparison is currently only implemented for matching by name.")
-            return
+        # At least one criteria must be selected
+        if not any([opts['by_name'], opts['by_date'], opts['by_size'], opts['by_content']]):
+             messagebox.showerror("Error", "Please select at least one matching criterion.")
+             return
 
-        common_files = logic.find_common_files(folder1, folder2, recursive)
+        common_files = logic.find_common_files(folder1, folder2, opts)
 
         # Populate results
         if not common_files:
