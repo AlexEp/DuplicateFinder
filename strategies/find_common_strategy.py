@@ -26,14 +26,14 @@ def run(structure1, structure2, base_path1, base_path2, opts):
         active_strategies.append(compare_by_size.compare)
     if opts.get('compare_content_md5'):
         active_strategies.append(compare_by_content_md5.compare)
-    # Note: Histogram comparison is not implemented as a strategy here
-    # as it's more complex and its metadata is already gathered in utils.
 
     matching_paths = []
     for path in common_paths:
         file1_info = info1[path]
         file2_info = info2[path]
 
+        # A file is a match if it passes all active comparison strategies.
+        # The strategies themselves are robust against missing keys.
         is_match = all(strategy(file1_info, file2_info) for strategy in active_strategies)
 
         if is_match:

@@ -256,7 +256,6 @@ class FolderComparisonApp:
                 node.content = self._dict_to_structure(node_dict.get('content', []))
                 structure.append(node)
             elif node_dict['type'] == 'file':
-                # Pass the metadata dictionary to the FileNode constructor
                 node = FileNode(Path(node_dict['fullpath']), node_dict.get('metadata'))
                 structure.append(node)
         return structure
@@ -302,10 +301,9 @@ class FolderComparisonApp:
                 try:
                     relative_path = Path(node.fullpath).relative_to(base_path_obj)
                     if relative_path in metadata_info:
-                        # Update existing metadata with new values, ensuring no old values remain
                         node.metadata.update(metadata_info[relative_path])
                 except ValueError:
-                    continue  # Should not happen if structure is correct
+                    continue
             elif isinstance(node, FolderNode):
                 self._update_filenode_metadata(node.content, metadata_info, base_path)
 
@@ -328,11 +326,9 @@ class FolderComparisonApp:
                     self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts
                 )
 
-                # Update the main structures with the new metadata
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
                 self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
 
-                # Save the updated project file
                 if self._save_project():
                     self.status_label.config(text="Comparison complete. Project saved with updated metadata.")
                 else:

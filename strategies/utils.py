@@ -37,11 +37,9 @@ def flatten_structure(structure, base_path, opts=None):
 
             info = {'fullpath': node.fullpath}
 
-            # Always include the name for potential matching
             if opts.get('compare_name'):
                 info['compare_name'] = node.name
 
-            # Check for options that require p.stat()
             needs_stat = opts.get('compare_size') or opts.get('compare_date')
             if needs_stat:
                 try:
@@ -50,16 +48,14 @@ def flatten_structure(structure, base_path, opts=None):
                         info['compare_size'] = stat.st_size
                     if opts.get('compare_date'):
                         info['compare_date'] = stat.st_mtime
-                except FileNotFoundError:
-                    # If file doesn't exist, we can't get stat, so skip
-                    return
+                except OSError:
+                    # Could not get stats for the file, so skip adding these keys
+                    pass
 
             if opts.get('compare_content_md5'):
                 info['compare_content_md5'] = calculate_md5(p)
 
             if opts.get('compare_histogram'):
-                # Note: This doesn't calculate the histogram itself, just saves the params
-                # The actual histogram calculation would happen in a dedicated strategy
                 info['histogram_method'] = opts.get('histogram_method')
                 info['histogram_threshold'] = opts.get('histogram_threshold')
 

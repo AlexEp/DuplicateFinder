@@ -9,15 +9,11 @@ The application supports various comparison strategies and can be extended with 
 - **Compare Mode:** Compare two folders to find files that are common to both, based on a combination of criteria.
 - **Find Duplicates Mode:** Analyze a single folder to find files that are duplicates of each other.
 - **Unified "Compare" Action:** The main action button is always labeled "Compare" for a consistent user experience. The application internally handles whether to run a comparison or a duplicate-finding operation based on the selected mode.
-- **Flexible Comparison Criteria:**
-  - File Name
-  - Modification Date
-  - File Size
-  - File Content (using MD5 hash)
-  - Image Similarity (using histogram analysis)
+- **Flexible & Robust Comparison:**
+  - Compare by: File Name, Modification Date, File Size, and File Content (using MD5 hash).
+  - The comparison logic is robust. If metadata for a specific file cannot be retrieved (e.g., due to a permission error), it is gracefully handled as a non-match for that criterion without crashing the program.
 - **Project-Based Workflow:**
-  - Create new projects.
-  - Save and load existing projects (`.cfp` files).
+  - Create new projects, save, and load existing projects (`.cfp` files).
   - The application mode ("compare" or "duplicates"), folder paths, and comparison settings are all saved in the project.
   - File structures are "built" and saved to the project, which includes a tree of all files and folders.
 - **Metadata Persistence:**
@@ -37,15 +33,12 @@ The project is organized into several key files and directories:
 - **`logic.py`**: Contains the core business logic that is independent of the UI. The `build_folder_structure` function recursively scans a directory and builds a tree of file and folder nodes.
 
 - **`models.py`**: Defines the data models for the application.
-  - `FileSystemNode`: A base class for files and folders.
   - `FileNode`: Represents a file. It includes a `metadata` dictionary to store arbitrary data from comparisons.
-  - `FolderNode`: Represents a folder and contains a list of other `FileNode` and `FolderNode` objects.
 
-- **`strategies/`**: This directory contains the different comparison and keying strategies used by the application.
-  - **`find_common_strategy.py`**: Orchestrates the comparison of two folders. It now returns the calculated metadata to the UI.
-  - **`find_duplicates_strategy.py`**: Orchestrates the process of finding duplicate files.
-  - **`compare_by_*.py`**: Individual files that each implement a specific comparison logic (e.g., `compare_by_size.py`).
-  - **`utils.py`**: Contains utility functions used by the strategies, such as `calculate_md5` and `flatten_structure`. The `flatten_structure` function is responsible for generating all the metadata based on the selected UI options.
+- **`strategies/`**: This directory contains the different comparison strategies.
+  - **`find_common_strategy.py`**: Orchestrates the comparison of two folders. It returns the calculated metadata to the UI for saving.
+  - **`compare_by_*.py`**: Individual, robust strategies that each implement a specific comparison logic (e.g., `compare_by_size.py`). They safely handle cases where metadata might be missing.
+  - **`utils.py`**: Contains utility functions. `flatten_structure` is responsible for robustly generating all the metadata based on the selected UI options, handling potential `OSError` exceptions.
 
 ## How It Works
 
@@ -53,9 +46,8 @@ The project is organized into several key files and directories:
 2.  **Folder Selection & Building:** The user selects a folder and clicks "Build". This scans the folder and saves the file/folder structure into the project file.
 3.  **Running the "Compare" Action:**
     - The user selects comparison options (e.g., "Size", "Content (MD5 Hash)").
-    - The user clicks the "Compare" button.
-    - The application checks the current mode ("compare" or "duplicates") and runs the appropriate logic.
-    - The `flatten_structure` utility generates metadata for each file based on the selected options.
-    - The relevant strategy (e.g., `find_common_strategy`) uses this metadata to find matches.
+    - When the "Compare" button is clicked, the application runs the appropriate logic based on the current mode.
+    - The `flatten_structure` utility robustly generates metadata for each file.
+    - The `find_common_strategy` uses this metadata to find matches, with individual comparison strategies safely ignoring files with missing data.
     - **Crucially, the newly calculated metadata is then saved back to the `FileNode` objects in the main application state, and the entire project is saved to the `.cfp` file.**
     - The results are displayed in the results list.
