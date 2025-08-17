@@ -1,24 +1,46 @@
 from collections import defaultdict
+import itertools
 from . import utils
 from . import key_by_name
 from . import key_by_date
 from . import key_by_size
 from . import key_by_content_md5
+from . import compare_by_histogram
+
+def _find_connected_components(nodes, adj_list):
+    """Finds all connected components in a graph using a basic traversal."""
+    visited = set()
+    components = []
+    for node in nodes:
+        if node not in visited:
+            component = []
+            q = [node]
+            visited.add(node)
+            head = 0
+            while head < len(q):
+                u = q[head]
+                head += 1
+                component.append(u)
+                if u in adj_list:
+                    for v in adj_list[u]:
+                        if v not in visited:
+                            visited.add(v)
+                            q.append(v)
+            components.append(component)
+    return components
 
 def run(structure, base_path, opts):
     """
     Finds duplicate files within a single structure.
-    This function orchestrates calls to individual key-building strategies.
+    This function orchestrates calls to individual key-building strategies
+    and can optionally apply a secondary, pairwise comparison.
     """
     if not structure:
         return []
 
-    # Flatten the directory structure into a dictionary
+    # --- Phase 1: Grouping by Keys ---
     all_files_info = utils.flatten_structure(structure, base_path, opts)
 
-    # Build a list of active key-building strategies based on options
-    # Note: The UI calls these 'compare_name', etc. but for duplicates,
-    # we are grouping by these attributes.
     active_key_strategies = []
     if opts.get('compare_name'):
         active_key_strategies.append(key_by_name.get_key)
@@ -29,18 +51,48 @@ def run(structure, base_path, opts):
     if opts.get('compare_content_md5'):
         active_key_strategies.append(key_by_content_md5.get_key)
 
-    # Group files by the selected criteria
+    # If no strategies are selected, we can't find duplicates.
+    if not active_key_strategies and not opts.get('compare_histogram'):
+        return []
+
     groups = defaultdict(list)
-    for path, info in all_files_info.items():
-        # Build a key based on the selected options
-        key_parts = [strategy(path, info) for strategy in active_key_strategies]
+    # If we are only doing histogram, group all files together.
+    # Otherwise, group by the selected keying strategies.
+    if not active_key_strategies and opts.get('compare_histogram'):
+         # Note: This will be very slow for large numbers of files.
+         # It's better to use histogram with a keying strategy (like size).
+        groups['all_files'] = list(all_files_info.values())
+    else:
+        for path, info in all_files_info.items():
+            key_parts = [strategy(path, info) for strategy in active_key_strategies]
+            if key_parts and None not in key_parts:
+                groups[tuple(key_parts)].append(info)
 
-        # The key must be a tuple to be hashable
-        # and ignore files where a key part couldn't be generated (e.g. no md5)
-        if key_parts and None not in key_parts:
-            groups[tuple(key_parts)].append(str(path.as_posix()))
+    potential_duplicate_groups = [infos for infos in groups.values() if len(infos) > 1]
 
-    # Filter for groups with more than one file (i.e., duplicates)
-    duplicates = [files for files in groups.values() if len(files) > 1]
+    # --- Phase 2: Pairwise Histogram Comparison ---
+    if not opts.get('compare_histogram'):
+        # If not using histogram, convert info dicts back to path strings
+        return [[info['fullpath'] for info in group] for group in potential_duplicate_groups]
 
-    return duplicates
+    final_duplicates = []
+    for group in potential_duplicate_groups:
+        adj_list = defaultdict(list)
+        nodes_in_group = [info['fullpath'] for info in group]
+
+        for info1, info2 in itertools.combinations(group, 2):
+            if compare_by_histogram.compare(info1, info2, opts):
+                path1 = info1['fullpath']
+                path2 = info2['fullpath']
+                adj_list[path1].append(path2)
+                adj_list[path2].append(path1)
+
+        # Find connected components in the similarity graph
+        components = _find_connected_components(nodes_in_group, adj_list)
+
+        # Only keep components with more than one file (actual duplicates)
+        for component in components:
+            if len(component) > 1:
+                final_duplicates.append(component)
+
+    return final_duplicates
