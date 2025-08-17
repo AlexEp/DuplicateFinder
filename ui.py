@@ -26,10 +26,15 @@ class FolderComparisonApp:
         self.compare_date = tk.BooleanVar()
         self.compare_size = tk.BooleanVar()
         self.compare_content_md5 = tk.BooleanVar()
+        self.compare_histogram = tk.BooleanVar()
+        self.histogram_method = tk.StringVar(value='Correlation')
+        self.histogram_threshold = tk.StringVar(value='0.9')
 
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
         self.compare_content_md5.trace_add('write', self._toggle_md5_warning)
+        self.compare_histogram.trace_add('write', self._toggle_histogram_options)
+        self.histogram_method.trace_add('write', self._update_histogram_threshold_ui)
 
         self.create_widgets()
         self._set_main_ui_state('disabled')
@@ -82,8 +87,32 @@ class FolderComparisonApp:
         # ... (rest of UI is the same)
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
-        tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5); tk.Checkbutton(match_frame, text="Date", variable=self.compare_date).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5); tk.Checkbutton(match_frame, text="Content (MD5 Hash)", variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Date", variable=self.compare_date).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Content (MD5 Hash)", variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(match_frame, text="Content (Histogram)", variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
+
+        self.histogram_options_frame = tk.Frame(options_frame)
+
+        # Method Selection
+        tk.Label(self.histogram_options_frame, text="Method:").pack(side=tk.LEFT, pady=5)
+        self.histogram_method_combo = ttk.Combobox(
+            self.histogram_options_frame,
+            textvariable=self.histogram_method,
+            values=['Correlation', 'Chi-Square', 'Intersection', 'Bhattacharyya'],
+            state='readonly',
+            width=15
+        )
+        self.histogram_method_combo.pack(side=tk.LEFT, padx=(2, 10), pady=5)
+
+        # Threshold Entry
+        tk.Label(self.histogram_options_frame, text="Threshold:").pack(side=tk.LEFT, pady=5)
+        self.histogram_threshold_entry = tk.Entry(self.histogram_options_frame, textvariable=self.histogram_threshold, width=8)
+        self.histogram_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
+        self.histogram_threshold_info_label = tk.Label(self.histogram_options_frame, text="", width=20)
+        self.histogram_threshold_info_label.pack(side=tk.LEFT, padx=(0, 5), pady=5)
+
         sub_opts_frame = tk.Frame(options_frame); sub_opts_frame.pack(fill=tk.X, anchor=tk.W, pady=(5,0))
         self.include_subfolders_cb = tk.Checkbutton(sub_opts_frame, text="Include subfolders", variable=self.include_subfolders); self.include_subfolders_cb.pack(side=tk.LEFT)
         self.md5_warning_label = tk.Label(sub_opts_frame, text="Warning: Content comparison is slow.", fg="red")
@@ -100,6 +129,8 @@ class FolderComparisonApp:
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
 
         self._on_mode_change()
+        self._toggle_histogram_options()
+        self._update_histogram_threshold_ui()
 
     def _on_mode_change(self, *args):
         mode = self.app_mode.get()
@@ -118,6 +149,9 @@ class FolderComparisonApp:
     def _clear_all_settings(self):
         self.folder1_path.set(""); self.folder2_path.set(""); self.include_subfolders.set(False); self.compare_name.set(True)
         self.compare_date.set(False); self.compare_size.set(False); self.compare_content_md5.set(False)
+        self.compare_histogram.set(False)
+        self.histogram_method.set('Correlation')
+        self.histogram_threshold.set('0.9')
         self.current_project_path = None; self.folder1_structure = None; self.folder2_structure = None
         self.root.title("Folder Comparison Tool")
         if hasattr(self, 'results_tree'):
@@ -130,6 +164,27 @@ class FolderComparisonApp:
     def _toggle_md5_warning(self, *args):
         if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
         else: self.md5_warning_label.pack_forget()
+
+    def _toggle_histogram_options(self, *args):
+        if self.compare_histogram.get():
+            self.histogram_options_frame.pack(fill=tk.X, pady=5)
+        else:
+            self.histogram_options_frame.pack_forget()
+
+    def _update_histogram_threshold_ui(self, *args):
+        method = self.histogram_method.get()
+        info_text = ""
+        default_threshold = ""
+
+        if method == 'Correlation' or method == 'Intersection':
+            info_text = "(Higher value is more similar)"
+            default_threshold = "0.9"
+        elif method == 'Chi-Square' or method == 'Bhattacharyya':
+            info_text = "(Lower value is more similar)"
+            default_threshold = "0.1"
+
+        self.histogram_threshold_info_label.config(text=info_text)
+        self.histogram_threshold.set(default_threshold)
 
     def _build_metadata(self, folder_num):
         build_buttons = [self.build_button_compare1, self.build_button_compare2, self.build_button_dupes1]
@@ -164,7 +219,7 @@ class FolderComparisonApp:
             for btn in build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
-        settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content_md5": self.compare_content_md5.get()}}
+        settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content_md5": self.compare_content_md5.get(), "compare_histogram": self.compare_histogram.get(), "histogram_method": self.histogram_method.get(), "histogram_threshold": self.histogram_threshold.get()}}
         metadata = {}
         if self.folder1_structure: metadata["folder1"] = [node.to_dict() for node in self.folder1_structure]
         if self.folder2_structure: metadata["folder2"] = [node.to_dict() for node in self.folder2_structure]
