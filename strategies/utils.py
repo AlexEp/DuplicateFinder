@@ -35,7 +35,7 @@ def flatten_structure(structure, base_path, opts=None):
             except ValueError:
                 return
 
-            info = {}
+            info = {'fullpath': node.fullpath}
             needs_stat = opts.get('compare_size') or opts.get('compare_date')
             if needs_stat:
                 stat = p.stat()
