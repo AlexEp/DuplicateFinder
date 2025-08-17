@@ -135,9 +135,13 @@ class FolderComparisonApp:
 
     def _on_mode_change(self, *args):
         mode = self.app_mode.get()
-        if mode == "compare": self.duplicates_mode_frame.pack_forget(); self.compare_mode_frame.pack(fill=tk.X)
-        else: self.compare_mode_frame.pack_forget(); self.duplicates_mode_frame.pack(fill=tk.X)
-        self.action_button.config(text="Compare" if mode == "compare" else "Find Duplicates")
+        if mode == "compare":
+            self.duplicates_mode_frame.pack_forget()
+            self.compare_mode_frame.pack(fill=tk.X)
+        else:
+            self.compare_mode_frame.pack_forget()
+            self.duplicates_mode_frame.pack(fill=tk.X)
+        self.action_button.config(text="Compare")
 
     def _set_main_ui_state(self, state='normal'):
         def set_state_recursive(widget):
@@ -159,19 +163,8 @@ class FolderComparisonApp:
             for i in self.results_tree.get_children(): self.results_tree.delete(i)
 
     def _new_project(self): self._clear_all_settings(); self._set_main_ui_state('normal'); self.root.title("New Project - Folder Comparison Tool")
-    def select_folder1(self):
-        path = filedialog.askdirectory()
-        if not path: return
-        self.folder1_path.set(path)
-        if not self._save_project():
-            messagebox.showwarning("Save Failed", "Could not save the project after selecting folder.")
-
-    def select_folder2(self):
-        path = filedialog.askdirectory()
-        if not path: return
-        self.folder2_path.set(path)
-        if not self._save_project():
-            messagebox.showwarning("Save Failed", "Could not save the project after selecting folder.")
+    def select_folder1(self): path = filedialog.askdirectory(); self.folder1_path.set(path) if path else None
+    def select_folder2(self): path = filedialog.askdirectory(); self.folder2_path.set(path) if path else None
     def _on_double_click(self, event): pass
     def _toggle_md5_warning(self, *args):
         if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
@@ -231,11 +224,28 @@ class FolderComparisonApp:
             for btn in build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
-        settings = {"folder1_path": self.folder1_path.get(), "folder2_path": self.folder2_path.get(), "options": {"include_subfolders": self.include_subfolders.get(), "compare_name": self.compare_name.get(), "compare_date": self.compare_date.get(), "compare_size": self.compare_size.get(), "compare_content_md5": self.compare_content_md5.get(), "compare_histogram": self.compare_histogram.get(), "histogram_method": self.histogram_method.get(), "histogram_threshold": self.histogram_threshold.get()}}
+        settings = {
+            "app_mode": self.app_mode.get(),
+            "folder1_path": self.folder1_path.get(),
+            "folder2_path": self.folder2_path.get(),
+            "options": {
+                "include_subfolders": self.include_subfolders.get(),
+                "compare_name": self.compare_name.get(),
+                "compare_date": self.compare_date.get(),
+                "compare_size": self.compare_size.get(),
+                "compare_content_md5": self.compare_content_md5.get(),
+                "compare_histogram": self.compare_histogram.get(),
+                "histogram_method": self.histogram_method.get(),
+                "histogram_threshold": self.histogram_threshold.get()
+            }
+        }
         metadata = {}
-        if self.folder1_structure: metadata["folder1"] = [node.to_dict() for node in self.folder1_structure]
-        if self.folder2_structure: metadata["folder2"] = [node.to_dict() for node in self.folder2_structure]
-        if metadata: settings["metadata"] = metadata
+        if self.folder1_structure:
+            metadata["folder1"] = [node.to_dict() for node in self.folder1_structure]
+        if self.folder2_structure:
+            metadata["folder2"] = [node.to_dict() for node in self.folder2_structure]
+        if metadata:
+            settings["metadata"] = metadata
         return settings
 
     def _dict_to_structure(self, node_list):
@@ -246,6 +256,7 @@ class FolderComparisonApp:
                 node.content = self._dict_to_structure(node_dict.get('content', []))
                 structure.append(node)
             elif node_dict['type'] == 'file':
+                # Pass the metadata dictionary to the FileNode constructor
                 node = FileNode(Path(node_dict['fullpath']), node_dict.get('metadata'))
                 structure.append(node)
         return structure
@@ -269,6 +280,7 @@ class FolderComparisonApp:
         try:
             with open(path, 'r') as f: settings = json.load(f)
             self._clear_all_settings()
+            self.app_mode.set(settings.get("app_mode", "compare"))
             self.folder1_path.set(settings.get("folder1_path", "")); self.folder2_path.set(settings.get("folder2_path", ""))
             opts = settings.get("options", {});
             for opt, val in opts.items():
@@ -290,15 +302,17 @@ class FolderComparisonApp:
                 try:
                     relative_path = Path(node.fullpath).relative_to(base_path_obj)
                     if relative_path in metadata_info:
-                        # Update existing metadata with new values
+                        # Update existing metadata with new values, ensuring no old values remain
                         node.metadata.update(metadata_info[relative_path])
                 except ValueError:
-                    continue # Should not happen if structure is correct
+                    continue  # Should not happen if structure is correct
             elif isinstance(node, FolderNode):
                 self._update_filenode_metadata(node.content, metadata_info, base_path)
 
     def run_action(self):
-        for i in self.results_tree.get_children(): self.results_tree.delete(i)
+        for i in self.results_tree.get_children():
+            self.results_tree.delete(i)
+
         opts = self._gather_settings()['options']
         mode = self.app_mode.get()
 
@@ -310,7 +324,9 @@ class FolderComparisonApp:
 
                 base_path1 = self.folder1_path.get()
                 base_path2 = self.folder2_path.get()
-                results, info1, info2 = find_common_strategy.run(self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts)
+                results, info1, info2 = find_common_strategy.run(
+                    self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts
+                )
 
                 # Update the main structures with the new metadata
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
@@ -329,12 +345,13 @@ class FolderComparisonApp:
                         self.results_tree.insert('', tk.END, values=(file_path,))
 
             elif mode == "duplicates":
-                # This part remains unchanged as the request was about comparison.
                 if not self.folder1_structure:
                     messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
                     return
+
                 base_path1 = self.folder1_path.get()
                 results = find_duplicates_strategy.run(self.folder1_structure, base_path1, opts)
+
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
                 else:
