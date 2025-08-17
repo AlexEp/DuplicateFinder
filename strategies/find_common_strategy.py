@@ -5,13 +5,13 @@ from . import compare_by_content_md5
 
 def run(structure1, structure2, base_path1, base_path2, opts):
     """
-    Finds common files in two structures based on selected criteria.
+    Finds common files and returns their paths and calculated metadata.
     This function orchestrates calls to individual comparison strategies.
     """
     if not structure1 or not structure2:
-        return []
+        return [], {}, {}
 
-    # Flatten the directory structures into dictionaries
+    # Flatten the directory structures into dictionaries, calculating metadata
     info1 = utils.flatten_structure(structure1, base_path1, opts)
     info2 = utils.flatten_structure(structure2, base_path2, opts)
 
@@ -27,15 +27,14 @@ def run(structure1, structure2, base_path1, base_path2, opts):
     if opts.get('compare_content_md5'):
         active_strategies.append(compare_by_content_md5.compare)
 
-    results = []
+    matching_paths = []
     for path in common_paths:
         file1_info = info1[path]
         file2_info = info2[path]
 
-        # A file is a match if it passes all active comparison strategies
         is_match = all(strategy(file1_info, file2_info) for strategy in active_strategies)
 
         if is_match:
-            results.append(str(path.as_posix()))
+            matching_paths.append(str(path.as_posix()))
 
-    return sorted(results)
+    return sorted(matching_paths), info1, info2
