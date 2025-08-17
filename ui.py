@@ -105,6 +105,7 @@ class FolderComparisonApp:
             width=15
         )
         self.histogram_method_combo.pack(side=tk.LEFT, padx=(2, 10), pady=5)
+        self.histogram_method_combo.bind("<Key>", lambda e: "break")
 
         # Threshold Entry
         tk.Label(self.histogram_options_frame, text="Threshold:").pack(side=tk.LEFT, pady=5)
