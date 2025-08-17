@@ -17,23 +17,25 @@ def flatten_structure(structure, base_path, opts=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
     metadata only for the options specified.
+    Keys are relative paths to the provided base_path.
     """
     if opts is None:
         opts = {}
     file_info = {}
+    base_path_obj = Path(base_path)
 
-    # Need a recursive helper to traverse the tree
-    def traverse(node, current_path):
+    def traverse(node):
         if isinstance(node, FileNode):
-            # Construct the relative path
-            relative_path = current_path / node.name
-
-            # Get metadata only if needed
             p = Path(node.fullpath)
-            if not p.exists(): return
+            if not p.exists():
+                return
 
-            info = {}
-            # Check if we need to get file stats (for size or date)
+            try:
+                relative_path = p.relative_to(base_path_obj)
+            except ValueError:
+                return
+
+            info = {'fullpath': node.fullpath}
             needs_stat = opts.get('compare_size') or opts.get('compare_date')
             if needs_stat:
                 stat = p.stat()
@@ -42,7 +44,6 @@ def flatten_structure(structure, base_path, opts=None):
                 if opts.get('compare_date'):
                     info['mtime'] = stat.st_mtime
 
-            # Check if we need to calculate MD5
             if opts.get('compare_content_md5'):
                 info['md5'] = calculate_md5(p)
 
@@ -50,10 +51,9 @@ def flatten_structure(structure, base_path, opts=None):
 
         elif isinstance(node, FolderNode):
             for child in node.content:
-                traverse(child, current_path / node.name)
+                traverse(child)
 
-    # Start traversal from the root of the structure
     for root_node in structure:
-        traverse(root_node, Path())
+        traverse(root_node)
 
     return file_info
