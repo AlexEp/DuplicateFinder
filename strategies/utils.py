@@ -49,8 +49,7 @@ def flatten_structure(structure, base_path, opts=None):
                     if opts.get('compare_date'):
                         info['compare_date'] = stat.st_mtime
                 except OSError:
-                    # Could not get stats for the file, so skip adding these keys
-                    pass
+                    pass  # Ignore files we can't get stats for
 
             if opts.get('compare_content_md5'):
                 info['compare_content_md5'] = calculate_md5(p)

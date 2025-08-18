@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import logic
 from models import FileNode, FolderNode
-from strategies import find_common_strategy, find_duplicates_strategy
+from strategies import find_common_strategy, find_duplicates_strategy, utils
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -315,25 +315,35 @@ class FolderComparisonApp:
         mode = self.app_mode.get()
 
         try:
+            # --- Metadata Generation and Persistence ---
+            # This is now a central step that happens for all modes.
+            self.status_label.config(text="Calculating metadata...")
+            self.root.update_idletasks()
+
+            info1, info2 = None, None
+            if self.folder1_structure:
+                base_path1 = self.folder1_path.get()
+                info1 = utils.flatten_structure(self.folder1_structure, base_path1, opts)
+                self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
+
+            if self.folder2_structure:
+                base_path2 = self.folder2_path.get()
+                info2 = utils.flatten_structure(self.folder2_structure, base_path2, opts)
+                self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
+
+            if self._save_project():
+                self.status_label.config(text="Metadata calculated and project saved.")
+            else:
+                self.status_label.config(text="Metadata calculated, but project save failed.")
+                messagebox.showwarning("Save Failed", "Could not save the project with new metadata.")
+
+            # --- Strategy Execution ---
             if mode == "compare":
-                if not self.folder1_structure or not self.folder2_structure:
+                if not info1 or not info2:
                     messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
                     return
 
-                base_path1 = self.folder1_path.get()
-                base_path2 = self.folder2_path.get()
-                results, info1, info2 = find_common_strategy.run(
-                    self.folder1_structure, self.folder2_structure, base_path1, base_path2, opts
-                )
-
-                self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
-                self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
-
-                if self._save_project():
-                    self.status_label.config(text="Comparison complete. Project saved with updated metadata.")
-                else:
-                    self.status_label.config(text="Comparison complete, but failed to save project.")
-
+                results = find_common_strategy.run(info1, info2, opts)
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No matching files found.",))
                 else:
@@ -341,13 +351,11 @@ class FolderComparisonApp:
                         self.results_tree.insert('', tk.END, values=(file_path,))
 
             elif mode == "duplicates":
-                if not self.folder1_structure:
+                if not info1:
                     messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
                     return
 
-                base_path1 = self.folder1_path.get()
-                results = find_duplicates_strategy.run(self.folder1_structure, base_path1, opts)
-
+                results = find_duplicates_strategy.run(info1, opts)
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
                 else:
@@ -357,3 +365,5 @@ class FolderComparisonApp:
                             self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
         except Exception as e:
             messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
+        finally:
+            self.status_label.config(text="Ready.")
