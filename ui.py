@@ -316,7 +316,6 @@ class FolderComparisonApp:
 
         try:
             # --- Metadata Generation and Persistence ---
-            # This is now a central step that happens for all modes.
             self.status_label.config(text="Calculating metadata...")
             self.root.update_idletasks()
 

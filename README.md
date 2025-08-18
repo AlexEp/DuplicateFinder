@@ -33,8 +33,10 @@ The project is organized into several key files and directories:
   - `utils.py`: Contains robust utility functions for generating file metadata.
   - `find_common_strategy.py` & `find_duplicates_strategy.py`: Orchestrate the logic for the two primary modes, now consuming pre-calculated metadata.
   - `compare_by_*.py`: Individual, robust strategies for specific comparisons.
+  - `key_by_*.py`: Individual, robust strategies for generating group keys in "Find Duplicates" mode.
 - **`tests/`**: Contains unit tests for the application's logic.
-  - `test_strategies.py`: Contains tests to verify the robustness and correctness of the comparison strategies.
+  - `test_strategies.py`: Contains tests for the `compare_by_*` functions.
+  - `test_keying_strategies.py`: Contains tests for the `key_by_*` functions.
 
 ## How It Works
 
