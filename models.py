@@ -10,15 +10,17 @@ class FileSystemNode:
 
 class FileNode(FileSystemNode):
     """Represents a file in the file system tree."""
-    def __init__(self, path_obj):
+    def __init__(self, path_obj, metadata=None):
         super().__init__(path_obj)
         self.type = 'file'
+        self.metadata = metadata if metadata is not None else {}
 
     def to_dict(self):
         return {
             'type': self.type,
             'name': self.name,
-            'fullpath': self.fullpath
+            'fullpath': self.fullpath,
+            'metadata': self.metadata
         }
 
 class FolderNode(FileSystemNode):

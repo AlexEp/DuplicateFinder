@@ -29,17 +29,16 @@ def _find_connected_components(nodes, adj_list):
             components.append(component)
     return components
 
-def run(structure, base_path, opts):
+def run(all_files_info, opts):
     """
-    Finds duplicate files within a single structure.
+    Finds duplicate files within a single metadata dictionary.
     This function orchestrates calls to individual key-building strategies
     and can optionally apply a secondary, pairwise comparison.
     """
-    if not structure:
+    if not all_files_info:
         return []
 
     # --- Phase 1: Grouping by Keys ---
-    all_files_info = utils.flatten_structure(structure, base_path, opts)
 
     active_key_strategies = []
     if opts.get('compare_name'):
