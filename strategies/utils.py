@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 from models import FileNode, FolderNode
+from . import compare_by_histogram
 
 def calculate_md5(file_path):
     """Calculates the MD5 hash of a file."""
@@ -35,7 +36,7 @@ def flatten_structure(structure, base_path, opts=None):
             except ValueError:
                 return
 
-            info = {'fullpath': node.fullpath}
+            info = {'fullpath': node.fullpath, 'metadata': node.metadata.copy()}
 
             if opts.get('compare_name'):
                 info['compare_name'] = node.name
@@ -55,8 +56,9 @@ def flatten_structure(structure, base_path, opts=None):
                 info['compare_content_md5'] = calculate_md5(p)
 
             if opts.get('compare_histogram'):
-                info['histogram_method'] = opts.get('histogram_method')
-                info['histogram_threshold'] = opts.get('histogram_threshold')
+                hist = compare_by_histogram.get_histogram(str(p))
+                if hist is not None:
+                    info['metadata']['histogram'] = hist
 
             file_info[relative_path] = info
 
