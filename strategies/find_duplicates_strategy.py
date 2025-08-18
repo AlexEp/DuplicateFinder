@@ -75,16 +75,38 @@ def run(all_files_info, opts):
         return [[info['fullpath'] for info in group] for group in potential_duplicate_groups]
 
     final_duplicates = []
+    # Methods where a higher score means more similar
+    SIMILARITY_METRICS = ['Correlation', 'Intersection']
+
     for group in potential_duplicate_groups:
         adj_list = defaultdict(list)
         nodes_in_group = [info['fullpath'] for info in group]
 
         for info1, info2 in itertools.combinations(group, 2):
-            if compare_by_histogram.compare(info1, info2, opts):
-                path1 = info1['fullpath']
-                path2 = info2['fullpath']
-                adj_list[path1].append(path2)
-                adj_list[path2].append(path1)
+            comparison_result = compare_by_histogram.compare(info1, info2, opts)
+
+            if comparison_result and 'histogram_method' in comparison_result:
+                method_name, score = list(comparison_result['histogram_method'].items())[0]
+
+                try:
+                    threshold_str = opts.get('histogram_threshold', '0.9')
+                    threshold = float(threshold_str)
+                except (ValueError, TypeError):
+                    threshold = 0.9 if method_name in SIMILARITY_METRICS else 0.1
+
+                is_match = False
+                if method_name in SIMILARITY_METRICS:
+                    if score >= threshold:
+                        is_match = True
+                else:  # It's a distance metric
+                    if score <= threshold:
+                        is_match = True
+
+                if is_match:
+                    path1 = info1['fullpath']
+                    path2 = info2['fullpath']
+                    adj_list[path1].append(path2)
+                    adj_list[path2].append(path1)
 
         # Find connected components in the similarity graph
         components = _find_connected_components(nodes_in_group, adj_list)

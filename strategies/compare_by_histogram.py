@@ -12,35 +12,16 @@ HISTOGRAM_METHODS = {
 # Define which methods measure similarity (higher is better) vs. distance (lower is better)
 SIMILARITY_METRICS = ['Correlation', 'Intersection']
 
-def compare(file1_info, file2_info, options):
+def get_histogram(path):
     """
-    Compares two image files based on a selected histogram comparison method.
+    Calculates and returns the normalized HSV histogram for an image file.
     """
-    path1 = file1_info.get('fullpath')
-    path2 = file2_info.get('fullpath')
-
-    # Get method and threshold from options, with sane defaults
-    method_name = options.get('histogram_method', 'Correlation')
     try:
-        # Threshold is a string from the UI, convert to float
-        threshold_str = options.get('histogram_threshold', '0.9')
-        threshold = float(threshold_str)
-    except (ValueError, TypeError):
-        # Fallback if the threshold from UI is invalid
-        threshold = 0.9 if method_name in SIMILARITY_METRICS else 0.1
+        img = cv2.imread(path)
+        if img is None:
+            return None
 
-    if not path1 or not path2 or method_name not in HISTOGRAM_METHODS:
-        return False
-
-    try:
-        img1 = cv2.imread(path1)
-        img2 = cv2.imread(path2)
-
-        if img1 is None or img2 is None:
-            return False
-
-        hsv1 = cv2.cvtColor(img1, cv2.COLOR_BGR2HSV)
-        hsv2 = cv2.cvtColor(img2, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         h_bins = 50
         s_bins = 60
@@ -50,23 +31,34 @@ def compare(file1_info, file2_info, options):
         ranges = h_ranges + s_ranges
         channels = [0, 1]
 
-        hist1 = cv2.calcHist([hsv1], channels, None, histSize, ranges, accumulate=False)
-        cv2.normalize(hist1, hist1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        hist = cv2.calcHist([hsv], channels, None, histSize, ranges, accumulate=False)
+        cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        return hist
+    except Exception as e:
+        print(f"Could not calculate histogram for {path}: {e}")
+        return None
 
-        hist2 = cv2.calcHist([hsv2], channels, None, histSize, ranges, accumulate=False)
-        cv2.normalize(hist2, hist2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+def compare(file1_info, file2_info, options):
+    """
+    Compares two image files based on a selected histogram comparison method,
+    using pre-calculated histograms from file metadata.
+    """
+    hist1 = file1_info.get('metadata', {}).get('histogram')
+    hist2 = file2_info.get('metadata', {}).get('histogram')
+    method_name = options.get('histogram_method', 'Correlation')
 
-        # Get the correct OpenCV constant for the chosen method
+    if hist1 is None or hist2 is None or method_name not in HISTOGRAM_METHODS:
+        return None
+
+    try:
         comparison_method = HISTOGRAM_METHODS[method_name]
-
         score = cv2.compareHist(hist1, hist2, comparison_method)
 
-        # Apply threshold based on whether it's a similarity or distance metric
-        if method_name in SIMILARITY_METRICS:
-            return score >= threshold  # For Correlation and Intersection, higher is more similar
-        else:
-            return score <= threshold  # For Chi-Square and Bhattacharyya, lower is more similar
+        # Return the score in the specified nested dictionary structure
+        return {'histogram_method': {method_name: score}}
 
     except Exception as e:
+        path1 = file1_info.get('fullpath')
+        path2 = file2_info.get('fullpath')
         print(f"Could not compare histograms for {path1} and {path2}: {e}")
-        return False
+        return None
