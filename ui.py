@@ -153,6 +153,8 @@ class FolderComparisonApp:
         self.results_tree.config(yscrollcommand=scrollbar.set)
         self.results_tree.bind('<Double-1>', self._on_double_click)
         self.results_tree.bind('<Button-3>', self._show_context_menu)
+        self.results_tree.bind('<Button-2>', self._show_context_menu)
+        self.results_tree.bind('<Control-Button-1>', self._show_context_menu)
 
         # --- Status Bar ---
         self.status_label = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
