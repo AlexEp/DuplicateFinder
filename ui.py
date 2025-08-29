@@ -3,6 +3,7 @@ from tkinter import filedialog, ttk, messagebox
 import os
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 import json
 import logic
@@ -21,6 +22,7 @@ class FolderComparisonApp:
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
+        self.move_to_path = tk.StringVar()
 
         # --- Comparison options ---
         self.include_subfolders = tk.BooleanVar()
@@ -119,6 +121,13 @@ class FolderComparisonApp:
         sub_opts_frame = tk.Frame(options_frame); sub_opts_frame.pack(fill=tk.X, anchor=tk.W, pady=(5,0))
         self.include_subfolders_cb = tk.Checkbutton(sub_opts_frame, text="Include subfolders", variable=self.include_subfolders); self.include_subfolders_cb.pack(side=tk.LEFT)
         self.md5_warning_label = tk.Label(sub_opts_frame, text="Warning: Content comparison is slow.", fg="red")
+
+        move_to_frame = tk.LabelFrame(options_frame, text="File Actions", padx=5, pady=5)
+        move_to_frame.pack(fill=tk.X, pady=(10, 0))
+
+        tk.Label(move_to_frame, text="Move to Folder:").pack(side=tk.LEFT)
+        tk.Entry(move_to_frame, textvariable=self.move_to_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        tk.Button(move_to_frame, text="Browse...", command=self.select_move_to_folder).pack(side=tk.LEFT)
         action_frame = tk.Frame(self.main_content_frame); action_frame.pack(fill=tk.X, pady=5)
         self.action_button = tk.Button(action_frame, text="Compare", command=self.run_action); self.action_button.pack()
         results_frame = tk.LabelFrame(self.main_content_frame, text="Results", padx=10, pady=10); results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -156,7 +165,7 @@ class FolderComparisonApp:
         set_state_recursive(self.main_content_frame)
 
     def _clear_all_settings(self):
-        self.folder1_path.set(""); self.folder2_path.set(""); self.include_subfolders.set(False); self.compare_name.set(True)
+        self.folder1_path.set(""); self.folder2_path.set(""); self.move_to_path.set(""); self.include_subfolders.set(False); self.compare_name.set(True)
         self.compare_date.set(False); self.compare_size.set(False); self.compare_content_md5.set(False)
         self.compare_histogram.set(False)
         self.histogram_method.set('Correlation')
@@ -169,6 +178,7 @@ class FolderComparisonApp:
     def _new_project(self): self._clear_all_settings(); self._set_main_ui_state('normal'); self.root.title("New Project - Folder Comparison Tool")
     def select_folder1(self): path = filedialog.askdirectory(); self.folder1_path.set(path) if path else None
     def select_folder2(self): path = filedialog.askdirectory(); self.folder2_path.set(path) if path else None
+    def select_move_to_folder(self): path = filedialog.askdirectory(); self.move_to_path.set(path) if path else None
     def _on_double_click(self, event):
         selection = self.results_tree.selection()
         if not selection:
@@ -248,6 +258,7 @@ class FolderComparisonApp:
             "app_mode": self.app_mode.get(),
             "folder1_path": self.folder1_path.get(),
             "folder2_path": self.folder2_path.get(),
+            "move_to_path": self.move_to_path.get(),
             "options": {
                 "include_subfolders": self.include_subfolders.get(),
                 "compare_name": self.compare_name.get(),
@@ -301,6 +312,7 @@ class FolderComparisonApp:
             self._clear_all_settings()
             self.app_mode.set(settings.get("app_mode", "compare"))
             self.folder1_path.set(settings.get("folder1_path", "")); self.folder2_path.set(settings.get("folder2_path", ""))
+            self.move_to_path.set(settings.get("move_to_path", ""))
             opts = settings.get("options", {});
             for opt, val in opts.items():
                 if hasattr(self, opt) and hasattr(getattr(self, opt), 'set'): getattr(self, opt).set(val)
@@ -312,6 +324,92 @@ class FolderComparisonApp:
             self.current_project_path = path; self.root.title(f"{Path(path).name} - Folder Comparison Tool")
             self._set_main_ui_state('normal')
         except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
+
+    def _move_file(self, folder_num):
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+        relative_path_str = item['values'][0] if item['values'] else ""
+        relative_path_str = relative_path_str.strip()
+
+        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        dest_path_str = self.move_to_path.get()
+
+        if not base_path_str or not dest_path_str:
+            messagebox.showwarning("Warning", "Source or destination folder path is not set.")
+            return
+
+        try:
+            source_path = Path(base_path_str) / relative_path_str
+            dest_path = Path(dest_path_str) / source_path.name # move to folder, keep original name
+
+            if not source_path.is_file():
+                messagebox.showerror("Error", f"Source file does not exist:\n{source_path}")
+                return
+
+            if dest_path.exists():
+                 if not messagebox.askyesno("Confirm Overwrite", f"Destination file already exists. Overwrite?\n\n{dest_path}"):
+                     return
+
+            confirm = messagebox.askyesno(
+                "Confirm Move",
+                f"Are you sure you want to move this file?\n\nFrom: {source_path}\nTo: {dest_path}"
+            )
+            if not confirm:
+                return
+
+            shutil.move(source_path, dest_path)
+            self.results_tree.delete(iid)
+            self.status_label.config(text=f"Moved: {source_path.name} to {dest_path}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not move file:\n{e}")
+
+    def _delete_file(self, folder_num):
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+        relative_path_str = item['values'][0] if item['values'] else ""
+        relative_path_str = relative_path_str.strip()
+
+        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        if not base_path_str:
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return
+
+        try:
+            full_path = Path(base_path_str) / relative_path_str
+            if not full_path.is_file():
+                messagebox.showerror("Error", f"File does not exist:\n{full_path}")
+                # Optionally remove from tree if it doesn't exist on disk
+                # self.results_tree.delete(iid)
+                return
+
+            confirm = messagebox.askyesno(
+                "Confirm Deletion",
+                f"Are you sure you want to permanently delete this file?\n\n{full_path}"
+            )
+            if not confirm:
+                return
+
+            os.remove(full_path)
+            self.results_tree.delete(iid)
+            self.status_label.config(text=f"Deleted: {full_path}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def _open_containing_folder(self, folder_num):
         selection = self.results_tree.selection()
@@ -357,13 +455,25 @@ class FolderComparisonApp:
 
             # Create a context menu
             context_menu = tk.Menu(self.root, tearoff=0)
+            move_to_path = self.move_to_path.get()
+            move_state = tk.NORMAL if move_to_path else tk.DISABLED
 
             mode = self.app_mode.get()
             if mode == "compare":
                 context_menu.add_command(label="Open in Folder 1", command=lambda: self._open_containing_folder(1))
                 context_menu.add_command(label="Open in Folder 2", command=lambda: self._open_containing_folder(2))
+                context_menu.add_separator()
+                context_menu.add_command(label="Move from Folder 1...", command=lambda: self._move_file(1), state=move_state)
+                context_menu.add_command(label="Move from Folder 2...", command=lambda: self._move_file(2), state=move_state)
+                context_menu.add_separator()
+                context_menu.add_command(label="Delete from Folder 1", command=lambda: self._delete_file(1))
+                context_menu.add_command(label="Delete from Folder 2", command=lambda: self._delete_file(2))
             else:  # duplicates mode
                 context_menu.add_command(label="Open Containing Folder", command=lambda: self._open_containing_folder(1))
+                context_menu.add_separator()
+                context_menu.add_command(label="Move File...", command=lambda: self._move_file(1), state=move_state)
+                context_menu.add_separator()
+                context_menu.add_command(label="Delete File", command=lambda: self._delete_file(1))
 
             # Display the menu
             context_menu.post(event.x_root, event.y_root)
