@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
+import subprocess
+import sys
 from pathlib import Path
 import json
 import logic
@@ -123,7 +125,9 @@ class FolderComparisonApp:
         self.results_tree = ttk.Treeview(results_frame, columns=('File',), show='headings'); self.results_tree.heading('File', text='File')
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview); scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.results_tree.config(yscrollcommand=scrollbar.set); self.results_tree.bind('<Double-1>', self._on_double_click)
+        self.results_tree.config(yscrollcommand=scrollbar.set)
+        self.results_tree.bind('<Double-1>', self._on_double_click)
+        self.results_tree.bind('<Button-3>', self._show_context_menu)
 
         # --- Status Bar ---
         self.status_label = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
@@ -308,6 +312,61 @@ class FolderComparisonApp:
             self.current_project_path = path; self.root.title(f"{Path(path).name} - Folder Comparison Tool")
             self._set_main_ui_state('normal')
         except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
+
+    def _open_containing_folder(self, folder_num):
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        item = self.results_tree.item(selection[0])
+        relative_path_str = item['values'][0] if item['values'] else ""
+        relative_path_str = relative_path_str.strip()
+
+        # Ignore headers or info messages
+        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        if not base_path_str:
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return
+
+        try:
+            full_path = Path(base_path_str) / relative_path_str
+            dir_path = full_path.parent
+
+            if not dir_path.is_dir():
+                messagebox.showerror("Error", f"Directory does not exist:\n{dir_path}")
+                return
+
+            if sys.platform == "win32":
+                os.startfile(dir_path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(dir_path)])
+            else:
+                subprocess.Popen(["xdg-open", str(dir_path)])
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open folder:\n{e}")
+
+    def _show_context_menu(self, event):
+        # Identify the clicked item
+        iid = self.results_tree.identify_row(event.y)
+        if iid:
+            # Select the clicked item
+            self.results_tree.selection_set(iid)
+
+            # Create a context menu
+            context_menu = tk.Menu(self.root, tearoff=0)
+
+            mode = self.app_mode.get()
+            if mode == "compare":
+                context_menu.add_command(label="Open in Folder 1", command=lambda: self._open_containing_folder(1))
+                context_menu.add_command(label="Open in Folder 2", command=lambda: self._open_containing_folder(2))
+            else:  # duplicates mode
+                context_menu.add_command(label="Open Containing Folder", command=lambda: self._open_containing_folder(1))
+
+            # Display the menu
+            context_menu.post(event.x_root, event.y_root)
 
     def _update_filenode_metadata(self, structure, metadata_info, base_path):
         """Recursively update metadata of FileNodes in the structure."""
