@@ -131,7 +131,13 @@ class FolderComparisonApp:
         action_frame = tk.Frame(self.main_content_frame); action_frame.pack(fill=tk.X, pady=5)
         self.action_button = tk.Button(action_frame, text="Compare", command=self.run_action); self.action_button.pack()
         results_frame = tk.LabelFrame(self.main_content_frame, text="Results", padx=10, pady=10); results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        self.results_tree = ttk.Treeview(results_frame, columns=('File',), show='headings'); self.results_tree.heading('File', text='File')
+        self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path'), show='headings')
+        self.results_tree.heading('File', text='File Name')
+        self.results_tree.heading('Size', text='Size (Bytes)')
+        self.results_tree.heading('Path', text='Relative Path')
+        self.results_tree.column('File', width=250, anchor=tk.W)
+        self.results_tree.column('Size', width=100, anchor=tk.E)
+        self.results_tree.column('Path', width=400, anchor=tk.W)
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview); scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_tree.config(yscrollcommand=scrollbar.set)
@@ -185,11 +191,15 @@ class FolderComparisonApp:
             return
 
         item = self.results_tree.item(selection[0])
-        text_to_copy = item['values'][0] if item['values'] else ""
-        text_to_copy = text_to_copy.strip()
+        # Try to get the relative path from column 2, otherwise fall back to column 0
+        text_to_copy = ""
+        if item['values'] and len(item['values']) > 2 and item['values'][2]:
+            text_to_copy = item['values'][2].strip()
+        elif item['values']:
+            text_to_copy = item['values'][0].strip()
 
         # Avoid copying headers or info messages
-        if text_to_copy and not text_to_copy.startswith("Duplicate Set") and not text_to_copy.startswith("No"):
+        if text_to_copy and "Duplicate Set" not in text_to_copy and "No " not in text_to_copy:
             try:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(text_to_copy)
@@ -325,17 +335,22 @@ class FolderComparisonApp:
             self._set_main_ui_state('normal')
         except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
 
-    def _move_file(self, folder_num):
+    def _get_relative_path_from_selection(self):
         selection = self.results_tree.selection()
         if not selection:
-            return
+            return None, None
 
         iid = selection[0]
         item = self.results_tree.item(iid)
-        relative_path_str = item['values'][0] if item['values'] else ""
-        relative_path_str = relative_path_str.strip()
+        # Ensure the item has values and the path column (index 2) is not empty.
+        # This prevents actions on headers or info messages.
+        if item['values'] and len(item['values']) > 2 and item['values'][2]:
+            return iid, item['values'][2].strip()
+        return None, None
 
-        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+    def _move_file(self, folder_num):
+        iid, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -372,16 +387,8 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not move file:\n{e}")
 
     def _delete_file(self, folder_num):
-        selection = self.results_tree.selection()
-        if not selection:
-            return
-
-        iid = selection[0]
-        item = self.results_tree.item(iid)
-        relative_path_str = item['values'][0] if item['values'] else ""
-        relative_path_str = relative_path_str.strip()
-
-        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+        iid, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -412,16 +419,8 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def _open_containing_folder(self, folder_num):
-        selection = self.results_tree.selection()
-        if not selection:
-            return
-
-        item = self.results_tree.item(selection[0])
-        relative_path_str = item['values'][0] if item['values'] else ""
-        relative_path_str = relative_path_str.strip()
-
-        # Ignore headers or info messages
-        if not relative_path_str or relative_path_str.startswith("Duplicate Set") or relative_path_str.startswith("No"):
+        _, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -529,10 +528,13 @@ class FolderComparisonApp:
 
                 results = find_common_strategy.run(info1, info2, opts)
                 if not results:
-                    self.results_tree.insert('', tk.END, values=("No matching files found.",))
+                    self.results_tree.insert('', tk.END, values=("No matching files found.", "", ""))
                 else:
-                    for file_path in results:
-                        self.results_tree.insert('', tk.END, values=(file_path,))
+                    for file_info in results:
+                        size = file_info.get('compare_size', 'N/A')
+                        relative_path = file_info.get('relative_path', '')
+                        file_name = Path(relative_path).name
+                        self.results_tree.insert('', tk.END, values=(file_name, size, relative_path))
 
             elif mode == "duplicates":
                 if not info1:
@@ -541,12 +543,17 @@ class FolderComparisonApp:
 
                 results = find_duplicates_strategy.run(info1, opts)
                 if not results:
-                    self.results_tree.insert('', tk.END, values=("No duplicate files found.",))
+                    self.results_tree.insert('', tk.END, values=("No duplicate files found.", "", ""))
                 else:
                     for i, group in enumerate(results, 1):
-                        parent = self.results_tree.insert('', tk.END, values=(f"Duplicate Set {i} ({len(group)} files)",), open=True)
-                        for file_path in group:
-                            self.results_tree.insert(parent, tk.END, values=(f"  {file_path}",))
+                        # Add a header row for the duplicate set
+                        header_text = f"Duplicate Set {i} ({len(group)} files)"
+                        parent = self.results_tree.insert('', tk.END, values=(header_text, "", ""), open=True, tags=('header',))
+                        for file_info in group:
+                            size = file_info.get('compare_size', 'N/A')
+                            relative_path = file_info.get('relative_path', '')
+                            file_name = Path(relative_path).name
+                            self.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path))
         except Exception as e:
             messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
         finally:

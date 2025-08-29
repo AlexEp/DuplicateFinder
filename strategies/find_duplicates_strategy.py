@@ -38,6 +38,12 @@ def run(all_files_info, opts):
     if not all_files_info:
         return []
 
+    # Create a lookup from fullpath to info dict for later, and add relative_path
+    fullpath_to_info = {}
+    for path, info in all_files_info.items():
+        info['relative_path'] = str(path.as_posix())
+        fullpath_to_info[info['fullpath']] = info
+
     # --- Phase 1: Grouping by Keys ---
 
     active_key_strategies = []
@@ -71,8 +77,8 @@ def run(all_files_info, opts):
 
     # --- Phase 2: Pairwise Histogram Comparison ---
     if not opts.get('compare_histogram'):
-        # If not using histogram, convert info dicts back to path strings
-        return [[info['fullpath'] for info in group] for group in potential_duplicate_groups]
+        # If not using histogram, the groups are the final result.
+        return [group for group in potential_duplicate_groups]
 
     final_duplicates = []
     # Methods where a higher score means more similar
@@ -114,6 +120,7 @@ def run(all_files_info, opts):
         # Only keep components with more than one file (actual duplicates)
         for component in components:
             if len(component) > 1:
-                final_duplicates.append(component)
+                # Convert full paths back to info dictionaries
+                final_duplicates.append([fullpath_to_info[path] for path in component])
 
     return final_duplicates
