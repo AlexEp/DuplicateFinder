@@ -77,7 +77,9 @@ def run(all_files_info, opts):
 
     # --- Phase 2: Pairwise Histogram Comparison ---
     if not opts.get('compare_histogram'):
-        # If not using histogram, the groups are the final result.
+        # If not using histogram, the groups of info dictionaries are the final result.
+        # The UI expects a list of lists of dictionaries, which is what potential_duplicate_groups is.
+        # e.g., [[infoA, infoB], [infoC, infoD]]
         return [group for group in potential_duplicate_groups]
 
     final_duplicates = []
@@ -114,13 +116,18 @@ def run(all_files_info, opts):
                     adj_list[path1].append(path2)
                     adj_list[path2].append(path1)
 
-        # Find connected components in the similarity graph
+        # For the histogram comparison, we build a graph where nodes are file paths
+        # and an edge exists if two files are similar enough. After building the graph,
+        # find all connected components. Each component is a set of files that are
+        # all duplicates of each other.
         components = _find_connected_components(nodes_in_group, adj_list)
 
         # Only keep components with more than one file (actual duplicates)
         for component in components:
             if len(component) > 1:
-                # Convert full paths back to info dictionaries
+                # The component is a list of full file paths.
+                # We use the fullpath_to_info map created at the start of the function
+                # to convert these paths back into the info dictionaries the UI expects.
                 final_duplicates.append([fullpath_to_info[path] for path in component])
 
     return final_duplicates
