@@ -65,3 +65,7 @@ Before submitting any changes, you **must** run the tests to ensure that you hav
 -   **Robustness**: Notice how metadata calculation in `strategies/utils.py` and comparisons in `strategies/compare_by_*.py` are wrapped in `try...except` blocks. The application should handle errors gracefully (e.g., if a file is unreadable) and treat it as a non-match rather than crashing. Maintain this pattern.
 -   **Clarity and Separation**: Keep the concerns separated. UI and state management go in `ui.py`. Core algorithms go in `strategies/`. Data structures go in `models.py`.
 -   **Follow Existing Patterns**: When adding new functionality, look for existing patterns in the code and follow them. For example, the way strategies are dynamically added to a list and executed in `find_common_strategy.py`.
+
+## 6. Changelog
+
+For every change made to the codebase, you must record a summary of the change in the `CHANGES.md` file. Add your entry under a heading with the current date in `YYYY-MM-DD` format.
