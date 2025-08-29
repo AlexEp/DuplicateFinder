@@ -165,7 +165,23 @@ class FolderComparisonApp:
     def _new_project(self): self._clear_all_settings(); self._set_main_ui_state('normal'); self.root.title("New Project - Folder Comparison Tool")
     def select_folder1(self): path = filedialog.askdirectory(); self.folder1_path.set(path) if path else None
     def select_folder2(self): path = filedialog.askdirectory(); self.folder2_path.set(path) if path else None
-    def _on_double_click(self, event): pass
+    def _on_double_click(self, event):
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        item = self.results_tree.item(selection[0])
+        text_to_copy = item['values'][0] if item['values'] else ""
+        text_to_copy = text_to_copy.strip()
+
+        # Avoid copying headers or info messages
+        if text_to_copy and not text_to_copy.startswith("Duplicate Set") and not text_to_copy.startswith("No"):
+            try:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(text_to_copy)
+                self.status_label.config(text=f"Copied to clipboard: {text_to_copy}")
+            except tk.TclError:
+                self.status_label.config(text="Error: Could not copy to clipboard.")
     def _toggle_md5_warning(self, *args):
         if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
         else: self.md5_warning_label.pack_forget()
