@@ -767,7 +767,10 @@ class FolderComparisonApp:
                 results = find_duplicates_strategy.run(info1, opts)
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No duplicate files found.", "", ""), tags=('info_row',))
+                    self.status_label.config(text="No duplicates found.")
                 else:
+                    num_duplicate_sets = len(results)
+                    self.status_label.config(text=f"Found {num_duplicate_sets} duplicate set(s).")
                     for i, group in enumerate(results, 1):
                         # Add a header row for the duplicate set
                         header_text = f"Duplicate Set {i} ({len(group)} files)"
@@ -777,6 +780,10 @@ class FolderComparisonApp:
                             relative_path = file_info.get('relative_path', '')
                             file_name = Path(relative_path).name
                             self.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
-        except Exception as e: messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
+            self.status_label.config(text="Error occurred.")
         finally:
-            self.status_label.config(text="Ready.")
+            # The status label is now set within the logic, so we don't reset it here
+            # to "Ready." as it would overwrite the results summary.
+            pass
