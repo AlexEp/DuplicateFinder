@@ -347,27 +347,19 @@ class FolderComparisonApp:
             self._set_main_ui_state('normal')
         except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
 
-    def _get_relative_path_from_selection(self):
+    
+
+    def _move_file(self, folder_num):
         selection = self.results_tree.selection()
         if not selection:
-            return None, None
+            return
 
         iid = selection[0]
         item = self.results_tree.item(iid)
+        relative_path_str = item['values'][2] if item['values'] and len(item['values']) > 2 else ""
+        relative_path_str = relative_path_str.strip()
 
-        # Perform robust checks to ensure it's a valid file row with a path
-        is_file_row = 'file_row' in item.get('tags', [])
-        has_values = item.get('values')
-        has_path = has_values and len(has_values) > 2 and has_values[2]
-
-        if is_file_row and has_path:
-            return iid, has_values[2].strip()
-
-        return None, None
-
-    def _move_file(self, folder_num):
-        iid, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        if not relative_path_str or "Duplicate Set" in str(item['values'][0]):
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -404,8 +396,16 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not move file:\n{e}")
 
     def _delete_file(self, folder_num):
-        iid, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+        relative_path_str = item['values'][2] if item['values'] and len(item['values']) > 2 else ""
+        relative_path_str = relative_path_str.strip()
+
+        if not relative_path_str or "Duplicate Set" in str(item['values'][0]):
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -434,8 +434,15 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def _open_containing_folder(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        selection = self.results_tree.selection()
+        if not selection:
+            return
+
+        item = self.results_tree.item(selection[0])
+        relative_path_str = item['values'][2] if item['values'] and len(item['values']) > 2 else ""
+        relative_path_str = relative_path_str.strip()
+
+        if not relative_path_str or "Duplicate Set" in str(item['values'][0]):
             return
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -461,8 +468,36 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not open folder:\n{e}")
 
     def _show_context_menu(self, event):
+        # Identify the clicked item
         iid = self.results_tree.identify_row(event.y)
-        messagebox.showinfo("Debug", f"The iid of the clicked row is: '{iid}'")
+        if iid:
+            # Select the clicked item
+            self.results_tree.selection_set(iid)
+
+            # Create a context menu
+            context_menu = tk.Menu(self.root, tearoff=0)
+            move_to_path = self.move_to_path.get()
+            move_state = tk.NORMAL if move_to_path else tk.DISABLED
+
+            mode = self.app_mode.get()
+            if mode == "compare":
+                context_menu.add_command(label="Open in Folder 1", command=lambda: self._open_containing_folder(1))
+                context_menu.add_command(label="Open in Folder 2", command=lambda: self._open_containing_folder(2))
+                context_menu.add_separator()
+                context_menu.add_command(label="Move from Folder 1...", command=lambda: self._move_file(1), state=move_state)
+                context_menu.add_command(label="Move from Folder 2...", command=lambda: self._move_file(2), state=move_state)
+                context_menu.add_separator()
+                context_menu.add_command(label="Delete from Folder 1", command=lambda: self._delete_file(1))
+                context_menu.add_command(label="Delete from Folder 2", command=lambda: self._delete_file(2))
+            else:  # duplicates mode
+                context_menu.add_command(label="Open Containing Folder", command=lambda: self._open_containing_folder(1))
+                context_menu.add_separator()
+                context_menu.add_command(label="Move File...", command=lambda: self._move_file(1), state=move_state)
+                context_menu.add_separator()
+                context_menu.add_command(label="Delete File", command=lambda: self._delete_file(1))
+
+            # Display the menu
+            context_menu.post(event.x_root, event.y_root)
 
     def _preview_file(self, folder_num):
         _, relative_path_str = self._get_relative_path_from_selection()
@@ -499,8 +534,7 @@ class FolderComparisonApp:
                     subprocess.Popen(["open", str(full_path)])
                 else:
                     subprocess.Popen(["xdg-open", str(full_path)])
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not preview file:\n{e}")
+        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
 
     def _update_filenode_metadata(self, structure, metadata_info, base_path):
@@ -580,7 +614,6 @@ class FolderComparisonApp:
                             relative_path = file_info.get('relative_path', '')
                             file_name = Path(relative_path).name
                             self.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
-        except Exception as e:
-            messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
+        except Exception as e: messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
         finally:
             self.status_label.config(text="Ready.")
