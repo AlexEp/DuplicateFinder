@@ -17,15 +17,7 @@ except ImportError:
     PIL_AVAILABLE = False
 
 IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
-
-IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
-
-IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv']
 AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
 
 class FolderComparisonApp:
