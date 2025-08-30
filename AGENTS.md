@@ -69,3 +69,11 @@ Before submitting any changes, you **must** run the tests to ensure that you hav
 ## 6. Changelog
 
 For every change made to the codebase, you must record a summary of the change in the `CHANGES.md` file. Add your entry under a heading with the current date in `YYYY-MM-DD` format.
+
+### 2025-08-30
+
+- Fixed a bug where the right-click context menu on the results list was not working.
+- Reverted the `_show_context_menu` method in `ui.py` to a previous version.
+- Updated the `_move_file`, `_delete_file`, and `_open_containing_folder` methods to work with the reverted context menu.
+- Removed the unused `_get_relative_path_from_selection` method.
+- Added a "Preview" option to the context menu for audio, video, and image files.

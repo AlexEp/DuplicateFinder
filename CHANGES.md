@@ -1,5 +1,10 @@
 # Changelog
 
+## 2025-08-30
+
+- **Feat**: Add preview functionality to context menu.
+- **Fix**: Fix context menu functionality.
+
 ## 2024-07-15
 - **Feature**: Add preview for media files.
   - Adds a "Preview" option to the right-click context menu for image, video, and audio files.
