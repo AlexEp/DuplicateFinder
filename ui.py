@@ -461,62 +461,10 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not open folder:\n{e}")
 
     def _show_context_menu(self, event):
-        iid = self.results_tree.identify_row(event.y)
-        if not iid:
-            return
-
-        item = self.results_tree.item(iid)
-        tags = item.get('tags', [])
-
-        # Only show context menu for actual file rows
-        if 'file_row' not in tags:
-            return
-
-        self.results_tree.selection_set(iid)
+        # Drastic debugging
         context_menu = tk.Menu(self.root, tearoff=0)
-        _, relative_path_str = self._get_relative_path_from_selection()
-
-        # Determine preview state
-        preview_state = tk.DISABLED
-        if relative_path_str:
-            file_ext = Path(relative_path_str).suffix.lower()
-            is_image = file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE
-            is_media = file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS
-            if is_image or is_media:
-                preview_state = tk.NORMAL
-
-        # Determine move state
-        move_state = tk.NORMAL if self.move_to_path.get() else tk.DISABLED
-
-        # Build menu based on mode
-        mode = self.app_mode.get()
-        if mode == "compare":
-            if preview_state == tk.NORMAL:
-                context_menu.add_command(label="Preview from Folder 1", command=lambda: self._preview_file(1))
-                context_menu.add_command(label="Preview from Folder 2", command=lambda: self._preview_file(2))
-                context_menu.add_separator()
-            context_menu.add_command(label="Open in Folder 1", command=lambda: self._open_containing_folder(1))
-            context_menu.add_command(label="Open in Folder 2", command=lambda: self._open_containing_folder(2))
-            context_menu.add_separator()
-            context_menu.add_command(label="Move from Folder 1...", command=lambda: self._move_file(1), state=move_state)
-            context_menu.add_command(label="Move from Folder 2...", command=lambda: self._move_file(2), state=move_state)
-            context_menu.add_separator()
-            context_menu.add_command(label="Delete from Folder 1", command=lambda: self._delete_file(1))
-            context_menu.add_command(label="Delete from Folder 2", command=lambda: self._delete_file(2))
-        else:  # duplicates mode
-            if preview_state == tk.NORMAL:
-                # In duplicates mode, there's only one folder, so we call with folder_num=1
-                context_menu.add_command(label="Preview File", command=lambda: self._preview_file(1))
-                context_menu.add_separator()
-            context_menu.add_command(label="Open Containing Folder", command=lambda: self._open_containing_folder(1))
-            context_menu.add_separator()
-            context_menu.add_command(label="Move File...", command=lambda: self._move_file(1), state=move_state)
-            context_menu.add_separator()
-            context_menu.add_command(label="Delete File", command=lambda: self._delete_file(1))
-
-        # Only post the menu if it has items in it
-        if len(context_menu.children) > 0:
-            context_menu.post(event.x_root, event.y_root)
+        context_menu.add_command(label="Test")
+        context_menu.post(event.x_root, event.y_root)
 
     def _preview_file(self, folder_num):
         _, relative_path_str = self._get_relative_path_from_selection()
