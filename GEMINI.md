@@ -1,16 +1,32 @@
-# AGENTS.md: A Guide for AI Agents
+# Gemini Development Guide
 
-This document provides guidance for AI software engineering agents working on this codebase.
+This document provides guidance for Gemini agents working on this codebase.
 
-## 1. Project Overview
+## 1. Getting Started
 
-This is a Python desktop application built with Tkinter for comparing folders and finding duplicate files. It allows users to save and load "projects" (`.cfp` files), which store folder paths, comparison settings, and file metadata.
+This is a Python desktop application built with Tkinter for comparing folders and finding duplicate files. To get started, you will need to have Python 3 and Tkinter installed on your system.
+
+To run the application, execute the following command from the root directory of the project:
+
+```bash
+python main.py
+```
+
+To install the required dependencies, run the following command:
+
+```bash
+pip install -r requirements.txt
+```
+
+## 2. Project Overview
+
+This application allows users to save and load "projects" (`.cfp` files), which store folder paths, comparison settings, and file metadata.
 
 The application has two primary modes:
 1.  **Compare Folders**: Finds files that are common to two different folders.
 2.  **Find Duplicates**: Finds duplicate files within a single folder.
 
-## 2. Architecture
+## 3. Architecture
 
 The application follows a separation of concerns between the UI, business logic, data models, and comparison strategies.
 
@@ -33,7 +49,7 @@ The application follows a separation of concerns between the UI, business logic,
     -   **`compare_by_*.py`**: These are the individual, granular comparison functions (e.g., `compare_by_size.py`). They compare two files based on a single criterion.
     -   **`key_by_*.py`**: These modules generate a "key" for a single file (e.g., `key_by_size.py` returns the file's size). This key is used for the grouping phase in the duplicate-finding strategy.
 
-## 3. The Metadata-First Workflow
+## 4. The Metadata-First Workflow
 
 It is critical to understand the application's workflow to work on it effectively:
 
@@ -50,7 +66,21 @@ It is critical to understand the application's workflow to work on it effectivel
 4.  If it can be used for finding duplicates, also create a `key_by_your_new_criterion.py` file.
 5.  Integrate the new strategy module into `find_common_strategy.py` and/or `find_duplicates_strategy.py`.
 
-## 4. How to Run Tests
+## 5. How to Contribute
+
+We welcome contributions to this project. To contribute, please follow these steps:
+
+1.  Fork the repository.
+2.  Create a new branch for your feature or bug fix.
+3.  Make your changes and commit them with a clear and descriptive commit message.
+4.  Push your changes to your fork.
+5.  Create a pull request to the main repository.
+
+## 6. Code Style
+
+This project follows the PEP 8 style guide for Python code. Please ensure that your code adheres to this style guide.
+
+## 7. Testing
 
 The project has a `tests/` directory containing unit tests. To run the tests, use Python's built-in `unittest` module from the root directory of the project.
 
@@ -60,13 +90,10 @@ python -m unittest discover tests
 
 Before submitting any changes, you **must** run the tests to ensure that you have not introduced any regressions. If you add new logic, you should add corresponding tests.
 
-## 5. Coding Conventions
+## 8. Deployment
 
--   **Robustness**: Notice how metadata calculation in `strategies/utils.py` and comparisons in `strategies/compare_by_*.py` are wrapped in `try...except` blocks. The application should handle errors gracefully (e.g., if a file is unreadable) and treat it as a non-match rather than crashing. Maintain this pattern.
--   **Clarity and Separation**: Keep the concerns separated. UI and state management go in `ui.py`. Core algorithms go in `strategies/`. Data structures go in `models.py`.
--   **Follow Existing Patterns**: When adding new functionality, look for existing patterns in the code and follow them. For example, the way strategies are dynamically added to a list and executed in `find_common_strategy.py`.
+This application is designed to be run from the source code. There is no separate deployment process.
 
-## 6. Changelog
+## 9. License
 
-For every change made to the codebase, you must record a summary of the change in the `CHANGES.md` file. Add your entry under a heading with the current date in `YYYY-MM-DD` format.
-
+This project is licensed under the MIT License. See the `LICENSE` file for more details.

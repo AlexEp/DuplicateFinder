@@ -23,7 +23,7 @@ def run(info1, info2, opts):
     if opts.get('compare_content_md5'):
         active_strategies.append(compare_by_content_md5.compare)
 
-    matching_paths = []
+    matching_files = []
     for path in common_paths:
         file1_info = info1[path]
         file2_info = info2[path]
@@ -32,6 +32,8 @@ def run(info1, info2, opts):
         is_match = all(strategy(file1_info, file2_info) for strategy in active_strategies)
 
         if is_match:
-            matching_paths.append(str(path.as_posix()))
+            # Add relative path to the dictionary for easier access later
+            file1_info['relative_path'] = str(path.as_posix())
+            matching_files.append(file1_info)
 
-    return sorted(matching_paths)
+    return sorted(matching_files, key=lambda f: f['relative_path'])
