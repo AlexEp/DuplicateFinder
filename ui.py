@@ -20,6 +20,14 @@ IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
 VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
 AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
 
+IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
+VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
+
+IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
+VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
+
 class FolderComparisonApp:
     def __init__(self, root):
         self.root = root
@@ -340,32 +348,16 @@ class FolderComparisonApp:
                 if hasattr(self, opt) and hasattr(getattr(self, opt), 'set'): getattr(self, opt).set(val)
 
             if "metadata" in settings:
-                if "folder1" in settings["metadata"]: self.folder1_structure = self._dict_to_structure(settings["metadata"]["folder1"])
-                if "folder2" in settings["metadata"]: self.folder2_structure = self._dict_to_structure(settings["metadata"]["folder2"])
+                if "folder1" in settings["metadata"]:
+                    self.folder1_structure = self._dict_to_structure(settings["metadata"]["folder1"])
+                if "folder2" in settings["metadata"]:
+                    self.folder2_structure = self._dict_to_structure(settings["metadata"]["folder2"])
 
             self.current_project_path = path; self.root.title(f"{Path(path).name} - Folder Comparison Tool")
             self._set_main_ui_state('normal')
         except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
 
     
-
-    def _get_relative_path_from_selection(self):
-        selection = self.results_tree.selection()
-        if not selection:
-            return None, None
-
-        iid = selection[0]
-        item = self.results_tree.item(iid)
-
-        # Perform robust checks to ensure it's a valid file row with a path
-        is_file_row = 'file_row' in item.get('tags', [])
-        has_values = item.get('values')
-        has_path = has_values and len(has_values) > 2 and has_values[2]
-
-        if is_file_row and has_path:
-            return iid, has_values[2].strip()
-
-        return None, None
 
     def _move_file(self, folder_num):
         iid, relative_path_str = self._get_relative_path_from_selection()
@@ -402,8 +394,7 @@ class FolderComparisonApp:
             self.results_tree.delete(iid)
             self.status_label.config(text=f"Moved: {source_path.name} to {dest_path}")
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not move file:\n{e}")
+        except Exception as e: messagebox.showerror("Error", f"Could not move file:\n{e}")
 
     def _delete_file(self, folder_num):
         iid, relative_path_str = self._get_relative_path_from_selection()
@@ -432,8 +423,7 @@ class FolderComparisonApp:
             self.results_tree.delete(iid)
             self.status_label.config(text=f"Deleted: {full_path}")
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not delete file:\n{e}")
+        except Exception as e: messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def _open_containing_folder(self, folder_num):
         _, relative_path_str = self._get_relative_path_from_selection()
@@ -467,6 +457,7 @@ class FolderComparisonApp:
         if not iid:
             return
 
+        self.results_tree.selection_set(iid)
         item = self.results_tree.item(iid)
         tags = item.get('tags', [])
 
@@ -474,7 +465,6 @@ class FolderComparisonApp:
         if 'file_row' not in tags:
             return
 
-        self.results_tree.selection_set(iid)
         context_menu = tk.Menu(self.root, tearoff=0)
         _, relative_path_str = self._get_relative_path_from_selection()
 
@@ -493,10 +483,9 @@ class FolderComparisonApp:
         # Build menu based on mode
         mode = self.app_mode.get()
         if mode == "compare":
-            if preview_state == tk.NORMAL:
-                context_menu.add_command(label="Preview from Folder 1", command=lambda: self._preview_file(1))
-                context_menu.add_command(label="Preview from Folder 2", command=lambda: self._preview_file(2))
-                context_menu.add_separator()
+            context_menu.add_command(label="Preview from Folder 1", command=lambda: self._preview_file(1), state=preview_state)
+            context_menu.add_command(label="Preview from Folder 2", command=lambda: self._preview_file(2), state=preview_state)
+            context_menu.add_separator()
             context_menu.add_command(label="Open in Folder 1", command=lambda: self._open_containing_folder(1))
             context_menu.add_command(label="Open in Folder 2", command=lambda: self._open_containing_folder(2))
             context_menu.add_separator()
@@ -506,19 +495,180 @@ class FolderComparisonApp:
             context_menu.add_command(label="Delete from Folder 1", command=lambda: self._delete_file(1))
             context_menu.add_command(label="Delete from Folder 2", command=lambda: self._delete_file(2))
         else:  # duplicates mode
-            if preview_state == tk.NORMAL:
-                # In duplicates mode, there's only one folder, so we call with folder_num=1
-                context_menu.add_command(label="Preview File", command=lambda: self._preview_file(1))
-                context_menu.add_separator()
+            context_menu.add_command(label="Preview File", command=lambda: self._preview_file(1), state=preview_state)
+            context_menu.add_separator()
             context_menu.add_command(label="Open Containing Folder", command=lambda: self._open_containing_folder(1))
             context_menu.add_separator()
             context_menu.add_command(label="Move File...", command=lambda: self._move_file(1), state=move_state)
             context_menu.add_separator()
             context_menu.add_command(label="Delete File", command=lambda: self._delete_file(1))
 
-        # Only post the menu if it has items in it
-        if len(context_menu.children) > 0:
-            context_menu.post(event.x_root, event.y_root)
+        context_menu.post(event.x_root, event.y_root)
+
+    def _get_relative_path_from_selection(self):
+        selection = self.results_tree.selection()
+        if not selection:
+            return None, None
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+
+        # Perform robust checks to ensure it's a valid file row with a path
+        is_file_row = 'file_row' in item.get('tags', [])
+        has_values = item.get('values')
+        has_path = has_values and len(has_values) > 2 and has_values[2]
+
+        if is_file_row and has_path:
+            return iid, has_values[2].strip()
+
+        return None, None
+
+    def _preview_file(self, folder_num):
+        _, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        if not base_path_str:
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return
+
+        full_path = Path(base_path_str) / relative_path_str
+        if not full_path.is_file():
+            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
+            return
+
+        file_ext = full_path.suffix.lower()
+        try:
+            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+                # Display image in a new window
+                win = tk.Toplevel(self.root)
+                win.title(full_path.name)
+                img = Image.open(full_path)
+                img.thumbnail((800, 600)) # Resize for display
+                photo = ImageTk.PhotoImage(img)
+                label = tk.Label(win, image=photo)
+                label.image = photo # Keep a reference!
+                label.pack()
+            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+                # Open with default system player
+                if sys.platform == "win32":
+                    os.startfile(full_path)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(full_path)])
+                else:
+                    subprocess.Popen(["xdg-open", str(full_path)])
+        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
+
+    def _get_relative_path_from_selection(self):
+        selection = self.results_tree.selection()
+        if not selection:
+            return None, None
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+
+        # Perform robust checks to ensure it's a valid file row with a path
+        is_file_row = 'file_row' in item.get('tags', [])
+        has_values = item.get('values')
+        has_path = has_values and len(has_values) > 2 and has_values[2]
+
+        if is_file_row and has_path:
+            return iid, has_values[2].strip()
+
+        return None, None
+
+    def _preview_file(self, folder_num):
+        _, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        if not base_path_str:
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return
+
+        full_path = Path(base_path_str) / relative_path_str
+        if not full_path.is_file():
+            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
+            return
+
+        file_ext = full_path.suffix.lower()
+        try:
+            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+                # Display image in a new window
+                win = tk.Toplevel(self.root)
+                win.title(full_path.name)
+                img = Image.open(full_path)
+                img.thumbnail((800, 600)) # Resize for display
+                photo = ImageTk.PhotoImage(img)
+                label = tk.Label(win, image=photo)
+                label.image = photo # Keep a reference!
+                label.pack()
+            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+                # Open with default system player
+                if sys.platform == "win32":
+                    os.startfile(full_path)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(full_path)])
+                else:
+                    subprocess.Popen(["xdg-open", str(full_path)])
+        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
+
+    def _get_relative_path_from_selection(self):
+        selection = self.results_tree.selection()
+        if not selection:
+            return None, None
+
+        iid = selection[0]
+        item = self.results_tree.item(iid)
+
+        # Perform robust checks to ensure it's a valid file row with a path
+        is_file_row = 'file_row' in item.get('tags', [])
+        has_values = item.get('values')
+        has_path = has_values and len(has_values) > 2 and has_values[2]
+
+        if is_file_row and has_path:
+            return iid, has_values[2].strip()
+
+        return None, None
+
+    def _preview_file(self, folder_num):
+        _, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
+            return
+
+        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        if not base_path_str:
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return
+
+        full_path = Path(base_path_str) / relative_path_str
+        if not full_path.is_file():
+            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
+            return
+
+        file_ext = full_path.suffix.lower()
+        try:
+            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+                # Display image in a new window
+                win = tk.Toplevel(self.root)
+                win.title(full_path.name)
+                img = Image.open(full_path)
+                img.thumbnail((800, 600)) # Resize for display
+                photo = ImageTk.PhotoImage(img)
+                label = tk.Label(win, image=photo)
+                label.image = photo # Keep a reference!
+                label.pack()
+            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+                # Open with default system player
+                if sys.platform == "win32":
+                    os.startfile(full_path)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(full_path)])
+                else:
+                    subprocess.Popen(["xdg-open", str(full_path)])
+        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
     def _preview_file(self, folder_num):
         _, relative_path_str = self._get_relative_path_from_selection()

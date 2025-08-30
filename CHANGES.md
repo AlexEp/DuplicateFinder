@@ -4,6 +4,7 @@
 
 - **Feat**: Add preview functionality to context menu.
 - **Fix**: Fix context menu functionality.
+- **Fix**: Corrected the logic for displaying preview options in the context menu.
 
 ## 2024-07-15
 - **Feature**: Add preview for media files.
