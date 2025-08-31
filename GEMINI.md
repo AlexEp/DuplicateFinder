@@ -71,10 +71,9 @@ It is critical to understand the application's workflow to work on it effectivel
 We welcome contributions to this project. To contribute, please follow these steps:
 
 1.  Fork the repository.
-2.  Create a new branch for your feature or bug fix.
+2.  Create a new branch for your feature or bug fix  ([YYYYMM]/feature/[description]).
 3.  Make your changes and commit them with a clear and descriptive commit message.
-4.  Push your changes to your fork.
-5.  Create a pull request to the main repository.
+4.  Push your changes to your fork (always ask befor push).
 
 ## 6. Code Style
 
