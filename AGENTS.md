@@ -33,6 +33,12 @@ The application follows a separation of concerns between the UI, business logic,
     -   **`compare_by_*.py`**: These are the individual, granular comparison functions (e.g., `compare_by_size.py`). They compare two files based on a single criterion.
     -   **`key_by_*.py`**: These modules generate a "key" for a single file (e.g., `key_by_size.py` returns the file's size). This key is used for the grouping phase in the duplicate-finding strategy.
 
+-   **`ai_engine/` (LLM Similarity)**: This directory contains the logic for the experimental, high-level image similarity feature.
+    -   **`engine.py`**: Contains the `LlavaEmbeddingEngine` class, which wraps the `llama-cpp-python` library to load the LLaVA model and generate image embeddings.
+    -   **`similarity.py`**: Contains the helper function to calculate cosine similarity between two embedding vectors.
+
+-   **`logger_config.py` (Logging)**: This module configures the application's logging. It sets up a file-based logger that writes to a `logs/` directory. The log level is read from `settings.json`.
+
 ## 3. The Metadata-First Workflow
 
 It is critical to understand the application's workflow to work on it effectively:

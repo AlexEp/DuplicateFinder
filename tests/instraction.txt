@@ -1,0 +1,7 @@
+1.3344, 5566, 5656 - same image different colors
+2.7878,9090 - similar but not the same
+3.1212,1320 - similar but not the same
+4.9988,4815 - same, different size
+5.1623,4815 - similar but not the same
+6.1122,7766 - similar but not the same
+

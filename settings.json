@@ -1,0 +1,5 @@
+{
+  "log_level": "INFO",
+  "use_llm": false,
+  "image_extensions": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"]
+}
