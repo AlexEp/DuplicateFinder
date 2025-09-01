@@ -103,6 +103,7 @@ class FolderComparisonApp:
         tk.Label(row2, text="Folder 2:").pack(side=tk.LEFT); tk.Entry(row2, textvariable=self.folder2_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         tk.Button(row2, text="Browse...", command=self.select_folder2).pack(side=tk.LEFT)
         self.build_button_compare2 = tk.Button(row2, text="Build", command=lambda: self._build_metadata(2)); self.build_button_compare2.pack(side=tk.LEFT, padx=(5,0))
+        tk.Checkbutton(self.compare_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
 
         # --- Duplicates Mode UI ---
         self.duplicates_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Analyze", padx=10, pady=10)
@@ -110,6 +111,7 @@ class FolderComparisonApp:
         tk.Label(dupes_row, text="Folder:").pack(side=tk.LEFT); tk.Entry(dupes_row, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         tk.Button(dupes_row, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
         self.build_button_dupes1 = tk.Button(dupes_row, text="Build", command=lambda: self._build_metadata(1)); self.build_button_dupes1.pack(side=tk.LEFT, padx=(5,0))
+        tk.Checkbutton(self.duplicates_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
 
         # --- Search Mode UI ---
         self.search_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Search", padx=10, pady=10)
@@ -119,6 +121,7 @@ class FolderComparisonApp:
         self.build_button_search1 = tk.Button(search_row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_search1.pack(side=tk.LEFT, padx=(5,0))
         search_row2 = tk.Frame(self.search_mode_frame); search_row2.pack(fill=tk.X, pady=2)
         tk.Label(search_row2, text="Search for:").pack(side=tk.LEFT); tk.Entry(search_row2, textvariable=self.search_query).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        tk.Checkbutton(self.search_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
         tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5)
@@ -150,9 +153,7 @@ class FolderComparisonApp:
         self.histogram_threshold_info_label = tk.Label(self.histogram_options_frame, text="", width=20)
         self.histogram_threshold_info_label.pack(side=tk.LEFT, padx=(0, 5), pady=5)
 
-        sub_opts_frame = tk.Frame(options_frame); sub_opts_frame.pack(fill=tk.X, anchor=tk.W, pady=(5,0))
-        self.include_subfolders_cb = tk.Checkbutton(sub_opts_frame, text="Include subfolders", variable=self.include_subfolders); self.include_subfolders_cb.pack(side=tk.LEFT)
-        self.md5_warning_label = tk.Label(sub_opts_frame, text="Warning: Content comparison is slow.", fg="red")
+        self.md5_warning_label = tk.Label(match_frame, text="Warning: Content comparison is slow.", fg="red")
 
         move_to_frame = tk.LabelFrame(options_frame, text="File Actions", padx=5, pady=5)
         move_to_frame.pack(fill=tk.X, pady=(10, 0))
