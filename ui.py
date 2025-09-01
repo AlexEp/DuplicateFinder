@@ -9,7 +9,7 @@ import json
 import logging
 import logic
 from models import FileNode, FolderNode
-from strategies import find_common_strategy, find_duplicates_strategy, utils
+from strategies import find_common_strategy, find_duplicates_strategy, find_files_strategy, utils
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class FolderComparisonApp:
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
+        self.search_query = tk.StringVar()
         self.move_to_path = tk.StringVar()
 
         # --- Comparison options ---
@@ -75,13 +76,16 @@ class FolderComparisonApp:
         file_menu.add_command(label="Exit", command=self.root.quit)
         menubar.add_cascade(label="File", menu=file_menu)
 
+        options_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Options", menu=options_menu)
+        mode_menu = tk.Menu(options_menu, tearoff=0)
+        options_menu.add_cascade(label="Mode", menu=mode_menu)
+        mode_menu.add_radiobutton(label="Compare Folders", variable=self.app_mode, value="compare")
+        mode_menu.add_radiobutton(label="Find Duplicates", variable=self.app_mode, value="duplicates")
+        mode_menu.add_radiobutton(label="Folder Search", variable=self.app_mode, value="search")
+
         top_frame = tk.Frame(self.root)
         top_frame.pack(fill=tk.X, padx=10, pady=(10,0))
-
-        mode_frame = tk.LabelFrame(top_frame, text="Mode", padx=10, pady=5)
-        mode_frame.pack(fill=tk.X)
-        tk.Radiobutton(mode_frame, text="Compare Folders", variable=self.app_mode, value="compare").pack(side=tk.LEFT)
-        tk.Radiobutton(mode_frame, text="Find Duplicates", variable=self.app_mode, value="duplicates").pack(side=tk.LEFT, padx=10)
 
         self.main_content_frame = tk.Frame(self.root, padx=10, pady=10)
         self.main_content_frame.pack(fill=tk.BOTH, expand=True)
@@ -107,7 +111,14 @@ class FolderComparisonApp:
         tk.Button(dupes_row, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
         self.build_button_dupes1 = tk.Button(dupes_row, text="Build", command=lambda: self._build_metadata(1)); self.build_button_dupes1.pack(side=tk.LEFT, padx=(5,0))
 
-        # ... (rest of UI is the same)
+        # --- Search Mode UI ---
+        self.search_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Search", padx=10, pady=10)
+        search_row1 = tk.Frame(self.search_mode_frame); search_row1.pack(fill=tk.X, pady=2)
+        tk.Label(search_row1, text="Folder:").pack(side=tk.LEFT); tk.Entry(search_row1, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        tk.Button(search_row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
+        self.build_button_search1 = tk.Button(search_row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_search1.pack(side=tk.LEFT, padx=(5,0))
+        search_row2 = tk.Frame(self.search_mode_frame); search_row2.pack(fill=tk.X, pady=2)
+        tk.Label(search_row2, text="Search for:").pack(side=tk.LEFT); tk.Entry(search_row2, textvariable=self.search_query).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
         tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5)
@@ -180,13 +191,19 @@ class FolderComparisonApp:
 
     def _on_mode_change(self, *args):
         mode = self.app_mode.get()
+        self.compare_mode_frame.pack_forget()
+        self.duplicates_mode_frame.pack_forget()
+        self.search_mode_frame.pack_forget()
+
         if mode == "compare":
-            self.duplicates_mode_frame.pack_forget()
             self.compare_mode_frame.pack(fill=tk.X)
-        else:
-            self.compare_mode_frame.pack_forget()
+            self.action_button.config(text="Compare")
+        elif mode == "duplicates":
             self.duplicates_mode_frame.pack(fill=tk.X)
-        self.action_button.config(text="Compare")
+            self.action_button.config(text="Find Duplicates")
+        elif mode == "search":
+            self.search_mode_frame.pack(fill=tk.X)
+            self.action_button.config(text="Search")
 
     def _set_main_ui_state(self, state='normal'):
         def set_state_recursive(widget):
@@ -924,6 +941,24 @@ class FolderComparisonApp:
                             relative_path = file_info.get('relative_path', '')
                             file_name = Path(relative_path).name
                             self.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
+
+            elif mode == "search":
+                if not info1:
+                    logger.error("Search action failed: metadata for the folder is required.")
+                    messagebox.showerror("Error", "Please build metadata for the folder before searching.")
+                    return
+
+                query = self.search_query.get()
+                results = find_files_strategy.run(info1, opts, query)
+                logger.info(f"Search action finished. Found {len(results)} matching files.")
+                if not results:
+                    self.results_tree.insert('', tk.END, values=(f"No files found matching '{query}'.", "", ""), tags=('info_row',))
+                else:
+                    for file_info in results:
+                        size = file_info.get('compare_size', 'N/A')
+                        relative_path = file_info.get('relative_path', '')
+                        file_name = Path(relative_path).name
+                        self.results_tree.insert('', tk.END, values=(file_name, size, relative_path), tags=('file_row',))
         except Exception as e:
             logger.critical("An unexpected error occurred during the main action.", exc_info=True)
             messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
