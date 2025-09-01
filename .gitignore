@@ -4,9 +4,7 @@
 # Temporary plan files
 ai-llm-plan.md
 
-/strategies/__pycache__/*
-/ai_engine/__pycache__/
-/__pycache__/
+**/__pycache__/
 
 /models/
 !/models/README.md
