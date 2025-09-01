@@ -35,8 +35,11 @@ def load_image_extensions():
     return ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif']
 
 IMAGE_EXTENSIONS = load_image_extensions()
+VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv']
+AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
+DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.odt', '.rtf']
 
-def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress_callback=None):
+def flatten_structure(structure, base_path, opts=None, file_type_filter="all", llm_engine=None, progress_callback=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
     metadata only for the options specified.
@@ -72,6 +75,18 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
             if not p.exists():
                 logger.warning(f"File listed in structure does not exist, skipping: {p}")
                 return
+
+            # File type filtering
+            if file_type_filter != "all":
+                ext = p.suffix.lower()
+                if file_type_filter == "image" and ext not in IMAGE_EXTENSIONS:
+                    return
+                if file_type_filter == "video" and ext not in VIDEO_EXTENSIONS:
+                    return
+                if file_type_filter == "audio" and ext not in AUDIO_EXTENSIONS:
+                    return
+                if file_type_filter == "document" and ext not in DOCUMENT_EXTENSIONS:
+                    return
 
             try:
                 relative_path = p.relative_to(base_path_obj)

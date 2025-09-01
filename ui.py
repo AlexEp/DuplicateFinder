@@ -9,7 +9,8 @@ import json
 import logging
 import logic
 from models import FileNode, FolderNode
-from strategies import find_common_strategy, find_duplicates_strategy, find_files_strategy, utils
+from strategies import find_common_strategy, find_duplicates_strategy, utils
+from strategies.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, DOCUMENT_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,6 @@ try:
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
-
-IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv']
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
 
 class FolderComparisonApp:
     def __init__(self, root):
@@ -37,6 +34,7 @@ class FolderComparisonApp:
         self.app_mode = tk.StringVar(value="compare")
         self.search_query = tk.StringVar()
         self.move_to_path = tk.StringVar()
+        self.file_type_filter = tk.StringVar(value="all")
 
         # --- Comparison options ---
         self.include_subfolders = tk.BooleanVar()
@@ -54,6 +52,7 @@ class FolderComparisonApp:
 
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
+        self.file_type_filter.trace_add('write', self._on_file_type_change)
         self.compare_content_md5.trace_add('write', self._toggle_md5_warning)
         self.compare_histogram.trace_add('write', self._toggle_histogram_options)
         self.histogram_method.trace_add('write', self._update_histogram_threshold_ui)
@@ -83,6 +82,16 @@ class FolderComparisonApp:
         mode_menu.add_radiobutton(label="Compare Folders", variable=self.app_mode, value="compare")
         mode_menu.add_radiobutton(label="Find Duplicates", variable=self.app_mode, value="duplicates")
         mode_menu.add_radiobutton(label="Folder Search", variable=self.app_mode, value="search")
+
+        options_menu.add_separator()
+
+        file_type_menu = tk.Menu(options_menu, tearoff=0)
+        options_menu.add_cascade(label="File Type", menu=file_type_menu)
+        file_type_menu.add_radiobutton(label="All", variable=self.file_type_filter, value="all")
+        file_type_menu.add_radiobutton(label="Images", variable=self.file_type_filter, value="image")
+        file_type_menu.add_radiobutton(label="Videos", variable=self.file_type_filter, value="video")
+        file_type_menu.add_radiobutton(label="Audio", variable=self.file_type_filter, value="audio")
+        file_type_menu.add_radiobutton(label="Documents", variable=self.file_type_filter, value="document")
 
         top_frame = tk.Frame(self.root)
         top_frame.pack(fill=tk.X, padx=10, pady=(10,0))
@@ -119,8 +128,6 @@ class FolderComparisonApp:
         tk.Label(search_row1, text="Folder:").pack(side=tk.LEFT); tk.Entry(search_row1, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         tk.Button(search_row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
         self.build_button_search1 = tk.Button(search_row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_search1.pack(side=tk.LEFT, padx=(5,0))
-        search_row2 = tk.Frame(self.search_mode_frame); search_row2.pack(fill=tk.X, pady=2)
-        tk.Label(search_row2, text="Search for:").pack(side=tk.LEFT); tk.Entry(search_row2, textvariable=self.search_query).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         tk.Checkbutton(self.search_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
@@ -128,11 +135,15 @@ class FolderComparisonApp:
         tk.Checkbutton(match_frame, text="Date", variable=self.compare_date).pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(match_frame, text="Content (MD5 Hash)", variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text="Content (Histogram)", variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
-        self.llm_checkbox = tk.Checkbutton(match_frame, text="LLM Content", variable=self.compare_llm)
+
+        self.image_match_frame = tk.LabelFrame(options_frame, text="Image Match Options", padx=5, pady=5)
+        self.image_match_frame.pack(fill=tk.X, pady=(5,0))
+
+        tk.Checkbutton(self.image_match_frame, text="Content (Histogram)", variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
+        self.llm_checkbox = tk.Checkbutton(self.image_match_frame, text="LLM Content", variable=self.compare_llm)
         self.llm_checkbox.pack(side=tk.LEFT, padx=5)
 
-        self.histogram_options_frame = tk.Frame(options_frame)
+        self.histogram_options_frame = tk.Frame(self.image_match_frame)
 
         # Method Selection
         tk.Label(self.histogram_options_frame, text="Method:").pack(side=tk.LEFT, pady=5)
@@ -187,6 +198,7 @@ class FolderComparisonApp:
         self.progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
         self._on_mode_change()
+        self._on_file_type_change()
         self._toggle_histogram_options()
         self._update_histogram_threshold_ui()
 
@@ -205,6 +217,15 @@ class FolderComparisonApp:
         elif mode == "search":
             self.search_mode_frame.pack(fill=tk.X)
             self.action_button.config(text="Search")
+
+    def _on_file_type_change(self, *args):
+        if self.file_type_filter.get() == "image":
+            self.image_match_frame.pack(fill=tk.X, pady=(5,0))
+        else:
+            self.image_match_frame.pack_forget()
+            # Also uncheck the options when they are hidden
+            self.compare_histogram.set(False)
+            self.compare_llm.set(False)
 
     def _set_main_ui_state(self, state='normal'):
         def set_state_recursive(widget):
@@ -879,9 +900,10 @@ class FolderComparisonApp:
             logger.info("Calculating metadata...")
 
             info1, info2 = None, None
+            file_filter = self.file_type_filter.get()
             if self.folder1_structure:
                 base_path1 = self.folder1_path.get()
-                info1, total1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, llm_engine=self.llm_engine, progress_callback=progress_callback)
+                info1, total1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
                 total_llm_files += total1
                 self.progress_bar['maximum'] = total_llm_files if total_llm_files > 0 else 100
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
@@ -889,7 +911,7 @@ class FolderComparisonApp:
 
             if self.folder2_structure:
                 base_path2 = self.folder2_path.get()
-                info2, total2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, llm_engine=self.llm_engine, progress_callback=progress_callback)
+                info2, total2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
                 total_llm_files += total2
                 self.progress_bar['maximum'] = total_llm_files if total_llm_files > 0 else 100
                 self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
@@ -949,11 +971,10 @@ class FolderComparisonApp:
                     messagebox.showerror("Error", "Please build metadata for the folder before searching.")
                     return
 
-                query = self.search_query.get()
-                results = find_files_strategy.run(info1, opts, query)
+                results = info1.values()
                 logger.info(f"Search action finished. Found {len(results)} matching files.")
                 if not results:
-                    self.results_tree.insert('', tk.END, values=(f"No files found matching '{query}'.", "", ""), tags=('info_row',))
+                    self.results_tree.insert('', tk.END, values=(f"No files found matching the filter.", "", ""), tags=('info_row',))
                 else:
                     for file_info in results:
                         size = file_info.get('compare_size', 'N/A')
