@@ -14,7 +14,9 @@ def calculate_md5(file_path):
     except IOError:
         return None
 
-def flatten_structure(structure, base_path, opts=None):
+IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
+
+def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress_callback=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
     metadata only for the options specified.
@@ -25,7 +27,25 @@ def flatten_structure(structure, base_path, opts=None):
     file_info = {}
     base_path_obj = Path(base_path)
 
+    # Get total number of files for progress reporting
+    total_files = 0
+    def count_files(node):
+        nonlocal total_files
+        if isinstance(node, FileNode):
+            if Path(node.fullpath).suffix.lower() in IMAGE_EXTENSIONS:
+                total_files += 1
+        elif isinstance(node, FolderNode):
+            for child in node.content:
+                count_files(child)
+
+    if opts.get('compare_llm') and llm_engine:
+        for root_node in structure:
+            count_files(root_node)
+
+    processed_files = 0
+
     def traverse(node):
+        nonlocal processed_files
         if isinstance(node, FileNode):
             p = Path(node.fullpath)
             if not p.exists():
@@ -59,6 +79,18 @@ def flatten_structure(structure, base_path, opts=None):
                 hist = compare_by_histogram.get_histogram(str(p))
                 if hist is not None:
                     info['metadata']['histogram'] = hist
+            
+            if opts.get('compare_llm') and llm_engine and p.suffix.lower() in IMAGE_EXTENSIONS:
+                processed_files += 1
+                if progress_callback:
+                    progress_message = f"LLM Processing ({processed_files}/{total_files}): {p.name}"
+                    progress_callback(progress_message)
+                
+                embedding = llm_engine.get_image_embedding(str(p))
+                if embedding is not None:
+                    # Convert numpy array to list for JSON serialization
+                    info['metadata']['llm_embedding'] = embedding.tolist()
+
 
             file_info[relative_path] = info
 

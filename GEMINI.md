@@ -66,6 +66,29 @@ It is critical to understand the application's workflow to work on it effectivel
 4.  If it can be used for finding duplicates, also create a `key_by_your_new_criterion.py` file.
 5.  Integrate the new strategy module into `find_common_strategy.py` and/or `find_duplicates_strategy.py`.
 
+## 4.5. LLM Similarity Engine
+
+The application includes a powerful but resource-intensive image similarity feature based on the LLaVA (Large Language and Vision Assistant) model.
+
+### How It Works
+
+1.  **Engine Initialization**: On startup, the application looks for the required LLaVA model files in the `models/` directory. If found, it loads the model into memory.
+2.  **Embedding Generation**: When the "LLM Content" option is selected, the application uses the LLaVA model to generate a high-dimensional vector (an "embedding") for each image. This embedding represents the semantic content of the image.
+3.  **Metadata Persistence**: These embeddings are stored in the project's `.cfp` file, so they only need to be generated once per image.
+4.  **Comparison**: The application then calculates the cosine similarity between the embeddings of different images to determine how similar they are.
+
+### Requirements
+
+-   **Model Files**: You must download the correct GGUF model files and place them in the `models/` directory. See the `models/README.md` file for detailed instructions.
+-   **RAM**: A minimum of 16 GB of system RAM is strongly recommended. The model itself requires about 5 GB of memory.
+-   **Performance**: Embedding generation is very slow on CPU. For reasonable performance, a modern GPU (NVIDIA or Apple Silicon) is highly recommended. This requires compiling the `llama-cpp-python` dependency with the correct flags (e.g., `CMAKE_ARGS="-DGGML_CUDA=on"`).
+
+### Usage
+
+-   Enable the "LLM Content" checkbox in the UI.
+-   Be aware that the metadata calculation step (`run_action`) will be significantly slower when this option is enabled.
+-   Currently, the similarity threshold for the LLM comparison reuses the "Histogram Threshold" value from the UI.
+
 ## 5. How to Contribute
 
 We welcome contributions to this project. To contribute, please follow these steps:

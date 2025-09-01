@@ -6,6 +6,7 @@ from . import key_by_date
 from . import key_by_size
 from . import key_by_content_md5
 from . import compare_by_histogram
+from . import compare_by_llm
 
 def _find_connected_components(nodes, adj_list):
     """Finds all connected components in a graph using a basic traversal."""
@@ -75,48 +76,52 @@ def run(all_files_info, opts):
 
     potential_duplicate_groups = [infos for infos in groups.values() if len(infos) > 1]
 
-    # --- Phase 2: Pairwise Histogram Comparison ---
-    if not opts.get('compare_histogram'):
-        # If not using histogram, the groups of info dictionaries are the final result.
-        # The UI expects a list of lists of dictionaries, which is what potential_duplicate_groups is.
-        # e.g., [[infoA, infoB], [infoC, infoD]]
+    # --- Phase 2: Pairwise Comparisons (Histogram, LLM, etc.) ---
+    comparison_strategies = []
+    if opts.get('compare_histogram'):
+        def histogram_comparator(f1, f2):
+            SIMILARITY_METRICS = ['Correlation', 'Intersection']
+            comparison_result = compare_by_histogram.compare(f1, f2, opts)
+            if not comparison_result or 'histogram_method' not in comparison_result:
+                return False
+            
+            method_name, score = list(comparison_result['histogram_method'].items())[0]
+            try:
+                threshold = float(opts.get('histogram_threshold', '0.9'))
+            except (ValueError, TypeError):
+                threshold = 0.9 if method_name in SIMILARITY_METRICS else 0.1
+            
+            if method_name in SIMILARITY_METRICS:
+                return score >= threshold
+            else: # distance metric
+                return score <= threshold
+        comparison_strategies.append(histogram_comparator)
+
+    if opts.get('compare_llm'):
+        threshold = float(opts.get('histogram_threshold', 95.0)) # Reuse histogram threshold
+        comparison_strategies.append(
+            lambda f1, f2: compare_by_llm.compare(f1, f2, threshold)[0]
+        )
+
+    if not comparison_strategies:
         return [group for group in potential_duplicate_groups]
 
     final_duplicates = []
-    # Methods where a higher score means more similar
-    SIMILARITY_METRICS = ['Correlation', 'Intersection']
-
     for group in potential_duplicate_groups:
         adj_list = defaultdict(list)
         nodes_in_group = [info['fullpath'] for info in group]
 
         for info1, info2 in itertools.combinations(group, 2):
-            comparison_result = compare_by_histogram.compare(info1, info2, opts)
+            # A pair is a match if it passes ALL pairwise comparison strategies
+            is_match = all(strategy(info1, info2) for strategy in comparison_strategies)
+            
+            if is_match:
+                path1 = info1['fullpath']
+                path2 = info2['fullpath']
+                adj_list[path1].append(path2)
+                adj_list[path2].append(path1)
 
-            if comparison_result and 'histogram_method' in comparison_result:
-                method_name, score = list(comparison_result['histogram_method'].items())[0]
-
-                try:
-                    threshold_str = opts.get('histogram_threshold', '0.9')
-                    threshold = float(threshold_str)
-                except (ValueError, TypeError):
-                    threshold = 0.9 if method_name in SIMILARITY_METRICS else 0.1
-
-                is_match = False
-                if method_name in SIMILARITY_METRICS:
-                    if score >= threshold:
-                        is_match = True
-                else:  # It's a distance metric
-                    if score <= threshold:
-                        is_match = True
-
-                if is_match:
-                    path1 = info1['fullpath']
-                    path2 = info2['fullpath']
-                    adj_list[path1].append(path2)
-                    adj_list[path2].append(path1)
-
-        # For the histogram comparison, we build a graph where nodes are file paths
+        # For these comparisons, we build a graph where nodes are file paths
         # and an edge exists if two files are similar enough. After building the graph,
         # find all connected components. Each component is a set of files that are
         # all duplicates of each other.

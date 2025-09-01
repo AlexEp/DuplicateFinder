@@ -9,6 +9,7 @@ import json
 import logic
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
+from ai_engine.engine import LlavaEmbeddingEngine
 
 try:
     from PIL import Image, ImageTk
@@ -43,6 +44,10 @@ class FolderComparisonApp:
         self.compare_histogram = tk.BooleanVar()
         self.histogram_method = tk.StringVar(value='Correlation')
         self.histogram_threshold = tk.StringVar(value='0.9')
+        self.compare_llm = tk.BooleanVar()
+
+        # --- LLM Engine ---
+        self.llm_engine = None
 
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
@@ -52,6 +57,7 @@ class FolderComparisonApp:
 
         self.create_widgets()
         self._set_main_ui_state('disabled')
+        self._initialize_llm_engine()
 
     def create_widgets(self):
         # --- Menu Bar ---
@@ -106,6 +112,8 @@ class FolderComparisonApp:
         tk.Checkbutton(match_frame, text="Size", variable=self.compare_size).pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(match_frame, text="Content (MD5 Hash)", variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(match_frame, text="Content (Histogram)", variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
+        self.llm_checkbox = tk.Checkbutton(match_frame, text="LLM Content", variable=self.compare_llm)
+        self.llm_checkbox.pack(side=tk.LEFT, padx=5)
 
         self.histogram_options_frame = tk.Frame(options_frame)
 
@@ -182,10 +190,31 @@ class FolderComparisonApp:
             for child in widget.winfo_children(): set_state_recursive(child)
         set_state_recursive(self.main_content_frame)
 
+    def _initialize_llm_engine(self):
+        try:
+            self.status_label.config(text="Initializing LLM engine...")
+            self.root.update_idletasks()
+            # In the future, we can pass gpu_layers from a config
+            self.llm_engine = LlavaEmbeddingEngine()
+            self.status_label.config(text="LLM engine loaded successfully.")
+        except Exception as e:
+            self.llm_engine = None
+            if hasattr(self, 'llm_checkbox'):
+                self.llm_checkbox.config(state='disabled')
+            self.status_label.config(
+                text="LLM engine failed to load. LLM features disabled.")
+            messagebox.showwarning("LLM Engine Error",
+                                   f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
+
+    def update_status(self, message):
+        self.status_label.config(text=message)
+        self.root.update_idletasks()
+
     def _clear_all_settings(self):
         self.folder1_path.set(""); self.folder2_path.set(""); self.move_to_path.set(""); self.include_subfolders.set(False); self.compare_name.set(True)
         self.compare_date.set(False); self.compare_size.set(False); self.compare_content_md5.set(False)
         self.compare_histogram.set(False)
+        self.compare_llm.set(False)
         self.histogram_method.set('Correlation')
         self.histogram_threshold.set('0.9')
         self.current_project_path = None; self.folder1_structure = None; self.folder2_structure = None
@@ -288,6 +317,7 @@ class FolderComparisonApp:
                 "compare_size": self.compare_size.get(),
                 "compare_content_md5": self.compare_content_md5.get(),
                 "compare_histogram": self.compare_histogram.get(),
+                "compare_llm": self.compare_llm.get(),
                 "histogram_method": self.histogram_method.get(),
                 "histogram_threshold": self.histogram_threshold.get()
             }
@@ -729,12 +759,12 @@ class FolderComparisonApp:
             info1, info2 = None, None
             if self.folder1_structure:
                 base_path1 = self.folder1_path.get()
-                info1 = utils.flatten_structure(self.folder1_structure, base_path1, opts)
+                info1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
 
             if self.folder2_structure:
                 base_path2 = self.folder2_path.get()
-                info2 = utils.flatten_structure(self.folder2_structure, base_path2, opts)
+                info2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
                 self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
 
             if self._save_project():

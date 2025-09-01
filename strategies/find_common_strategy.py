@@ -2,6 +2,7 @@ from . import utils
 from . import compare_by_date
 from . import compare_by_size
 from . import compare_by_content_md5
+from . import compare_by_llm
 
 def run(info1, info2, opts):
     """
@@ -22,6 +23,13 @@ def run(info1, info2, opts):
         active_strategies.append(compare_by_size.compare)
     if opts.get('compare_content_md5'):
         active_strategies.append(compare_by_content_md5.compare)
+    if opts.get('compare_llm'):
+        # For now, reusing the histogram threshold for LLM similarity.
+        # A dedicated threshold for LLM could be added to the UI later.
+        threshold = float(opts.get('histogram_threshold', 95.0))
+        active_strategies.append(
+            lambda f1, f2: compare_by_llm.compare(f1, f2, threshold)[0]
+        )
 
     matching_files = []
     for path in common_paths:
