@@ -395,6 +395,7 @@ class FolderComparisonApp:
     def _gather_settings(self):
         settings = {
             "app_mode": self.app_mode.get(),
+            "file_type_filter": self.file_type_filter.get(),
             "folder1_path": self.folder1_path.get(),
             "folder2_path": self.folder2_path.get(),
             "move_to_path": self.move_to_path.get(),
@@ -466,6 +467,7 @@ class FolderComparisonApp:
                 settings = json.load(f)
             self._clear_all_settings()
             self.app_mode.set(settings.get("app_mode", "compare"))
+            self.file_type_filter.set(settings.get("file_type_filter", "all"))
             self.folder1_path.set(settings.get("folder1_path", ""))
             self.folder2_path.set(settings.get("folder2_path", ""))
             self.move_to_path.set(settings.get("move_to_path", ""))
