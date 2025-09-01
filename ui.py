@@ -172,6 +172,9 @@ class FolderComparisonApp:
         self.status_label = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
 
+        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=100, mode="determinate")
+        self.progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         self._on_mode_change()
         self._toggle_histogram_options()
         self._update_histogram_threshold_ui()
@@ -211,8 +214,10 @@ class FolderComparisonApp:
             messagebox.showwarning("LLM Engine Error",
                                    f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
 
-    def update_status(self, message):
+    def update_status(self, message, progress_value=None):
         self.status_label.config(text=message)
+        if progress_value is not None:
+            self.progress_bar['value'] = progress_value
         self.root.update_idletasks()
 
     def _clear_all_settings(self):
@@ -827,6 +832,15 @@ class FolderComparisonApp:
         logger.info(f"Running action '{mode}' with options: {opts}")
 
         try:
+            # --- Progress Bar Setup ---
+            self.progress_bar['value'] = 0
+            
+            total_llm_files = 0
+
+            def progress_callback(message, processed_count):
+                progress_percentage = (processed_count / total_llm_files) * 100 if total_llm_files > 0 else 0
+                self.update_status(message, progress_percentage)
+
             # --- Metadata Generation and Persistence ---
             self.update_status("Calculating metadata...")
             logger.info("Calculating metadata...")
@@ -834,13 +848,17 @@ class FolderComparisonApp:
             info1, info2 = None, None
             if self.folder1_structure:
                 base_path1 = self.folder1_path.get()
-                info1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
+                info1, total1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, llm_engine=self.llm_engine, progress_callback=progress_callback)
+                total_llm_files += total1
+                self.progress_bar['maximum'] = total_llm_files if total_llm_files > 0 else 100
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
                 logger.info(f"Flattened structure for folder 1. Found {len(info1)} items.")
 
             if self.folder2_structure:
                 base_path2 = self.folder2_path.get()
-                info2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
+                info2, total2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, llm_engine=self.llm_engine, progress_callback=progress_callback)
+                total_llm_files += total2
+                self.progress_bar['maximum'] = total_llm_files if total_llm_files > 0 else 100
                 self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
                 logger.info(f"Flattened structure for folder 2. Found {len(info2)} items.")
 
@@ -896,4 +914,5 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
         finally:
             self.update_status("Ready.")
+            self.progress_bar['value'] = 0
             logger.info("Action finished.")

@@ -1,4 +1,3 @@
-
 # Comparison Project Files
 *.cfp
 
@@ -11,3 +10,6 @@ ai-llm-plan.md
 
 /models/
 !/models/README.md
+
+# Log files
+logs/

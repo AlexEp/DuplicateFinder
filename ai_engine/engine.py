@@ -1,4 +1,5 @@
 
+import base64
 import llama_cpp
 import llama_cpp.llama_chat_format as llama_chat_format
 import numpy as np
@@ -43,59 +44,36 @@ class LlavaEmbeddingEngine:
         """
         Generates a semantically rich embedding for a single image.
         """
-        # CRITICAL: Reset the LLM context to prevent state leakage.
         self.llm.reset()
-
         try:
-            # Per instructions, convert all images to RGB to handle transparency.
-            image = Image.open(image_path).convert("RGB")
-            
-            # The reference code uses a complex way to get bytes. PIL can do this easily.
-            # However, the reference code uses a low-level C++ binding that expects bytes.
-            # Let's stick to the reference implementation's method of reading bytes from file.
             with open(image_path, "rb") as f:
                 image_bytes = f.read()
+            
+            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+            image_data = f"data:image/jpeg;base64,{image_base64}"
+
+            response = self.llm.create_chat_completion(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": image_data}},
+                            {"type": "text", "content": "Describe this image in one sentence."}
+                        ]
+                    }
+                ]
+            )
+            description = response['choices'][0]['message']['content']
+            
+            embedding_response = self.llm.create_embedding(description)
+            embedding = embedding_response['data'][0]['embedding']
+
+            return np.array(embedding, dtype=np.float32)
 
         except Exception as e:
-            print(f"Error reading or converting image {image_path}: {e}")
-            return None
-
-
-        # 2. Use the chat_handler's low-level C++ bindings to create a
-        #    projected embedding from the image bytes via the CLIP model.
-        data_array = array.array("B", image_bytes)
-        c_ubyte_ptr = (ctypes.c_ubyte * len(data_array)).from_buffer(data_array)
-        
-        embed_ptr = self.llm.chat_handler._llava_cpp.llava_image_embed_make_with_bytes(
-            ctx_clip=self.llm.chat_handler.clip_ctx,
-            n_threads=self.llm.n_threads,
-            image_bytes=c_ubyte_ptr,
-            image_bytes_length=len(image_bytes),
-        )
-
-        try:
-            # 3. Evaluate the projected embedding within the LLM's context.
-            n_past = ctypes.c_int(self.llm.n_tokens)
-            n_past_ptr = ctypes.pointer(n_past)
-            
-            self.llm.chat_handler._llava_cpp.llava_eval_image_embed(
-                ctx_llama=self.llm.ctx,
-                embed=embed_ptr,
-                n_batch=self.llm.n_batch,
-                n_past=n_past_ptr,
-            )
-            self.llm.n_tokens = n_past.value
-
-            # 4. Extract the final embedding from the LLM's state.
-            # The embedding size for Llama-2 7B is 4096.
-            embedding_size = self.llm.n_embd()
-            embedding_array = (ctypes.c_float * embedding_size)()
-            
-            llama_cpp.llama_get_embeddings(self.llm.ctx, embedding_array)
-            
-            embedding = np.array(embedding_array, dtype=np.float32)
-            return embedding
-
-        finally:
-            # 5. Free the memory allocated for the embedding structure.
-            self.llm.chat_handler._llava_cpp.llava_image_embed_free(embed_ptr)
+            if "Failed to create bitmap from image bytes" in str(e):
+                print(f"Warning: Could not process image {image_path}. Unsupported format.")
+                return None
+            else:
+                print(f"Error generating embedding for image {image_path}: {e}")
+                return None

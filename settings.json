@@ -1,3 +1,4 @@
 {
-  "log_level": "INFO"
+  "log_level": "INFO",
+  "image_extensions": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"]
 }

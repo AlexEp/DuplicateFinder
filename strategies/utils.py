@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from pathlib import Path
+import json
 from models import FileNode, FolderNode
 from . import compare_by_histogram
 
@@ -19,13 +20,28 @@ def calculate_md5(file_path):
         logger.error(f"Could not calculate MD5 for {file_path}: {e}")
         return None
 
-IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
+def load_image_extensions():
+    """Loads the list of image extensions from settings.json."""
+    try:
+        with open("settings.json", "r") as f:
+            settings = json.load(f)
+            extensions = settings.get("image_extensions")
+            if isinstance(extensions, list):
+                return [ext.lower() for ext in extensions]
+    except (IOError, json.JSONDecodeError) as e:
+        logger.warning(f"Could not load image extensions from settings.json: {e}")
+    
+    # Default extensions if settings are not available
+    return ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif']
+
+IMAGE_EXTENSIONS = load_image_extensions()
 
 def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress_callback=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
     metadata only for the options specified.
     Keys are relative paths to the provided base_path.
+    Returns a tuple of (file_info, total_llm_files_processed).
     """
     logger.info(f"Flattening structure for base path '{base_path}' with options: {opts}")
     if opts is None:
@@ -34,24 +50,23 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
     base_path_obj = Path(base_path)
 
     # Get total number of files for progress reporting
-    total_files = 0
-    def count_files(node):
-        nonlocal total_files
-        if isinstance(node, FileNode):
-            if Path(node.fullpath).suffix.lower() in IMAGE_EXTENSIONS:
-                total_files += 1
-        elif isinstance(node, FolderNode):
-            for child in node.content:
-                count_files(child)
-
+    llm_files_to_process = []
     if opts.get('compare_llm') and llm_engine:
+        def find_llm_files(node):
+            if isinstance(node, FileNode):
+                if Path(node.fullpath).suffix.lower() in IMAGE_EXTENSIONS:
+                    llm_files_to_process.append(node)
+            elif isinstance(node, FolderNode):
+                for child in node.content:
+                    find_llm_files(child)
         for root_node in structure:
-            count_files(root_node)
+            find_llm_files(root_node)
 
-    processed_files = 0
+    processed_llm_files = 0
+    total_llm_files = len(llm_files_to_process)
 
     def traverse(node):
-        nonlocal processed_files
+        nonlocal processed_llm_files
         if isinstance(node, FileNode):
             p = Path(node.fullpath)
             if not p.exists():
@@ -88,11 +103,11 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
                 if hist is not None:
                     info['metadata']['histogram'] = hist
             
-            if opts.get('compare_llm') and llm_engine and p.suffix.lower() in IMAGE_EXTENSIONS:
-                processed_files += 1
+            if opts.get('compare_llm') and llm_engine and node in llm_files_to_process:
+                processed_llm_files += 1
                 if progress_callback:
-                    progress_message = f"LLM Processing ({processed_files}/{total_files}): {p.name}"
-                    progress_callback(progress_message)
+                    progress_message = f"LLM Processing ({processed_llm_files}/{total_llm_files}): {p.name}"
+                    progress_callback(progress_message, processed_llm_files)
                 
                 embedding = llm_engine.get_image_embedding(str(p))
                 if embedding is not None:
@@ -109,4 +124,4 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
     for root_node in structure:
         traverse(root_node)
 
-    return file_info
+    return file_info, total_llm_files
