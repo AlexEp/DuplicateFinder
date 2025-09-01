@@ -10,7 +10,6 @@ import logging
 import logic
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
-from ai_engine.engine import LlavaEmbeddingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +198,22 @@ class FolderComparisonApp:
 
     def _initialize_llm_engine(self):
         try:
+            with open("settings.json", "r") as f:
+                settings = json.load(f)
+                use_llm = settings.get("use_llm", True)
+        except (IOError, json.JSONDecodeError):
+            use_llm = True # Default to true if settings are not available
+
+        if not use_llm:
+            self.llm_engine = None
+            if hasattr(self, 'llm_checkbox'):
+                self.llm_checkbox.config(state='disabled')
+            self.update_status("LLM engine disabled by settings.")
+            logger.info("LLM engine disabled by settings.")
+            return
+
+        try:
+            from ai_engine.engine import LlavaEmbeddingEngine
             self.update_status("Initializing LLM engine...")
             logger.info("Initializing LLM engine...")
             # In the future, we can pass gpu_layers from a config

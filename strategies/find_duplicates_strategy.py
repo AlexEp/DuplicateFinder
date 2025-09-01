@@ -1,5 +1,6 @@
 from collections import defaultdict
 import itertools
+import json
 from . import utils
 from . import key_by_name
 from . import key_by_date
@@ -98,9 +99,17 @@ def run(all_files_info, opts):
         comparison_strategies.append(histogram_comparator)
 
     if opts.get('compare_llm'):
-        threshold = float(opts.get('histogram_threshold', 95.0)) # Reuse histogram threshold
+        llm_settings = {}
+        try:
+            with open("llm_settings.json", "r") as f:
+                llm_settings = json.load(f)
+        except (IOError, json.JSONDecodeError):
+            pass # Use default
+        
+        llm_threshold = llm_settings.get("similarity_threshold", 90.0)
+
         comparison_strategies.append(
-            lambda f1, f2: compare_by_llm.compare(f1, f2, threshold)[0]
+            lambda f1, f2: compare_by_llm.compare(f1, f2, llm_threshold)[0]
         )
 
     if not comparison_strategies:
