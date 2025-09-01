@@ -16,15 +16,42 @@ The `ui.py` file is a "God Object" that violates the Single Responsibility Princ
     *   It would be responsible for orchestrating actions like loading/saving projects and running comparisons by calling the appropriate modules.
     *   The `FolderComparisonApp` class in `ui.py` should be simplified to only handle UI creation, event binding (e.g., button clicks), and displaying data. Events would call methods on the `AppController`.
 
-*   **Separate Project Management:** The logic for saving and loading `.cfp` files (including `_gather_settings`, `_dict_to_structure`, `_save_project`, `_load_project`) should be extracted into its own module, e.g., `project_manager.py`. This module would handle all serialization and deserialization logic.
+*   **Separate Project Management:** The logic for saving and loading project files should be extracted into its own module, e.g., `project_manager.py`. This module would handle all serialization and deserialization logic, ideally using a more robust format as described in the next section.
 
 *   **Separate File Operations:** The methods for file manipulation (`_move_file`, `_delete_file`, `_open_containing_folder`) should be moved to a dedicated `file_operations.py` module. This keeps the UI layer clean from direct file system side effects.
 
-*   **Decouple LLM Engine Initialization:** The LLM engine initialization should be handled by the new `AppController` or a dedicated service, not directly in the UI. This would also allow for lazy initialization or background loading to improve startup time.
+---
+
+## 2. Data Storage: Migrating from JSON to SQLite
+
+**Observation:**
+The current project file format (`.cfp`) is a single, large JSON file. While simple to implement, this approach has significant drawbacks for this application's use case, particularly concerning performance, scalability, and data integrity. All operations require loading the entire file into memory, and a crash during a save operation can corrupt the entire project.
+
+**Best Practice Recommendation: Use SQLite**
+
+The industry best practice for a desktop application that needs to store, manage, and query structured data is a file-based SQL database, for which Python has excellent built-in support via the `sqlite3` module.
+
+**Advantages of SQLite:**
+
+*   **Performance & Scalability:** SQLite is designed for efficient querying. Finding duplicate files based on size, date, or MD5 hash can be done with indexed SQL queries, which will be orders of magnitude faster and more memory-efficient than iterating through a massive JSON structure. This is critical for supporting folders with tens or hundreds of thousands of files.
+*   **Data Integrity:** SQLite provides atomic, transactional updates. This means that if the application crashes while writing data, the database file is not corrupted and remains in a consistent state, protecting user data.
+*   **Efficient Queries:** The core logic of finding duplicates can be dramatically simplified and accelerated. Instead of complex, multi-phase grouping and comparison in Python, the work can be offloaded to the database. For example: `SELECT * FROM files GROUP BY size, md5 HAVING COUNT(*) > 1;`
+*   **No New Dependencies:** The `sqlite3` module is part of the Python standard library.
+
+**Implementation Steps:**
+
+1.  **Change Project File Extension:** Project files could be renamed to `.cfpdb` or similar to reflect the new format.
+2.  **Define a Schema:** Create a simple database schema on project creation.
+    *   `project_settings` table: A key-value table to store folder paths, UI options, etc.
+    *   `files` table: A table to store file information with columns like `id`, `folder_index` (1 or 2), `relative_path`, `size`, `modified_date`, `md5`, `histogram`, `llm_embedding`.
+3.  **Refactor Logic:**
+    *   The `build_folder_structure` logic in `logic.py` would now insert file records into the `files` table.
+    *   The metadata calculation in `strategies/utils.py` would become an `UPDATE` operation on existing rows in the `files` table.
+    *   The core comparison logic in `find_common_strategy.py` and `find_duplicates_strategy.py` would be replaced with SQL queries.
 
 ---
 
-## 2. Code Organization & Duplication
+## 3. Code Organization & Duplication
 
 **Observation:**
 There are several instances of duplicated code and misplaced logic.
@@ -39,7 +66,7 @@ There are several instances of duplicated code and misplaced logic.
 
 ---
 
-## 3. Configuration Management
+## 4. Configuration Management
 
 **Observation:**
 Configuration is scattered across `settings.json`, `llm_settings.json`, and hardcoded paths in `ai_engine/engine.py`. This makes configuration difficult to manage.
@@ -56,7 +83,7 @@ Configuration is scattered across `settings.json`, `llm_settings.json`, and hard
 
 ---
 
-## 4. Strategy & Logic Improvements
+## 5. Strategy & Logic Improvements
 
 **Observation:**
 The core strategy logic is sound, but some implementations could be clearer and more consistent.
@@ -73,27 +100,20 @@ The core strategy logic is sound, but some implementations could be clearer and 
 
 ---
 
-## 5. Performance Optimization
+## 6. Performance Optimization
 
 **Observation:**
 The application recalculates metadata even when it might already be available, and the startup can be slow due to eager initialization of the LLM engine.
 
 **Suggestions:**
 
-*   **Avoid Recalculating Existing Metadata:** In `strategies/utils.py`, the `flatten_structure` function should be optimized to avoid re-computing expensive metadata. Before calculating an MD5 hash, histogram, or LLM embedding, the function should first check if that value already exists in the `FileNode`'s `metadata` dictionary. This will significantly speed up subsequent "Compare" actions when options are changed.
-    *   **Example:** Change `if opts.get('compare_content_md5'): info['compare_content_md5'] = calculate_md5(p)` to something like:
-        ```python
-        if opts.get('compare_content_md5'):
-            if 'compare_content_md5' not in node.metadata:
-                node.metadata['compare_content_md5'] = calculate_md5(p)
-            info['compare_content_md5'] = node.metadata.get('compare_content_md5')
-        ```
+*   **Avoid Recalculating Existing Metadata:** In `strategies/utils.py`, the `flatten_structure` function should be optimized to avoid re-computing expensive metadata. Before calculating an MD5 hash, histogram, or LLM embedding, the function should first check if that value already exists in the `FileNode`'s `metadata` dictionary. This will significantly speed up subsequent "Compare" actions when options are changed. (Note: Migrating to SQLite as suggested above would be a more robust way to solve this).
 
 *   **Lazy Load the LLM Engine:** As mentioned previously, initializing the LLM engine on startup can make the application feel slow. This process should be deferred until the user first selects the "LLM Content" option, and it should be run in a background thread to avoid freezing the UI. A loading indicator should be shown to the user during this process.
 
 ---
 
-## 6. UI/UX and Accessibility
+## 7. UI/UX and Accessibility
 
 **Observation:**
 The user experience could be improved with better feedback and more ways to interact with the application.
@@ -111,7 +131,7 @@ The user experience could be improved with better feedback and more ways to inte
 
 ---
 
-## 7. Testing Strategy
+## 8. Testing Strategy
 
 **Observation:**
 The strategy logic is well-tested, but the UI is completely untested, and the LLM tests have some weaknesses.
