@@ -1,17 +1,22 @@
 import hashlib
+import logging
 from pathlib import Path
 from models import FileNode, FolderNode
 from . import compare_by_histogram
 
+logger = logging.getLogger(__name__)
+
 def calculate_md5(file_path):
     """Calculates the MD5 hash of a file."""
+    logger.debug(f"Calculating MD5 for: {file_path}")
     hash_md5 = hashlib.md5()
     try:
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
-    except IOError:
+    except IOError as e:
+        logger.error(f"Could not calculate MD5 for {file_path}: {e}")
         return None
 
 IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']
@@ -22,6 +27,7 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
     metadata only for the options specified.
     Keys are relative paths to the provided base_path.
     """
+    logger.info(f"Flattening structure for base path '{base_path}' with options: {opts}")
     if opts is None:
         opts = {}
     file_info = {}
@@ -49,11 +55,13 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
         if isinstance(node, FileNode):
             p = Path(node.fullpath)
             if not p.exists():
+                logger.warning(f"File listed in structure does not exist, skipping: {p}")
                 return
 
             try:
                 relative_path = p.relative_to(base_path_obj)
             except ValueError:
+                logger.warning(f"Could not determine relative path for {p} against base {base_path_obj}, skipping.")
                 return
 
             info = {'fullpath': node.fullpath, 'metadata': node.metadata.copy()}
@@ -69,8 +77,8 @@ def flatten_structure(structure, base_path, opts=None, llm_engine=None, progress
                         info['compare_size'] = stat.st_size
                     if opts.get('compare_date'):
                         info['compare_date'] = stat.st_mtime
-                except OSError:
-                    pass  # Ignore files we can't get stats for
+                except OSError as e:
+                    logger.error(f"Could not get stat for file {p}: {e}")
 
             if opts.get('compare_content_md5'):
                 info['compare_content_md5'] = calculate_md5(p)

@@ -6,10 +6,13 @@ import sys
 import shutil
 from pathlib import Path
 import json
+import logging
 import logic
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
 from ai_engine.engine import LlavaEmbeddingEngine
+
+logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image, ImageTk
@@ -58,6 +61,7 @@ class FolderComparisonApp:
         self.create_widgets()
         self._set_main_ui_state('disabled')
         self._initialize_llm_engine()
+        logger.info("Application initialized.")
 
     def create_widgets(self):
         # --- Menu Bar ---
@@ -192,17 +196,18 @@ class FolderComparisonApp:
 
     def _initialize_llm_engine(self):
         try:
-            self.status_label.config(text="Initializing LLM engine...")
-            self.root.update_idletasks()
+            self.update_status("Initializing LLM engine...")
+            logger.info("Initializing LLM engine...")
             # In the future, we can pass gpu_layers from a config
             self.llm_engine = LlavaEmbeddingEngine()
-            self.status_label.config(text="LLM engine loaded successfully.")
+            self.update_status("LLM engine loaded successfully.")
+            logger.info("LLM engine loaded successfully.")
         except Exception as e:
             self.llm_engine = None
             if hasattr(self, 'llm_checkbox'):
                 self.llm_checkbox.config(state='disabled')
-            self.status_label.config(
-                text="LLM engine failed to load. LLM features disabled.")
+            self.update_status("LLM engine failed to load. LLM features disabled.")
+            logger.error("LLM engine failed to load.", exc_info=True)
             messagebox.showwarning("LLM Engine Error",
                                    f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
 
@@ -222,10 +227,29 @@ class FolderComparisonApp:
         if hasattr(self, 'results_tree'):
             for i in self.results_tree.get_children(): self.results_tree.delete(i)
 
-    def _new_project(self): self._clear_all_settings(); self._set_main_ui_state('normal'); self.root.title("New Project - Folder Comparison Tool")
-    def select_folder1(self): path = filedialog.askdirectory(); self.folder1_path.set(path) if path else None
-    def select_folder2(self): path = filedialog.askdirectory(); self.folder2_path.set(path) if path else None
-    def select_move_to_folder(self): path = filedialog.askdirectory(); self.move_to_path.set(path) if path else None
+    def _new_project(self):
+        logger.info("Creating new project.")
+        self._clear_all_settings()
+        self._set_main_ui_state('normal')
+        self.root.title("New Project - Folder Comparison Tool")
+
+    def select_folder1(self):
+        path = filedialog.askdirectory()
+        if path:
+            self.folder1_path.set(path)
+            logger.info(f"Selected folder 1: {path}")
+
+    def select_folder2(self):
+        path = filedialog.askdirectory()
+        if path:
+            self.folder2_path.set(path)
+            logger.info(f"Selected folder 2: {path}")
+
+    def select_move_to_folder(self):
+        path = filedialog.askdirectory()
+        if path:
+            self.move_to_path.set(path)
+            logger.info(f"Selected move-to folder: {path}")
     def _on_double_click(self, event):
         selection = self.results_tree.selection()
         if not selection:
@@ -274,34 +298,39 @@ class FolderComparisonApp:
 
     def _build_metadata(self, folder_num):
         build_buttons = [self.build_button_compare1, self.build_button_compare2, self.build_button_dupes1]
+        path_var = self.folder1_path if folder_num == 1 else self.folder2_path
+        path = path_var.get()
+        logger.info(f"Starting metadata build for folder {folder_num} at path: {path}")
 
         try:
-            # Disable buttons and show status
             for btn in build_buttons: btn.config(state='disabled')
-            self.status_label.config(text=f"Building metadata for Folder {folder_num}...")
-            self.root.update_idletasks()
+            self.update_status(f"Building metadata for Folder {folder_num}...")
 
             if not self._save_project():
+                logger.warning("Metadata build aborted because project save was cancelled.")
                 messagebox.showwarning("Save Cancelled", "Metadata build aborted because the project was not saved.")
                 return
-            path_var = self.folder1_path if folder_num == 1 else self.folder2_path
-            path = path_var.get()
+
             if not path or not Path(path).is_dir():
+                logger.error(f"Invalid directory for folder {folder_num}: {path}")
                 messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_num}.")
                 return
 
             structure = logic.build_folder_structure(path)
             if folder_num == 1: self.folder1_structure = structure
             else: self.folder2_structure = structure
+            logger.info(f"Successfully built folder structure for folder {folder_num}.")
 
-            self.status_label.config(text=f"Metadata built for Folder {folder_num}. Saving project...")
-            self.root.update_idletasks()
+            self.update_status(f"Metadata built for Folder {folder_num}. Saving project...")
             self._save_project()
             messagebox.showinfo("Success", f"Metadata built and saved for Folder {folder_num}.")
+            logger.info(f"Metadata build and save successful for folder {folder_num}.")
 
+        except Exception as e:
+            logger.error(f"Failed to build metadata for folder {folder_num}.", exc_info=True)
+            messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
         finally:
-            # Re-enable buttons and clear status
-            self.status_label.config(text="")
+            self.update_status("Ready.")
             for btn in build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
@@ -344,30 +373,47 @@ class FolderComparisonApp:
         return structure
 
     def _save_project(self):
-        if not self.current_project_path: return self._save_project_as()
+        if not self.current_project_path:
+            return self._save_project_as()
+        logger.info(f"Saving project to {self.current_project_path}")
         try:
-            with open(self.current_project_path, 'w') as f: json.dump(self._gather_settings(), f, indent=4)
+            with open(self.current_project_path, 'w') as f:
+                json.dump(self._gather_settings(), f, indent=4)
+            logger.info("Project saved successfully.")
             return True
-        except Exception as e: messagebox.showerror("Error", f"Could not save project file:\n{e}"); return False
+        except Exception as e:
+            logger.error(f"Failed to save project to {self.current_project_path}", exc_info=True)
+            messagebox.showerror("Error", f"Could not save project file:\n{e}")
+            return False
 
     def _save_project_as(self):
         path = filedialog.asksaveasfilename(defaultextension=".cfp", filetypes=[("Comparison Project Files", "*.cfp")])
-        if not path: return False
-        self.current_project_path = path; self.root.title(f"{Path(path).name} - Folder Comparison Tool")
+        if not path:
+            logger.info("'Save As' operation cancelled by user.")
+            return False
+        self.current_project_path = path
+        self.root.title(f"{Path(path).name} - Folder Comparison Tool")
+        logger.info(f"Project path set to {path}. Proceeding to save.")
         return self._save_project()
 
     def _load_project(self):
         path = filedialog.askopenfilename(filetypes=[("Comparison Project Files", "*.cfp")])
-        if not path: return
+        if not path:
+            logger.info("'Load Project' operation cancelled by user.")
+            return
+        logger.info(f"Loading project from: {path}")
         try:
-            with open(path, 'r') as f: settings = json.load(f)
+            with open(path, 'r') as f:
+                settings = json.load(f)
             self._clear_all_settings()
             self.app_mode.set(settings.get("app_mode", "compare"))
-            self.folder1_path.set(settings.get("folder1_path", "")); self.folder2_path.set(settings.get("folder2_path", ""))
+            self.folder1_path.set(settings.get("folder1_path", ""))
+            self.folder2_path.set(settings.get("folder2_path", ""))
             self.move_to_path.set(settings.get("move_to_path", ""))
-            opts = settings.get("options", {});
+            opts = settings.get("options", {})
             for opt, val in opts.items():
-                if hasattr(self, opt) and hasattr(getattr(self, opt), 'set'): getattr(self, opt).set(val)
+                if hasattr(self, opt) and hasattr(getattr(self, opt), 'set'):
+                    getattr(self, opt).set(val)
 
             if "metadata" in settings:
                 if "folder1" in settings["metadata"]:
@@ -375,9 +421,13 @@ class FolderComparisonApp:
                 if "folder2" in settings["metadata"]:
                     self.folder2_structure = self._dict_to_structure(settings["metadata"]["folder2"])
 
-            self.current_project_path = path; self.root.title(f"{Path(path).name} - Folder Comparison Tool")
+            self.current_project_path = path
+            self.root.title(f"{Path(path).name} - Folder Comparison Tool")
             self._set_main_ui_state('normal')
-        except Exception as e: messagebox.showerror("Error", f"Could not load project file:\n{e}")
+            logger.info(f"Successfully loaded project: {path}")
+        except Exception as e:
+            logger.error(f"Failed to load project file: {path}", exc_info=True)
+            messagebox.showerror("Error", f"Could not load project file:\n{e}")
 
     
 
@@ -390,19 +440,23 @@ class FolderComparisonApp:
         dest_path_str = self.move_to_path.get()
 
         if not base_path_str or not dest_path_str:
+            logger.warning("Move file cancelled: source or destination folder path is not set.")
             messagebox.showwarning("Warning", "Source or destination folder path is not set.")
             return
 
         try:
             source_path = Path(base_path_str) / relative_path_str
             dest_path = Path(dest_path_str) / source_path.name # move to folder, keep original name
+            logger.info(f"Attempting to move file from '{source_path}' to '{dest_path}'.")
 
             if not source_path.is_file():
+                logger.error(f"Move failed: source file does not exist at '{source_path}'.")
                 messagebox.showerror("Error", f"Source file does not exist:\n{source_path}")
                 return
 
             if dest_path.exists():
                  if not messagebox.askyesno("Confirm Overwrite", f"Destination file already exists. Overwrite?\n\n{dest_path}"):
+                     logger.info("Move cancelled by user (overwrite confirmation).")
                      return
 
             confirm = messagebox.askyesno(
@@ -410,13 +464,17 @@ class FolderComparisonApp:
                 f"Are you sure you want to move this file?\n\nFrom: {source_path}\nTo: {dest_path}"
             )
             if not confirm:
+                logger.info("Move cancelled by user (move confirmation).")
                 return
 
             shutil.move(source_path, dest_path)
             self.results_tree.delete(iid)
-            self.status_label.config(text=f"Moved: {source_path.name} to {dest_path}")
+            self.update_status(f"Moved: {source_path.name} to {dest_path}")
+            logger.info(f"Successfully moved file from '{source_path}' to '{dest_path}'.")
 
-        except Exception as e: messagebox.showerror("Error", f"Could not move file:\n{e}")
+        except Exception as e:
+            logger.error(f"Failed to move file from '{source_path}' to '{dest_path}'.", exc_info=True)
+            messagebox.showerror("Error", f"Could not move file:\n{e}")
 
     def _delete_file(self, folder_num):
         iid, relative_path_str = self._get_relative_path_from_selection()
@@ -425,12 +483,15 @@ class FolderComparisonApp:
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
         if not base_path_str:
+            logger.warning(f"Delete file cancelled: folder {folder_num} path is not set.")
             messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
             return
 
         try:
             full_path = Path(base_path_str) / relative_path_str
+            logger.info(f"Attempting to delete file: {full_path}")
             if not full_path.is_file():
+                logger.error(f"Delete failed: file does not exist at '{full_path}'.")
                 messagebox.showerror("Error", f"File does not exist:\n{full_path}")
                 return
 
@@ -439,13 +500,17 @@ class FolderComparisonApp:
                 f"Are you sure you want to permanently delete this file?\n\n{full_path}"
             )
             if not confirm:
+                logger.info(f"Deletion cancelled by user for file: {full_path}")
                 return
 
             os.remove(full_path)
             self.results_tree.delete(iid)
-            self.status_label.config(text=f"Deleted: {full_path}")
+            self.update_status(f"Deleted: {full_path}")
+            logger.info(f"Successfully deleted file: {full_path}")
 
-        except Exception as e: messagebox.showerror("Error", f"Could not delete file:\n{e}")
+        except Exception as e:
+            logger.error(f"Failed to delete file: {full_path}", exc_info=True)
+            messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def _open_containing_folder(self, folder_num):
         _, relative_path_str = self._get_relative_path_from_selection()
@@ -454,14 +519,17 @@ class FolderComparisonApp:
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
         if not base_path_str:
+            logger.warning(f"Open folder cancelled: folder {folder_num} path is not set.")
             messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
             return
 
         try:
             full_path = Path(base_path_str) / relative_path_str
             dir_path = full_path.parent
+            logger.info(f"Opening containing folder for: {full_path}")
 
             if not dir_path.is_dir():
+                logger.error(f"Open folder failed: directory does not exist at '{dir_path}'.")
                 messagebox.showerror("Error", f"Directory does not exist:\n{dir_path}")
                 return
 
@@ -472,6 +540,7 @@ class FolderComparisonApp:
             else:
                 subprocess.Popen(["xdg-open", str(dir_path)])
         except Exception as e:
+            logger.error(f"Failed to open containing folder for: {full_path}", exc_info=True)
             messagebox.showerror("Error", f"Could not open folder:\n{e}")
 
     def _show_context_menu(self, event):
@@ -552,18 +621,21 @@ class FolderComparisonApp:
 
         base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
         if not base_path_str:
+            logger.warning(f"Preview cancelled: folder {folder_num} path is not set.")
             messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
             return
 
         full_path = Path(base_path_str) / relative_path_str
+        logger.info(f"Attempting to preview file: {full_path}")
         if not full_path.is_file():
+            logger.error(f"Preview failed: file does not exist at '{full_path}'.")
             messagebox.showerror("Error", f"File does not exist:\n{full_path}")
             return
 
         file_ext = full_path.suffix.lower()
         try:
             if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
-                # Display image in a new window
+                logger.debug(f"Displaying image preview for: {full_path}")
                 win = tk.Toplevel(self.root)
                 win.title(full_path.name)
                 img = Image.open(full_path)
@@ -573,14 +645,16 @@ class FolderComparisonApp:
                 label.image = photo # Keep a reference!
                 label.pack()
             elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
-                # Open with default system player
+                logger.debug(f"Opening media file with default player: {full_path}")
                 if sys.platform == "win32":
                     os.startfile(full_path)
                 elif sys.platform == "darwin":
                     subprocess.Popen(["open", str(full_path)])
                 else:
                     subprocess.Popen(["xdg-open", str(full_path)])
-        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
+        except Exception as e:
+            logger.error(f"Failed to preview file: {full_path}", exc_info=True)
+            messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
     def _get_relative_path_from_selection(self):
         selection = self.results_tree.selection()
@@ -750,36 +824,44 @@ class FolderComparisonApp:
 
         opts = self._gather_settings()['options']
         mode = self.app_mode.get()
+        logger.info(f"Running action '{mode}' with options: {opts}")
 
         try:
             # --- Metadata Generation and Persistence ---
-            self.status_label.config(text="Calculating metadata...")
-            self.root.update_idletasks()
+            self.update_status("Calculating metadata...")
+            logger.info("Calculating metadata...")
 
             info1, info2 = None, None
             if self.folder1_structure:
                 base_path1 = self.folder1_path.get()
                 info1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
                 self._update_filenode_metadata(self.folder1_structure, info1, base_path1)
+                logger.info(f"Flattened structure for folder 1. Found {len(info1)} items.")
 
             if self.folder2_structure:
                 base_path2 = self.folder2_path.get()
                 info2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, llm_engine=self.llm_engine, progress_callback=self.update_status)
                 self._update_filenode_metadata(self.folder2_structure, info2, base_path2)
+                logger.info(f"Flattened structure for folder 2. Found {len(info2)} items.")
 
             if self._save_project():
-                self.status_label.config(text="Metadata calculated and project saved.")
+                self.update_status("Metadata calculated and project saved.")
+                logger.info("Metadata calculated and project saved.")
             else:
-                self.status_label.config(text="Metadata calculated, but project save failed.")
+                self.update_status("Metadata calculated, but project save failed.")
+                logger.warning("Metadata calculated, but project save failed.")
                 messagebox.showwarning("Save Failed", "Could not save the project with new metadata.")
 
             # --- Strategy Execution ---
+            logger.info(f"Executing '{mode}' strategy.")
             if mode == "compare":
                 if not info1 or not info2:
+                    logger.error("Compare action failed: metadata for both folders is required.")
                     messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
                     return
 
                 results = find_common_strategy.run(info1, info2, opts)
+                logger.info(f"Compare action finished. Found {len(results)} matching files.")
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No matching files found.", "", ""), tags=('info_row',))
                 else:
@@ -791,10 +873,12 @@ class FolderComparisonApp:
 
             elif mode == "duplicates":
                 if not info1:
+                    logger.error("Duplicates action failed: metadata for the folder is required.")
                     messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
                     return
 
                 results = find_duplicates_strategy.run(info1, opts)
+                logger.info(f"Duplicates action finished. Found {len(results)} duplicate groups.")
                 if not results:
                     self.results_tree.insert('', tk.END, values=("No duplicate files found.", "", ""), tags=('info_row',))
                 else:
@@ -807,6 +891,9 @@ class FolderComparisonApp:
                             relative_path = file_info.get('relative_path', '')
                             file_name = Path(relative_path).name
                             self.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
-        except Exception as e: messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
+        except Exception as e:
+            logger.critical("An unexpected error occurred during the main action.", exc_info=True)
+            messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")
         finally:
-            self.status_label.config(text="Ready.")
+            self.update_status("Ready.")
+            logger.info("Action finished.")

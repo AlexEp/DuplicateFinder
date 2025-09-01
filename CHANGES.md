@@ -2,6 +2,14 @@
 
 ## 2025-08-31
 
+- **Feature**: Added application-wide logging.
+  - Logs are configured in a new `logger_config.py` module.
+  - Log level is determined by the `log_level` setting in `settings.json`.
+  - Log files are created daily in the `logs/` directory with the format `YYYYMMDD.log`.
+  - Key application events, errors, and user actions are now logged.
+
+## 2025-08-31
+
 - **Feature**: Add LLM-powered image similarity engine.
   - Integrates a LLaVA model to perform semantic comparison of images.
   - Adds a new "LLM Content" comparison option.
