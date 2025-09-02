@@ -4,24 +4,6 @@ This document provides a deep-dive analysis of the codebase and offers suggestio
 
 ---
 
-## 1. Architectural Refactoring: The `ui.py` "God Object"
-
-**Observation:**
-The `ui.py` file is a "God Object" that violates the Single Responsibility Principle. It currently manages UI rendering, application state, business logic orchestration, project serialization, file I/O operations, and LLM engine initialization. This makes the file excessively long (over 700 lines), difficult to maintain, and nearly impossible to unit test.
-
-**Suggestions:**
-
-*   **Introduce a Controller/ViewModel Layer:** Create a new class, for example, `AppController`, to mediate between the `FolderComparisonApp` (the View) and the backend logic.
-    *   The `AppController` would manage the application's state (e.g., folder paths, selected options, loaded project data).
-    *   It would be responsible for orchestrating actions like loading/saving projects and running comparisons by calling the appropriate modules.
-    *   The `FolderComparisonApp` class in `ui.py` should be simplified to only handle UI creation, event binding (e.g., button clicks), and displaying data. Events would call methods on the `AppController`.
-
-*   **Separate Project Management:** The logic for saving and loading project files should be extracted into its own module, e.g., `project_manager.py`. This module would handle all serialization and deserialization logic, ideally using a more robust format as described in the next section.
-
-*   **Separate File Operations:** The methods for file manipulation (`_move_file`, `_delete_file`, `_open_containing_folder`) should be moved to a dedicated `file_operations.py` module. This keeps the UI layer clean from direct file system side effects.
-
----
-
 ## 2. Data Storage: Migrating from JSON to SQLite
 
 **Observation:**

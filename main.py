@@ -1,13 +1,15 @@
 import tkinter as tk
 import logging
 from ui import FolderComparisonApp
+from controller import AppController
 from logger_config import setup_logging
 
 if __name__ == "__main__":
     setup_logging()
     try:
         root = tk.Tk()
-        app = FolderComparisonApp(root)
+        view = FolderComparisonApp(root)
+        controller = AppController(view)
         root.mainloop()
     except Exception as e:
         logging.critical("Application crashed with an unhandled exception.", exc_info=True)
