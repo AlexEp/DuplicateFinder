@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from project_manager import ProjectManager
 from config import config
+import logic
 
 logger = logging.getLogger(__name__)
 
