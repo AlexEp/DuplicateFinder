@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 import logging
 from project_manager import ProjectManager
 from config import config
