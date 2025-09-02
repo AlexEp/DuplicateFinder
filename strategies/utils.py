@@ -94,23 +94,38 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
                     logger.error(f"Could not get stat for file {p}: {e}")
 
             if opts.get('compare_content_md5'):
-                info['compare_content_md5'] = calculate_md5(p)
+                if 'compare_content_md5' in node.metadata and node.metadata['compare_content_md5'] is not None:
+                    info['metadata']['compare_content_md5'] = node.metadata['compare_content_md5']
+                    logger.debug(f"Using cached MD5 for: {p}")
+                else:
+                    info['metadata']['compare_content_md5'] = calculate_md5(p)
 
             if opts.get('compare_histogram'):
-                hist = compare_by_histogram.get_histogram(str(p))
-                if hist is not None:
-                    info['metadata']['histogram'] = hist
+                if 'histogram' in node.metadata and node.metadata['histogram'] is not None:
+                    info['metadata']['histogram'] = node.metadata['histogram']
+                    logger.debug(f"Using cached histogram for: {p}")
+                else:
+                    hist = compare_by_histogram.get_histogram(str(p))
+                    if hist is not None:
+                        info['metadata']['histogram'] = hist
             
             if opts.get('compare_llm') and llm_engine and node in llm_files_to_process:
-                processed_llm_files += 1
-                if progress_callback:
-                    progress_message = f"LLM Processing ({processed_llm_files}/{total_llm_files}): {p.name}"
-                    progress_callback(progress_message, processed_llm_files)
-                
-                embedding = llm_engine.get_image_embedding(str(p))
-                if embedding is not None:
-                    # Convert numpy array to list for JSON serialization
-                    info['metadata']['llm_embedding'] = embedding.tolist()
+                if 'llm_embedding' in node.metadata and node.metadata['llm_embedding'] is not None:
+                    info['metadata']['llm_embedding'] = node.metadata['llm_embedding']
+                    logger.debug(f"Using cached LLM embedding for: {p}")
+                    processed_llm_files += 1
+                    if progress_callback:
+                        progress_callback(f"LLM Cached ({processed_llm_files}/{total_llm_files}): {p.name}", processed_llm_files)
+                else:
+                    processed_llm_files += 1
+                    if progress_callback:
+                        progress_message = f"LLM Processing ({processed_llm_files}/{total_llm_files}): {p.name}"
+                        progress_callback(progress_message, processed_llm_files)
+
+                    embedding = llm_engine.get_image_embedding(str(p))
+                    if embedding is not None:
+                        # Convert numpy array to list for JSON serialization
+                        info['metadata']['llm_embedding'] = embedding.tolist()
 
 
             file_info[relative_path] = info

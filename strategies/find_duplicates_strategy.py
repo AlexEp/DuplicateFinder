@@ -8,28 +8,7 @@ from . import key_by_size
 from . import key_by_content_md5
 from . import compare_by_histogram
 from . import compare_by_llm
-
-def _find_connected_components(nodes, adj_list):
-    """Finds all connected components in a graph using a basic traversal."""
-    visited = set()
-    components = []
-    for node in nodes:
-        if node not in visited:
-            component = []
-            q = [node]
-            visited.add(node)
-            head = 0
-            while head < len(q):
-                u = q[head]
-                head += 1
-                component.append(u)
-                if u in adj_list:
-                    for v in adj_list[u]:
-                        if v not in visited:
-                            visited.add(v)
-                            q.append(v)
-            components.append(component)
-    return components
+from utils.graph_utils import find_connected_components
 
 def run(all_files_info, opts):
     """
@@ -134,7 +113,7 @@ def run(all_files_info, opts):
         # and an edge exists if two files are similar enough. After building the graph,
         # find all connected components. Each component is a set of files that are
         # all duplicates of each other.
-        components = _find_connected_components(nodes_in_group, adj_list)
+        components = find_connected_components(nodes_in_group, adj_list)
 
         # Only keep components with more than one file (actual duplicates)
         for component in components:

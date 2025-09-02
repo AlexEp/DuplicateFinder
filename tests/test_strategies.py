@@ -32,23 +32,26 @@ class TestComparisonStrategies(unittest.TestCase):
     def test_compare_by_content_md5(self):
         hash1 = "a" * 32
         hash2 = "b" * 32
+        key = 'compare_content_md5'
 
         # Test case: Hashes are equal
-        self.assertTrue(compare_by_content_md5.compare({'compare_content_md5': hash1}, {'compare_content_md5': hash1}))
+        self.assertTrue(compare_by_content_md5.compare({'metadata': {key: hash1}}, {'metadata': {key: hash1}}))
 
         # Test case: Hashes are not equal
-        self.assertFalse(compare_by_content_md5.compare({'compare_content_md5': hash1}, {'compare_content_md5': hash2}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: hash1}}, {'metadata': {key: hash2}}))
 
         # Test case: Key missing in one dictionary
-        self.assertFalse(compare_by_content_md5.compare({'compare_content_md5': hash1}, {}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: hash1}}, {}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: hash1}}, {'metadata': {}}))
+
 
         # Test case: Key missing in both dictionaries
         self.assertFalse(compare_by_content_md5.compare({}, {}))
 
         # Test case: One hash is None (e.g., failed to calculate)
-        self.assertFalse(compare_by_content_md5.compare({'compare_content_md5': hash1}, {'compare_content_md5': None}))
-        self.assertFalse(compare_by_content_md5.compare({'compare_content_md5': None}, {'compare_content_md5': hash1}))
-        self.assertFalse(compare_by_content_md5.compare({'compare_content_md5': None}, {'compare_content_md5': None}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: hash1}}, {'metadata': {key: None}}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: None}}, {'metadata': {key: hash1}}))
+        self.assertFalse(compare_by_content_md5.compare({'metadata': {key: None}}, {'metadata': {key: None}}))
 
 if __name__ == '__main__':
     unittest.main()
