@@ -24,6 +24,7 @@ The `ui.py` file is a "God Object" that violates the Single Responsibility Princ
 
 ## 2. UI Responsiveness and Concurrency
 
+
 **Observation:**
 Long-running tasks, particularly `build_folder_structure` in `logic.py` and `flatten_structure` in `strategies/utils.py` (especially when calculating MD5 hashes or LLM embeddings), are executed on the main UI thread. This causes the application to freeze, becoming unresponsive until the task is complete, which is a critical user experience issue.
 
