@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import logging
+from pathlib import Path
 from project_manager import ProjectManager
 from config import config
 
