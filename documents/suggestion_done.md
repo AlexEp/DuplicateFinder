@@ -4,6 +4,19 @@ This file contains suggestions that have been implemented.
 
 ---
 
+## 7. Performance Optimization
+
+**Observation:**
+The application recalculates metadata even when it might already be available, and the startup can be slow due to eager initialization of the LLM engine.
+
+**Suggestions:**
+
+*   **Avoid Recalculating Existing Metadata:** In `strategies/utils.py`, the `flatten_structure` function should be optimized to avoid re-computing expensive metadata. Before calculating an MD5 hash, histogram, or LLM embedding, the function should first check if that value already exists in the `FileNode`'s `metadata` dictionary. This will significantly speed up subsequent "Compare" actions when options are changed. (Note: Migrating to SQLite as suggested above would be a more robust way to solve this).
+
+*   **Lazy Load the LLM Engine:** As mentioned previously, initializing the LLM engine on startup can make the application feel slow. This process should be deferred until the user first selects the "LLM Content" option, and it should be run in a background thread to avoid freezing the UI. A loading indicator should be shown to the user during this process.
+
+---
+
 ## 3. Code Organization & Duplication
 
 **Observation:**

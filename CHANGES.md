@@ -2,6 +2,13 @@
 
 ## 2025-09-02
 
+- **Perf**: Implemented performance optimizations.
+  - The application now avoids recalculating existing metadata (MD5, Histogram, LLM embeddings) by caching these values in the project file.
+  - The LLM engine is now lazy-loaded in a background thread upon first use, significantly improving application startup time.
+- **Fix**: Corrected a latent bug in how metadata was stored, ensuring all metadata is consistently saved in the `metadata` dictionary within the project file.
+
+## 2025-09-02
+
 - **Refactor**: Improved code organization and removed duplication.
   - Removed duplicate method definitions for `_preview_file` and `_get_relative_path_from_selection` in `ui.py`.
   - Consolidated UI creation logic in `ui.py` by creating a factory method (`_create_folder_selection_frame`) for the folder selection frames, reducing repeated code.

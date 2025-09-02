@@ -4,8 +4,9 @@ def compare(file1_info, file2_info):
     Returns False if hash is missing from either file.
     """
     key = 'compare_content_md5'
-    if key in file1_info and key in file2_info:
-        # Also check that the hash calculation didn't fail (is not None)
-        if file1_info[key] is not None and file2_info[key] is not None:
-            return file1_info[key] == file2_info[key]
+    md5_1 = file1_info.get('metadata', {}).get(key)
+    md5_2 = file2_info.get('metadata', {}).get(key)
+
+    if md5_1 is not None and md5_2 is not None:
+        return md5_1 == md5_2
     return False

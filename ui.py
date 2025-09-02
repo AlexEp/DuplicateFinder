@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 import json
 import logging
+import threading
 import logic
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
@@ -49,6 +50,7 @@ class FolderComparisonApp:
 
         # --- LLM Engine ---
         self.llm_engine = None
+        self.llm_engine_loading = False
 
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
@@ -59,7 +61,10 @@ class FolderComparisonApp:
 
         self.create_widgets()
         self._set_main_ui_state('disabled')
-        self._initialize_llm_engine()
+        use_llm = config.get("use_llm", True)
+        if not use_llm:
+            if hasattr(self, 'llm_checkbox'):
+                self.llm_checkbox.config(state='disabled')
         logger.info("Application initialized.")
 
     def create_widgets(self):
@@ -230,16 +235,33 @@ class FolderComparisonApp:
             for child in widget.winfo_children(): set_state_recursive(child)
         set_state_recursive(self.main_content_frame)
 
-    def _initialize_llm_engine(self):
-        use_llm = config.get("use_llm", True)
-        if not use_llm:
-            self.llm_engine = None
-            if hasattr(self, 'llm_checkbox'):
-                self.llm_checkbox.config(state='disabled')
-            self.update_status("LLM engine disabled by settings.")
-            logger.info("LLM engine disabled by settings.")
-            return
+    def _ensure_llm_engine_loaded(self):
+        """
+        Checks if the LLM engine is loaded, and if not, starts the loading
+        process in a background thread.
+        Returns True if the engine is ready, False otherwise.
+        """
+        if self.llm_engine:
+            return True
+        if self.llm_engine_loading:
+            messagebox.showinfo("LLM Engine Loading", "The LLM engine is currently loading. Please try again in a moment.")
+            return False
+        if not config.get("use_llm", True):
+            return False
 
+        self.llm_engine_loading = True
+        self.llm_checkbox.config(state='disabled')
+        self.action_button.config(state='disabled')
+        self.update_status("Starting to load LLM engine...")
+
+        thread = threading.Thread(target=self._load_llm_engine_task)
+        thread.daemon = True
+        thread.start()
+
+        return False
+
+    def _load_llm_engine_task(self):
+        """The actual task of loading the LLM engine. To be run in a thread."""
         try:
             from ai_engine.engine import LlavaEmbeddingEngine
             self.update_status("Initializing LLM engine...")
@@ -256,6 +278,13 @@ class FolderComparisonApp:
             logger.error("LLM engine failed to load.", exc_info=True)
             messagebox.showwarning("LLM Engine Error",
                                    f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
+        finally:
+            # Re-enable UI elements and reset loading flag
+            self.llm_engine_loading = False
+            self.action_button.config(state='normal')
+            if config.get("use_llm", True):
+                 if hasattr(self, 'llm_checkbox'):
+                    self.llm_checkbox.config(state='normal')
 
     def update_status(self, message, progress_value=None):
         self.status_label.config(text=message)
@@ -716,17 +745,22 @@ class FolderComparisonApp:
                 try:
                     relative_path = Path(node.fullpath).relative_to(base_path_obj)
                     if relative_path in metadata_info:
-                        node.metadata.update(metadata_info[relative_path])
+                        # Only update with the 'metadata' part of the info dict
+                        if 'metadata' in metadata_info[relative_path]:
+                            node.metadata.update(metadata_info[relative_path]['metadata'])
                 except ValueError:
                     continue
             elif isinstance(node, FolderNode):
                 self._update_filenode_metadata(node.content, metadata_info, base_path)
 
     def run_action(self):
+        opts = self._gather_settings()['options']
+        if opts.get('compare_llm'):
+            if not self._ensure_llm_engine_loaded():
+                return # Engine is not ready, so we abort the action
+
         for i in self.results_tree.get_children():
             self.results_tree.delete(i)
-
-        opts = self._gather_settings()['options']
         mode = self.app_mode.get()
         logger.info(f"Running action '{mode}' with options: {opts}")
 
