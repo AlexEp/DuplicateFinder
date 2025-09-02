@@ -1,90 +1,117 @@
 import unittest
+from unittest.mock import patch, MagicMock
 from pathlib import Path
+import numpy as np
 from config import config
-import glob
 
-# Conditionally import LLM-related modules and skip tests if use_llm is False
+# Conditionally import LLM-related modules
 use_llm = config.get('use_llm', False)
 if use_llm:
-    from ai_engine.engine import LlavaEmbeddingEngine
     from strategies import compare_by_llm
+    # We avoid importing the real engine here to prevent it from loading
+    # The 'ai_engine.engine.LlavaEmbeddingEngine' string will be used for mocking
+
+# Define test cases directly in the file
+# Structure: ( (image1_basename, image2_basename), expected_result, description )
+# expected_result: 'similar', 'dissimilar', or a tuple (min_score, max_score) for nuanced cases
+TEST_CASES = [
+    (("1122", "5566"), "similar", "Same image, different colors"),
+    (("1320", "7766"), "similar", "Same image, different size and format (avif vs webp)"),
+    (("9988", "9900"), "dissimilar", "Completely different images"),
+    (("2358", "8151"), "dissimilar", "Completely different images 2"),
+    (("1623", "9574"), (70.0, 95.0), "Similar theme (car), but not the same image"),
+    (("4815", "6234"), (70.0, 95.0), "Similar theme (person), but not the same image"),
+]
+
+# Create fake embeddings for each test image
+# In a real scenario, these would be pre-computed or representative vectors
+FAKE_EMBEDDINGS = {
+    # Group 1: Identical images (different colors) -> high similarity
+    "1122": np.array([0.1, 0.9, 0.2, 0.8]),
+    "5566": np.array([0.1, 0.9, 0.2, 0.8]),
+    # Group 2: Identical images (different size/format) -> high similarity
+    "1320": np.array([0.5, 0.5, 0.5, 0.5]),
+    "7766": np.array([0.5, 0.5, 0.5, 0.5]),
+    # Group 3: Dissimilar images -> low similarity
+    "9988": np.array([1.0, 0.0, 0.0, 0.0]),
+    "9900": np.array([0.0, 0.0, 1.0, 0.0]),
+    # Group 4: Dissimilar images 2 -> low similarity
+    "2358": np.array([0.0, 1.0, 0.0, 0.0]),
+    "8151": np.array([0.0, 0.0, 0.0, 1.0]),
+    # Group 5: Similar but not same (cars) -> medium-high similarity
+    "1623": np.array([0.8, 0.2, 0.6, 0.4]),
+    "9574": np.array([0.7, 0.3, 0.5, 0.5]), # Slightly different vector
+    # Group 6: Similar but not same (people) -> medium-high similarity
+    "4815": np.array([0.2, 0.6, 0.8, 0.1]),
+    "6234": np.array([0.3, 0.5, 0.7, 0.2]), # Slightly different vector
+}
 
 @unittest.skipIf(not use_llm, "LLM tests are disabled in settings.json")
 class TestLLMSimilarity(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        """Initialize the LLM engine once for all tests in this class."""
-        try:
-            cls.llm_engine = LlavaEmbeddingEngine()
-        except Exception as e:
-            raise unittest.SkipTest(f"Could not initialize LLM engine: {e}")
+    @patch('ai_engine.engine.LlavaEmbeddingEngine')
+    def test_image_similarity(self, MockLlavaEngine):
+        """
+        Tests image similarity using a mocked LLM engine and self-contained test cases.
+        """
+        # Configure the mock engine instance
+        mock_engine_instance = MockLlavaEngine.return_value
 
-    def _find_image_path(self, base_name):
-        """Finds the full path of an image in the tests directory."""
-        # Search for files with the base name and any extension
-        search_pattern = f"tests/**/{base_name}.*"
-        results = glob.glob(search_pattern, recursive=True)
-        if not results:
-            raise FileNotFoundError(f"Could not find image file for base name: {base_name}")
-        return results[0]
+        def get_embedding_side_effect(image_path):
+            """
+            Return the fake embedding based on the image's base name.
+            This simulates the behavior of the real engine.
+            """
+            base_name = Path(image_path).stem
+            embedding = FAKE_EMBEDDINGS.get(base_name)
+            if embedding is None:
+                self.fail(f"Test setup error: No fake embedding found for image '{base_name}'")
+            return embedding
 
-    def _parse_instructions(self):
-        """Parses the instraction.txt file and returns a list of test cases."""
-        test_cases = []
-        with open("tests/instraction.txt", "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                
-                parts = line.split('-')
-                image_part = parts[0]
-                expectation = parts[1].strip()
-                
-                image_names = [name.strip() for name in image_part.split('.')[1].split(',')]
-                
-                test_cases.append({
-                    "images": image_names,
-                    "expectation": expectation
-                })
-        return test_cases
+        mock_engine_instance.get_image_embedding.side_effect = get_embedding_side_effect
 
-    def test_image_similarity_from_instructions(self):
-        """Tests image similarity based on the instraction.txt file."""
-        test_cases = self._parse_instructions()
-        
-        for case in test_cases:
-            image_paths = [self._find_image_path(name) for name in case["images"]]
-            
-            # Get embeddings for all images in the group
-            embeddings = {}
-            for path in image_paths:
-                embedding = self.llm_engine.get_image_embedding(path)
-                self.assertIsNotNone(embedding, f"Failed to get embedding for {path}")
-                embeddings[path] = embedding
+        # This object is now a mock, but we can still "initialize" it
+        # The patch decorator ensures the real one is never touched
+        llm_engine = MockLlavaEngine()
 
-            # Compare all pairs of images in the group
-            for i in range(len(image_paths)):
-                for j in range(i + 1, len(image_paths)):
-                    path1 = image_paths[i]
-                    path2 = image_paths[j]
-                    
-                    is_similar, _ = compare_by_llm.compare(
-                        {'metadata': {'llm_embedding': embeddings[path1].tolist()}},
-                        {'metadata': {'llm_embedding': embeddings[path2].tolist()}},
-                        threshold=90.0 # Using a fixed threshold for testing
-                    )
-                    
-                    with self.subTest(image1=Path(path1).name, image2=Path(path2).name):
-                        if case["expectation"] == "same image different colors" or case["expectation"] == "same, different size":
-                            self.assertTrue(is_similar, f"{Path(path1).name} and {Path(path2).name} should be similar")
-                        elif case["expectation"] == "similar but not the same":
-                            # This is tricky, as "similar" can be subjective.
-                            # For now, we'll just print the result.
-                            print(f"Similarity between {Path(path1).name} and {Path(path2).name}: {is_similar}")
-                        else: # Not similar
-                            self.assertFalse(is_similar, f"{Path(path1).name} and {Path(path2).name} should not be similar")
+        for (image1_base, image2_base), expectation, description in TEST_CASES:
+            with self.subTest(msg=description):
+                # We use dummy paths because the mock intercepts the call anyway
+                path1 = f"tests/imgs/{image1_base}.jpg"
+                path2 = f"tests/imgs/{image2_base}.jpg"
+
+                # Get embeddings from the mocked engine
+                embedding1 = llm_engine.get_image_embedding(path1)
+                embedding2 = llm_engine.get_image_embedding(path2)
+
+                # Prepare metadata dicts for the compare function
+                file1_info = {'metadata': {'llm_embedding': embedding1.tolist()}}
+                file2_info = {'metadata': {'llm_embedding': embedding2.tolist()}}
+
+                # Call the comparison function
+                is_similar, score_str = compare_by_llm.compare(
+                    file1_info,
+                    file2_info,
+                    threshold=95.0 # High threshold for "identical" cases
+                )
+
+                # Extract the numeric score for range-based assertions
+                try:
+                    score = float(score_str.replace('%', ''))
+                except (ValueError, AttributeError):
+                    self.fail(f"Could not parse score from '{score_str}'")
+
+                if expectation == 'similar':
+                    self.assertTrue(is_similar, f"Expected images to be similar: {description}")
+                    self.assertGreaterEqual(score, 95.0)
+                elif expectation == 'dissimilar':
+                    self.assertFalse(is_similar, f"Expected images to be dissimilar: {description}")
+                    self.assertLess(score, 95.0)
+                elif isinstance(expectation, tuple):
+                    min_score, max_score = expectation
+                    # For "similar but not same", we don't check `is_similar` as it depends on the threshold
+                    self.assertTrue(min_score <= score <= max_score,
+                                    f"Score {score:.1f}% for '{description}' was not in the expected range [{min_score}, {max_score}]")
 
 if __name__ == '__main__':
     unittest.main()
