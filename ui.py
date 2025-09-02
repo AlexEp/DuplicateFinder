@@ -30,6 +30,7 @@ class FolderComparisonApp:
         self.controller = None # Will be set by the controller
         self.build_buttons = []
 
+    def setup_ui(self):
         # --- Tracers ---
         self.app_mode.trace_add('write', self._on_mode_change)
         self.file_type_filter.trace_add('write', self._on_file_type_change)

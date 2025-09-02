@@ -38,6 +38,7 @@ class AppController:
         self.llm_engine_loading = False
 
         self._bind_variables_to_view()
+        self.view.setup_ui()
 
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
