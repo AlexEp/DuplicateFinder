@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-09-01
+
+- **Refactor**: Centralized configuration management.
+  - Introduced a singleton `Config` class in `config.py` to manage all application settings.
+  - Consolidated settings from `settings.json` and `llm_settings.json` into the `Config` object.
+  - Moved hardcoded model paths from `ai_engine/engine.py` to `settings.json`.
+  - Moved hardcoded file extension lists from `strategies/utils.py` to `settings.json`.
+  - Refactored all modules (`ui.py`, `logger_config.py`, etc.) to source configuration from the new `Config` class, removing direct file reads.
+- **Fix**: Made LLM-related tests skippable based on configuration.
+  - The `test_llm_similarity` test suite will now be skipped if `use_llm` is `false` in the application settings, preventing test failures in environments without the LLM components.
+
 ## 2025-08-31
 
 - **Feature**: Added application-wide logging.

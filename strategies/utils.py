@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 from models import FileNode, FolderNode
 from . import compare_by_histogram
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -20,25 +21,6 @@ def calculate_md5(file_path):
         logger.error(f"Could not calculate MD5 for {file_path}: {e}")
         return None
 
-def load_image_extensions():
-    """Loads the list of image extensions from settings.json."""
-    try:
-        with open("settings.json", "r") as f:
-            settings = json.load(f)
-            extensions = settings.get("image_extensions")
-            if isinstance(extensions, list):
-                return [ext.lower() for ext in extensions]
-    except (IOError, json.JSONDecodeError) as e:
-        logger.warning(f"Could not load image extensions from settings.json: {e}")
-    
-    # Default extensions if settings are not available
-    return ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif']
-
-IMAGE_EXTENSIONS = load_image_extensions()
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv']
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
-DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.odt', '.rtf']
-
 def flatten_structure(structure, base_path, opts=None, file_type_filter="all", llm_engine=None, progress_callback=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
@@ -54,10 +36,11 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
 
     # Get total number of files for progress reporting
     llm_files_to_process = []
+    image_extensions = config.get("file_extensions.image", [])
     if opts.get('compare_llm') and llm_engine:
         def find_llm_files(node):
             if isinstance(node, FileNode):
-                if Path(node.fullpath).suffix.lower() in IMAGE_EXTENSIONS:
+                if Path(node.fullpath).suffix.lower() in image_extensions:
                     llm_files_to_process.append(node)
             elif isinstance(node, FolderNode):
                 for child in node.content:
@@ -79,13 +62,13 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
             # File type filtering
             if file_type_filter != "all":
                 ext = p.suffix.lower()
-                if file_type_filter == "image" and ext not in IMAGE_EXTENSIONS:
+                if file_type_filter == "image" and ext not in image_extensions:
                     return
-                if file_type_filter == "video" and ext not in VIDEO_EXTENSIONS:
+                if file_type_filter == "video" and ext not in config.get("file_extensions.video", []):
                     return
-                if file_type_filter == "audio" and ext not in AUDIO_EXTENSIONS:
+                if file_type_filter == "audio" and ext not in config.get("file_extensions.audio", []):
                     return
-                if file_type_filter == "document" and ext not in DOCUMENT_EXTENSIONS:
+                if file_type_filter == "document" and ext not in config.get("file_extensions.document", []):
                     return
 
             try:

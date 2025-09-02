@@ -1,9 +1,15 @@
 import unittest
 from pathlib import Path
-from ai_engine.engine import LlavaEmbeddingEngine
-from strategies import compare_by_llm
+from config import config
 import glob
 
+# Conditionally import LLM-related modules and skip tests if use_llm is False
+use_llm = config.get('use_llm', False)
+if use_llm:
+    from ai_engine.engine import LlavaEmbeddingEngine
+    from strategies import compare_by_llm
+
+@unittest.skipIf(not use_llm, "LLM tests are disabled in settings.json")
 class TestLLMSimilarity(unittest.TestCase):
 
     @classmethod

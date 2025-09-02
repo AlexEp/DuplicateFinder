@@ -10,7 +10,7 @@ import logging
 import logic
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
-from strategies.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, DOCUMENT_EXTENSIONS
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -236,13 +236,7 @@ class FolderComparisonApp:
         set_state_recursive(self.main_content_frame)
 
     def _initialize_llm_engine(self):
-        try:
-            with open("settings.json", "r") as f:
-                settings = json.load(f)
-                use_llm = settings.get("use_llm", True)
-        except (IOError, json.JSONDecodeError):
-            use_llm = True # Default to true if settings are not available
-
+        use_llm = config.get("use_llm", True)
         if not use_llm:
             self.llm_engine = None
             if hasattr(self, 'llm_checkbox'):
@@ -624,8 +618,8 @@ class FolderComparisonApp:
         preview_state = tk.DISABLED
         if relative_path_str:
             file_ext = Path(relative_path_str).suffix.lower()
-            is_image = file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE
-            is_media = file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS
+            is_image = file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE
+            is_media = file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", [])
             if is_image or is_media:
                 preview_state = tk.NORMAL
 
@@ -695,7 +689,7 @@ class FolderComparisonApp:
 
         file_ext = full_path.suffix.lower()
         try:
-            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
                 logger.debug(f"Displaying image preview for: {full_path}")
                 win = tk.Toplevel(self.root)
                 win.title(full_path.name)
@@ -705,7 +699,7 @@ class FolderComparisonApp:
                 label = tk.Label(win, image=photo)
                 label.image = photo # Keep a reference!
                 label.pack()
-            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
                 logger.debug(f"Opening media file with default player: {full_path}")
                 if sys.platform == "win32":
                     os.startfile(full_path)
@@ -752,7 +746,7 @@ class FolderComparisonApp:
 
         file_ext = full_path.suffix.lower()
         try:
-            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
                 # Display image in a new window
                 win = tk.Toplevel(self.root)
                 win.title(full_path.name)
@@ -762,7 +756,7 @@ class FolderComparisonApp:
                 label = tk.Label(win, image=photo)
                 label.image = photo # Keep a reference!
                 label.pack()
-            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
                 # Open with default system player
                 if sys.platform == "win32":
                     os.startfile(full_path)
@@ -807,7 +801,7 @@ class FolderComparisonApp:
 
         file_ext = full_path.suffix.lower()
         try:
-            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
                 # Display image in a new window
                 win = tk.Toplevel(self.root)
                 win.title(full_path.name)
@@ -817,7 +811,7 @@ class FolderComparisonApp:
                 label = tk.Label(win, image=photo)
                 label.image = photo # Keep a reference!
                 label.pack()
-            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
                 # Open with default system player
                 if sys.platform == "win32":
                     os.startfile(full_path)
@@ -844,7 +838,7 @@ class FolderComparisonApp:
 
         file_ext = full_path.suffix.lower()
         try:
-            if file_ext in IMAGE_EXTENSIONS and PIL_AVAILABLE:
+            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
                 # Display image in a new window
                 win = tk.Toplevel(self.root)
                 win.title(full_path.name)
@@ -854,7 +848,7 @@ class FolderComparisonApp:
                 label = tk.Label(win, image=photo)
                 label.image = photo # Keep a reference!
                 label.pack()
-            elif file_ext in VIDEO_EXTENSIONS or file_ext in AUDIO_EXTENSIONS:
+            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
                 # Open with default system player
                 if sys.platform == "win32":
                     os.startfile(full_path)
