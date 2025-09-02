@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-09-02
+
+- **Refactor**: Improved code organization and removed duplication.
+  - Removed duplicate method definitions for `_preview_file` and `_get_relative_path_from_selection` in `ui.py`.
+  - Consolidated UI creation logic in `ui.py` by creating a factory method (`_create_folder_selection_frame`) for the folder selection frames, reducing repeated code.
+  - Moved the generic `_find_connected_components` graph algorithm from `strategies/find_duplicates_strategy.py` to a new, more appropriate `utils/graph_utils.py` module.
+
 ## 2025-09-01
 
 - **Refactor**: Centralized configuration management.

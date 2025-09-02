@@ -51,21 +51,6 @@ The industry best practice for a desktop application that needs to store, manage
 
 ---
 
-## 3. Code Organization & Duplication
-
-**Observation:**
-There are several instances of duplicated code and misplaced logic.
-
-**Suggestions:**
-
-*   **Remove Duplicate Methods in `ui.py`:** The file `ui.py` contains multiple, identical definitions for `_preview_file` and `_get_relative_path_from_selection`. This was likely a copy-paste error and should be reduced to a single implementation for each.
-
-*   **Consolidate UI Creation:** The UI frames for "Compare Folders", "Find Duplicates", and "Folder Search" are nearly identical. This can be refactored into a single factory method or class that creates a "folder selection frame" and returns it, avoiding the repetition of widget creation code.
-
-*   **Move Helper Functions:** The `_find_connected_components` function inside `find_duplicates_strategy.py` is a generic graph traversal algorithm. It should be moved to a general utility module (e.g., a new `utils/graph_utils.py`) to be more reusable and to keep the strategy file focused on its primary task.
-
----
-
 ## 5. Flexible Strategy Pattern
 
 **Observation:**

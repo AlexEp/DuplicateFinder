@@ -102,33 +102,10 @@ class FolderComparisonApp:
         self.folder_selection_area = tk.Frame(self.main_content_frame)
         self.folder_selection_area.pack(fill=tk.X)
 
-        # --- Compare Mode UI ---
-        self.compare_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folders to Compare", padx=10, pady=10)
-        row1 = tk.Frame(self.compare_mode_frame); row1.pack(fill=tk.X, pady=2)
-        tk.Label(row1, text="Folder 1:").pack(side=tk.LEFT); tk.Entry(row1, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
-        self.build_button_compare1 = tk.Button(row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_compare1.pack(side=tk.LEFT, padx=(5,0))
-        row2 = tk.Frame(self.compare_mode_frame); row2.pack(fill=tk.X, pady=2)
-        tk.Label(row2, text="Folder 2:").pack(side=tk.LEFT); tk.Entry(row2, textvariable=self.folder2_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(row2, text="Browse...", command=self.select_folder2).pack(side=tk.LEFT)
-        self.build_button_compare2 = tk.Button(row2, text="Build", command=lambda: self._build_metadata(2)); self.build_button_compare2.pack(side=tk.LEFT, padx=(5,0))
-        tk.Checkbutton(self.compare_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
-
-        # --- Duplicates Mode UI ---
-        self.duplicates_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Analyze", padx=10, pady=10)
-        dupes_row = tk.Frame(self.duplicates_mode_frame); dupes_row.pack(fill=tk.X, pady=2)
-        tk.Label(dupes_row, text="Folder:").pack(side=tk.LEFT); tk.Entry(dupes_row, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(dupes_row, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
-        self.build_button_dupes1 = tk.Button(dupes_row, text="Build", command=lambda: self._build_metadata(1)); self.build_button_dupes1.pack(side=tk.LEFT, padx=(5,0))
-        tk.Checkbutton(self.duplicates_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
-
-        # --- Search Mode UI ---
-        self.search_mode_frame = tk.LabelFrame(self.folder_selection_area, text="Folder to Search", padx=10, pady=10)
-        search_row1 = tk.Frame(self.search_mode_frame); search_row1.pack(fill=tk.X, pady=2)
-        tk.Label(search_row1, text="Folder:").pack(side=tk.LEFT); tk.Entry(search_row1, textvariable=self.folder1_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(search_row1, text="Browse...", command=self.select_folder1).pack(side=tk.LEFT)
-        self.build_button_search1 = tk.Button(search_row1, text="Build", command=lambda: self._build_metadata(1)); self.build_button_search1.pack(side=tk.LEFT, padx=(5,0))
-        tk.Checkbutton(self.search_mode_frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
+        # --- Create UI Frames for different modes ---
+        self.compare_mode_frame = self._create_folder_selection_frame("Folders to Compare", two_folders=True)
+        self.duplicates_mode_frame = self._create_folder_selection_frame("Folder to Analyze")
+        self.search_mode_frame = self._create_folder_selection_frame("Folder to Search")
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
         tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5)
@@ -201,6 +178,24 @@ class FolderComparisonApp:
         self._on_file_type_change()
         self._toggle_histogram_options()
         self._update_histogram_threshold_ui()
+
+    def _create_folder_selection_frame(self, frame_text, two_folders=False):
+        frame = tk.LabelFrame(self.folder_selection_area, text=frame_text, padx=10, pady=10)
+
+        def create_row(parent, label_text, path_var, browse_cmd, build_cmd):
+            row = tk.Frame(parent)
+            row.pack(fill=tk.X, pady=2)
+            tk.Label(row, text=label_text).pack(side=tk.LEFT)
+            tk.Entry(row, textvariable=path_var).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+            tk.Button(row, text="Browse...", command=browse_cmd).pack(side=tk.LEFT)
+            tk.Button(row, text="Build", command=build_cmd).pack(side=tk.LEFT, padx=(5, 0))
+
+        create_row(frame, "Folder 1:", self.folder1_path, self.select_folder1, lambda: self._build_metadata(1))
+        if two_folders:
+            create_row(frame, "Folder 2:", self.folder2_path, self.select_folder2, lambda: self._build_metadata(2))
+
+        tk.Checkbutton(frame, text="Include subfolders", variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
+        return frame
 
     def _on_mode_change(self, *args):
         mode = self.app_mode.get()
@@ -711,152 +706,6 @@ class FolderComparisonApp:
             logger.error(f"Failed to preview file: {full_path}", exc_info=True)
             messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
-    def _get_relative_path_from_selection(self):
-        selection = self.results_tree.selection()
-        if not selection:
-            return None, None
-
-        iid = selection[0]
-        item = self.results_tree.item(iid)
-
-        # Perform robust checks to ensure it's a valid file row with a path
-        is_file_row = 'file_row' in item.get('tags', [])
-        has_values = item.get('values')
-        has_path = has_values and len(has_values) > 2 and has_values[2]
-
-        if is_file_row and has_path:
-            return iid, has_values[2].strip()
-
-        return None, None
-
-    def _preview_file(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
-            return
-
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        if not base_path_str:
-            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
-            return
-
-        full_path = Path(base_path_str) / relative_path_str
-        if not full_path.is_file():
-            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
-            return
-
-        file_ext = full_path.suffix.lower()
-        try:
-            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
-                # Display image in a new window
-                win = tk.Toplevel(self.root)
-                win.title(full_path.name)
-                img = Image.open(full_path)
-                img.thumbnail((800, 600)) # Resize for display
-                photo = ImageTk.PhotoImage(img)
-                label = tk.Label(win, image=photo)
-                label.image = photo # Keep a reference!
-                label.pack()
-            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
-                # Open with default system player
-                if sys.platform == "win32":
-                    os.startfile(full_path)
-                elif sys.platform == "darwin":
-                    subprocess.Popen(["open", str(full_path)])
-                else:
-                    subprocess.Popen(["xdg-open", str(full_path)])
-        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
-
-    def _get_relative_path_from_selection(self):
-        selection = self.results_tree.selection()
-        if not selection:
-            return None, None
-
-        iid = selection[0]
-        item = self.results_tree.item(iid)
-
-        # Perform robust checks to ensure it's a valid file row with a path
-        is_file_row = 'file_row' in item.get('tags', [])
-        has_values = item.get('values')
-        has_path = has_values and len(has_values) > 2 and has_values[2]
-
-        if is_file_row and has_path:
-            return iid, has_values[2].strip()
-
-        return None, None
-
-    def _preview_file(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
-            return
-
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        if not base_path_str:
-            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
-            return
-
-        full_path = Path(base_path_str) / relative_path_str
-        if not full_path.is_file():
-            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
-            return
-
-        file_ext = full_path.suffix.lower()
-        try:
-            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
-                # Display image in a new window
-                win = tk.Toplevel(self.root)
-                win.title(full_path.name)
-                img = Image.open(full_path)
-                img.thumbnail((800, 600)) # Resize for display
-                photo = ImageTk.PhotoImage(img)
-                label = tk.Label(win, image=photo)
-                label.image = photo # Keep a reference!
-                label.pack()
-            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
-                # Open with default system player
-                if sys.platform == "win32":
-                    os.startfile(full_path)
-                elif sys.platform == "darwin":
-                    subprocess.Popen(["open", str(full_path)])
-                else:
-                    subprocess.Popen(["xdg-open", str(full_path)])
-        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
-
-    def _preview_file(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
-            return
-
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        if not base_path_str:
-            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
-            return
-
-        full_path = Path(base_path_str) / relative_path_str
-        if not full_path.is_file():
-            messagebox.showerror("Error", f"File does not exist:\n{full_path}")
-            return
-
-        file_ext = full_path.suffix.lower()
-        try:
-            if file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE:
-                # Display image in a new window
-                win = tk.Toplevel(self.root)
-                win.title(full_path.name)
-                img = Image.open(full_path)
-                img.thumbnail((800, 600)) # Resize for display
-                photo = ImageTk.PhotoImage(img)
-                label = tk.Label(win, image=photo)
-                label.image = photo # Keep a reference!
-                label.pack()
-            elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
-                # Open with default system player
-                if sys.platform == "win32":
-                    os.startfile(full_path)
-                elif sys.platform == "darwin":
-                    subprocess.Popen(["open", str(full_path)])
-                else:
-                    subprocess.Popen(["xdg-open", str(full_path)])
-        except Exception as e: messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
 
     def _update_filenode_metadata(self, structure, metadata_info, base_path):
