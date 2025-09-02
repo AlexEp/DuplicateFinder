@@ -30,6 +30,7 @@ class FolderComparisonApp:
         self.folder2_structure = None
 
         # --- UI variables ---
+        self.build_buttons = []
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
@@ -193,7 +194,9 @@ class FolderComparisonApp:
             tk.Label(row, text=label_text).pack(side=tk.LEFT)
             tk.Entry(row, textvariable=path_var).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
             tk.Button(row, text="Browse...", command=browse_cmd).pack(side=tk.LEFT)
-            tk.Button(row, text="Build", command=build_cmd).pack(side=tk.LEFT, padx=(5, 0))
+            build_button = tk.Button(row, text="Build", command=build_cmd)
+            build_button.pack(side=tk.LEFT, padx=(5, 0))
+            self.build_buttons.append(build_button)
 
         create_row(frame, "Folder 1:", self.folder1_path, self.select_folder1, lambda: self._build_metadata(1))
         if two_folders:
@@ -374,13 +377,12 @@ class FolderComparisonApp:
         self.histogram_threshold.set(default_threshold)
 
     def _build_metadata(self, folder_num):
-        build_buttons = [self.build_button_compare1, self.build_button_compare2, self.build_button_dupes1]
         path_var = self.folder1_path if folder_num == 1 else self.folder2_path
         path = path_var.get()
         logger.info(f"Starting metadata build for folder {folder_num} at path: {path}")
 
         try:
-            for btn in build_buttons: btn.config(state='disabled')
+            for btn in self.build_buttons: btn.config(state='disabled')
             self.update_status(f"Building metadata for Folder {folder_num}...")
 
             if not self._save_project():
