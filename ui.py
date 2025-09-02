@@ -410,7 +410,7 @@ class FolderComparisonApp:
             messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
         finally:
             self.update_status("Ready.")
-            for btn in build_buttons: btn.config(state='normal')
+            for btn in self.build_buttons: btn.config(state='normal')
 
     def _gather_settings(self):
         settings = {
