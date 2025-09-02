@@ -83,7 +83,85 @@ Configuration is scattered across `settings.json`, `llm_settings.json`, and hard
 
 ---
 
-## 5. Strategy & Logic Improvements
+## 5. Flexible Strategy Pattern
+
+**Observation:**
+The current system for comparison strategies relies on orchestrator files (`find_common_strategy.py`) that explicitly import and check for each individual strategy using a series of `if` statements. This pattern is rigid and violates the Open/Closed Principle, as adding a new strategy requires modifying this central file.
+
+**Best Practice Recommendation: Implement the Strategy Pattern**
+
+To make the system more flexible, maintainable, and extensible, a formal Strategy Pattern should be implemented using Python's Abstract Base Classes (ABCs).
+
+**Implementation Steps:**
+
+1.  **Define a `BaseComparisonStrategy` Interface:** Create a new file (`strategies/base.py`) with an abstract class that defines the "contract" all strategies must follow. This ensures consistency and makes the system self-documenting.
+    ```python
+    # strategies/base.py
+    from abc import ABC, abstractmethod
+
+    class BaseComparisonStrategy(ABC):
+        @property
+        @abstractmethod
+        def option_key(self) -> str:
+            """The key used in the UI options dict (e.g., 'compare_size')."""
+            pass
+
+        @abstractmethod
+        def compare(self, file1_info: dict, file2_info: dict) -> bool:
+            """The core comparison logic. Returns True if files match."""
+            pass
+    ```
+
+2.  **Implement Concrete Strategies:** Refactor each comparison function (e.g., `compare_by_size.py`) into a class that inherits from `BaseComparisonStrategy` and implements the required properties and methods.
+    ```python
+    # strategies/compare_by_size.py
+    from .base import BaseComparisonStrategy
+
+    class SizeStrategy(BaseComparisonStrategy):
+        @property
+        def option_key(self) -> str:
+            return "compare_size"
+
+        def compare(self, file1_info: dict, file2_info: dict) -> bool:
+            size1 = file1_info.get('compare_size')
+            size2 = file2_info.get('compare_size')
+            return size1 is not None and size1 == size2
+    ```
+
+3.  **Use Automatic Discovery:** Create a "strategy registry" that automatically discovers all available strategy classes. This eliminates the need for manual `import` and `if` statements in the orchestrator.
+    ```python
+    # strategies/registry.py
+    # This can be implemented in a way that it automatically finds all
+    # subclasses of BaseComparisonStrategy.
+
+    # A simplified version:
+    from . import compare_by_size, compare_by_date # etc.
+    ALL_STRATEGIES = [
+        compare_by_size.SizeStrategy(),
+        compare_by_date.DateStrategy(),
+        # To add a new strategy, just add it to this list.
+    ]
+
+    def get_active_strategies(opts: dict) -> list:
+        return [s for s in ALL_STRATEGIES if opts.get(s.option_key)]
+    ```
+
+4.  **Simplify the Orchestrator:** The `find_common_strategy.py` file becomes simpler and no longer needs to be modified when new strategies are added, thus adhering to the Open/Closed Principle.
+    ```python
+    # find_common_strategy.py
+    from .registry import get_active_strategies
+
+    def run(info1, info2, opts):
+        # ...
+        active_strategies = get_active_strategies(opts)
+        # ...
+        is_match = all(s.compare(file1_info, file2_info) for s in active_strategies)
+        # ...
+    ```
+
+---
+
+## 6. Strategy & Logic Improvements
 
 **Observation:**
 The core strategy logic is sound, but some implementations could be clearer and more consistent.
@@ -100,7 +178,7 @@ The core strategy logic is sound, but some implementations could be clearer and 
 
 ---
 
-## 6. Performance Optimization
+## 7. Performance Optimization
 
 **Observation:**
 The application recalculates metadata even when it might already be available, and the startup can be slow due to eager initialization of the LLM engine.
@@ -113,7 +191,7 @@ The application recalculates metadata even when it might already be available, a
 
 ---
 
-## 7. UI/UX and Accessibility
+## 8. UI/UX and Accessibility
 
 **Observation:**
 The user experience could be improved with better feedback and more ways to interact with the application.
@@ -131,7 +209,7 @@ The user experience could be improved with better feedback and more ways to inte
 
 ---
 
-## 8. Testing Strategy
+## 9. Testing Strategy
 
 **Observation:**
 The strategy logic is well-tested, but the UI is completely untested, and the LLM tests have some weaknesses.
