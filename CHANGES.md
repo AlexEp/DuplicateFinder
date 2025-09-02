@@ -2,6 +2,13 @@
 
 ## 2025-09-02
 
+-   **Improved LLM Testing Strategy**:
+    -   Refactored `tests/test_llm_similarity.py` to remove dependency on the external `instraction.txt` file, making tests self-contained and more robust.
+    -   Strengthened assertions to check for similarity scores within a specific range for "similar but not the same" cases.
+    -   Mocked the `LlavaEmbeddingEngine` during tests to significantly improve test execution speed and remove the need for actual model files during the test run.
+
+## 2025-09-02
+
 - **Perf**: Implemented performance optimizations.
   - The application now avoids recalculating existing metadata (MD5, Histogram, LLM embeddings) by caching these values in the project file.
   - The LLM engine is now lazy-loaded in a background thread upon first use, significantly improving application startup time.

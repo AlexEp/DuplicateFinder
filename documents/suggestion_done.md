@@ -4,6 +4,23 @@ This file contains suggestions that have been implemented.
 
 ---
 
+## 9. Testing Strategy
+
+**Observation:**
+The strategy logic is well-tested, but the UI is completely untested, and the LLM tests have some weaknesses.
+
+**Suggestions:**
+
+*   **Enable UI Testing via Refactoring:** The architectural refactoring suggested in point #1 is a prerequisite for testing. Once the `AppController` exists, it can be unit-tested independently of the Tkinter UI.
+
+*   **Strengthen LLM Tests:**
+    *   The assertion for the "similar but not the same" case in `test_llm_similarity.py` should be made more concrete. Instead of printing the result, it should assert that the similarity score falls within a specific *range* (e.g., `assertTrue(70.0 < score < 90.0)`).
+    *   The test's reliance on `instraction.txt` is clever but brittle. Consider using a more standard testing pattern with explicit inputs and expected outputs directly in the test file to improve readability and maintainability.
+
+*   **Mock Expensive Operations:** The LLM tests currently initialize the entire engine and run real embeddings. For many tests, the `LlavaEmbeddingEngine` could be mocked to return pre-computed embeddings. This would make the tests much faster and independent of the actual model files.
+
+---
+
 ## 7. Performance Optimization
 
 **Observation:**
