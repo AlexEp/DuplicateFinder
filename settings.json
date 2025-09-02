@@ -1,5 +1,14 @@
 {
   "log_level": "INFO",
   "use_llm": false,
-  "image_extensions": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"]
+  "models": {
+    "llava_model_path": "./models/llava-v1.5-7b-Q5_K_M.gguf",
+    "mmproj_model_path": "./models/mmproj-model-f16.gguf"
+  },
+  "file_extensions": {
+    "image": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp", ".avif"],
+    "video": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"],
+    "audio": [".mp3", ".wav", ".ogg", ".flac", ".m4a"],
+    "document": [".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf"]
+  }
 }

@@ -1,14 +1,14 @@
 import logging
-import json
 import os
 from datetime import datetime
+from config import config
 
 def setup_logging():
     """
     Sets up logging for the application.
 
-    Reads the log level from settings.json, creates a 'logs' directory if it
-    doesn't exist, and configures a logger to write to a file named
+    Reads the log level from the central config, creates a 'logs' directory
+    if it doesn't exist, and configures a logger to write to a file named
     YYYYMMDD.log within that directory.
     """
     log_dir = "logs"
@@ -17,14 +17,7 @@ def setup_logging():
 
     log_file = os.path.join(log_dir, f"{datetime.now().strftime('%Y%m%d')}.log")
 
-    log_level = "INFO"  # Default log level
-    try:
-        with open("settings.json", "r") as f:
-            settings = json.load(f)
-            log_level = settings.get("log_level", "INFO").upper()
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        # Use default level, but log the error to the console during setup
-        print(f"Warning: Could not read log level from settings.json ({e}). Defaulting to INFO.")
+    log_level = config.get("log_level", "INFO").upper()
 
     # Get the numeric value for the log level
     numeric_level = getattr(logging, log_level, logging.INFO)

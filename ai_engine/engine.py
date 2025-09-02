@@ -8,18 +8,20 @@ import ctypes
 from PIL import Image
 import os
 import llama_cpp.llava_cpp as llava_cpp
-
-# --- Configuration ---
-# These paths must point to the downloaded GGUF model files.
-LLAVA_MODEL_PATH = "./models/llava-v1.5-7b-Q5_K_M.gguf"
-MMPROJ_MODEL_PATH = "./models/mmproj-model-f16.gguf"
+from config import config
 
 class LlavaEmbeddingEngine:
-    def __init__(self, llava_path=LLAVA_MODEL_PATH, mmproj_path=MMPROJ_MODEL_PATH, gpu_layers=0):
+    def __init__(self, gpu_layers=0):
         """
         Initializes the LLaVA embedding engine. This is a costly operation
         and should be done only once per application lifecycle.
         """
+        llava_path = config.get("models.llava_model_path")
+        mmproj_path = config.get("models.mmproj_model_path")
+
+        if not llava_path or not mmproj_path:
+            raise ValueError("Model paths are not defined in the configuration.")
+
         if not os.path.exists(llava_path) or not os.path.exists(mmproj_path):
             raise FileNotFoundError(f"Model files not found. Please ensure '{llava_path}' and '{mmproj_path}' exist.")
 
