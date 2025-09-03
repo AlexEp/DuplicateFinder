@@ -24,7 +24,11 @@ def run(info1, info2, opts):
     if opts.get('compare_content_md5'):
         active_strategies.append(compare_by_content_md5.compare)
     if opts.get('compare_llm'):
-        threshold = float(opts.get('llm_similarity_threshold', 0.8)) * 100
+        # Use the dedicated LLM similarity threshold from the options.
+        try:
+            threshold = float(opts.get('llm_similarity_threshold', 0.8))
+        except (ValueError, TypeError):
+            threshold = 0.8 # Default value in case of invalid data
         active_strategies.append(
             lambda f1, f2: compare_by_llm.compare(f1, f2, threshold)[0]
         )

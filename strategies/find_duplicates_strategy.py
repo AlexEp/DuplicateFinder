@@ -78,7 +78,10 @@ def run(all_files_info, opts):
         comparison_strategies.append(histogram_comparator)
 
     if opts.get('compare_llm'):
-        llm_threshold = float(opts.get('llm_similarity_threshold', 0.8)) * 100
+        try:
+            llm_threshold = float(opts.get('llm_similarity_threshold', 0.8))
+        except (ValueError, TypeError):
+            llm_threshold = 0.8
         comparison_strategies.append(
             lambda f1, f2: compare_by_llm.compare(f1, f2, llm_threshold)[0]
         )

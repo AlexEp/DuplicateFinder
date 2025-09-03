@@ -27,7 +27,8 @@ class ProjectManager:
                 "compare_histogram": self.controller.compare_histogram.get(),
                 "compare_llm": self.controller.compare_llm.get(),
                 "histogram_method": self.controller.histogram_method.get(),
-                "histogram_threshold": self.controller.histogram_threshold.get()
+                "histogram_threshold": self.controller.histogram_threshold.get(),
+                "llm_similarity_threshold": self.controller.llm_similarity_threshold.get()
             }
         }
         metadata = {}

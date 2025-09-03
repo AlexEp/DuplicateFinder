@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
 import logging
-import threading
 from pathlib import Path
 from models import FileNode, FolderNode
 from project_manager import ProjectManager
@@ -20,8 +19,6 @@ class AppController:
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
-        self.search_query = tk.StringVar()
-        self.search_size_greater_than = tk.DoubleVar(value=10.0)
         self.move_to_path = tk.StringVar()
         self.file_type_filter = tk.StringVar(value="all")
 
@@ -35,7 +32,7 @@ class AppController:
         self.histogram_method = tk.StringVar(value='Correlation')
         self.histogram_threshold = tk.StringVar(value='0.9')
         self.compare_llm = tk.BooleanVar()
-        self.llm_similarity_threshold = tk.DoubleVar(value=config.get('llm.llm_similarity_threshold', 0.8))
+        self.llm_similarity_threshold = tk.StringVar(value='0.8')
 
         # --- Folder Structures ---
         self.folder1_structure = None
@@ -48,31 +45,11 @@ class AppController:
         self._bind_variables_to_view()
         self.view.setup_ui()
 
-        if config.get("preload_llm_on_startup"):
-            self._preload_llm_engine()
-
-    def _preload_llm_engine(self):
-        """
-        Starts the LLM engine loading process in a background thread on app start.
-        """
-        if self.llm_engine or self.llm_engine_loading or not config.get("use_llm", True):
-            return
-
-        self.llm_engine_loading = True
-        self.view.update_status("Pre-loading LLM engine in background...")
-        logger.info("Starting background LLM engine pre-loading.")
-
-        thread = threading.Thread(target=self._load_llm_engine_task)
-        thread.daemon = True
-        thread.start()
-
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
         self.view.folder1_path = self.folder1_path
         self.view.folder2_path = self.folder2_path
         self.view.app_mode = self.app_mode
-        self.view.search_query = self.search_query
-        self.view.search_size_greater_than = self.search_size_greater_than
         self.view.move_to_path = self.move_to_path
         self.view.file_type_filter = self.file_type_filter
         self.view.include_subfolders = self.include_subfolders
@@ -100,6 +77,7 @@ class AppController:
         self.compare_content_md5.set(False)
         self.compare_histogram.set(False)
         self.compare_llm.set(False)
+        self.llm_similarity_threshold.set('0.8')
         self.histogram_method.set('Correlation')
         self.histogram_threshold.set('0.9')
         self.folder1_structure = None
@@ -157,22 +135,19 @@ class AppController:
             logger.info("LLM engine loaded successfully.")
         except Exception as e:
             self.llm_engine = None
+            if hasattr(self.view, 'llm_checkbox'):
+                self.view.llm_checkbox.config(state='disabled')
+            self.view.update_status("LLM engine failed to load. LLM features disabled.")
             logger.error("LLM engine failed to load.", exc_info=True)
-            # This task can run before the UI is fully interactive, so check for view readiness
-            if self.view.root.winfo_exists():
-                 if hasattr(self.view, 'llm_checkbox'):
-                    self.view.llm_checkbox.config(state='disabled')
-                 self.view.update_status("LLM engine failed to load. LLM features disabled.")
-                 messagebox.showwarning("LLM Engine Error",
+            messagebox.showwarning("LLM Engine Error",
                                    f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
         finally:
+            # Re-enable UI elements and reset loading flag
             self.llm_engine_loading = False
-            # This task can run before the UI is fully interactive, so check for view readiness
-            if self.view.root.winfo_exists():
-                self.view.action_button.config(state='normal')
-                if config.get("use_llm", True):
-                    if hasattr(self.view, 'llm_checkbox'):
-                        self.view.llm_checkbox.config(state='normal')
+            self.view.action_button.config(state='normal')
+            if config.get("use_llm", True):
+                 if hasattr(self.view, 'llm_checkbox'):
+                    self.view.llm_checkbox.config(state='normal')
 
     def _build_metadata(self, folder_num):
         path_var = self.folder1_path if folder_num == 1 else self.folder2_path
@@ -212,6 +187,18 @@ class AppController:
 
     def run_action(self):
         opts = self.project_manager._gather_settings()['options']
+        mode = self.app_mode.get()
+
+        # Warn user about slow performance for histogram-only duplicate search
+        if mode == "duplicates" and opts.get('compare_histogram') and not (opts.get('compare_size') or opts.get('compare_content_md5') or opts.get('compare_name') or opts.get('compare_date')):
+            if not messagebox.askokcancel(
+                "Performance Warning",
+                "Finding duplicates using only the 'Histogram' or 'LLM' option can be very slow and memory-intensive.\n\n"
+                "It is highly recommended to also select a faster option like 'Size' or 'Content (MD5)' to pre-filter the files.\n\n"
+                "Do you want to continue anyway?"
+            ):
+                return # Abort the action
+
         if opts.get('compare_llm'):
             if not self._ensure_llm_engine_loaded():
                 return # Engine is not ready, so we abort the action
@@ -286,26 +273,6 @@ class AppController:
                     messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
                     return
 
-                # Check for histogram-only comparison
-                is_histogram_only = opts.get('compare_histogram') and not (
-                    opts.get('compare_name') or
-                    opts.get('compare_date') or
-                    opts.get('compare_size') or
-                    opts.get('compare_content_md5')
-                )
-                if is_histogram_only:
-                    proceed = messagebox.askyesno(
-                        "Performance Warning",
-                        "Finding duplicates by 'Histogram' alone can be very slow "
-                        "on large numbers of files.\n\n"
-                        "It is recommended to also select a faster attribute like 'Size' "
-                        "to pre-group the files.\n\n"
-                        "Do you want to continue?"
-                    )
-                    if not proceed:
-                        self.view.update_status("Ready.")
-                        return
-
                 results = find_duplicates_strategy.run(info1, opts)
                 logger.info(f"Duplicates action finished. Found {len(results)} duplicate groups.")
                 if not results:
@@ -321,28 +288,6 @@ class AppController:
                             file_name = Path(relative_path).name
                             self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
 
-            elif mode == "search":
-                if not info1:
-                    logger.error("Search action failed: metadata for the folder is required.")
-                    messagebox.showerror("Error", "Please build metadata for the folder before searching.")
-                    return
-
-                size_threshold_mb = self.search_size_greater_than.get()
-                size_threshold_bytes = size_threshold_mb * 1024 * 1024
-
-                results = [
-                    info for info in info1.values()
-                    if info.get('compare_size', 0) > size_threshold_bytes
-                ]
-                logger.info(f"Search action finished. Found {len(results)} matching files.")
-                if not results:
-                    self.view.results_tree.insert('', tk.END, values=(f"No files found matching the filter.", "", ""), tags=('info_row',))
-                else:
-                    for file_info in results:
-                        size = file_info.get('compare_size', 'N/A')
-                        relative_path = file_info.get('relative_path', '')
-                        file_name = Path(relative_path).name
-                        self.view.results_tree.insert('', tk.END, values=(file_name, size, relative_path), tags=('file_row',))
         except Exception as e:
             logger.critical("An unexpected error occurred during the main action.", exc_info=True)
             messagebox.showerror("Error", f"An unexpected error occurred during comparison:\n{e}")

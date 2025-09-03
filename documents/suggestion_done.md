@@ -4,6 +4,17 @@ This file contains suggestions that have been implemented.
 
 ---
 
+## 7. Strategy & Logic Improvements
+
+**Observation:**
+The core strategy logic is sound, but some implementations could be clearer and more robust.
+
+**Suggestions:**
+
+*   **Decouple LLM and Histogram Thresholds:** The LLM comparison reuses the histogram threshold, which is confusing. A dedicated `llm_similarity_threshold` should be added to the UI and options.
+*   **Clarify the "Search" Mode:** The purpose of this mode is unclear. It should either be removed or enhanced to allow searching by specific metadata attributes (e.g., "find all files larger than 10MB").
+*   **Improve `find_duplicates_strategy.py` Robustness:** Warn the user in the UI if they select only "Histogram" for finding duplicates, as this can be extremely slow. Recommend they also select a faster keying strategy like "Size".
+
 ## 1. Architectural Refactoring: The `ui.py` "God Object"
 
 **Observation:**
@@ -81,31 +92,5 @@ Configuration is scattered across `settings.json`, `llm_settings.json`, and hard
 *   **Move Hardcoded Paths to Configuration:** The model paths `LLAVA_MODEL_PATH` and `MMPROJ_MODEL_PATH` in `ai_engine/engine.py` should be removed and placed into `settings.json` or a new `models.json` config file. This allows users to change model locations without editing the source code.
 
 *   **Externalize More Settings:** The file extension lists (`VIDEO_EXTENSIONS`, `AUDIO_EXTENSIONS`, `DOCUMENT_EXTENSIONS`) in `strategies/utils.py` should be moved into `settings.json` to make them user-configurable.
-
----
----
-
-## 8. LLM Engine Lifecycle Management
-
-**Observation:**
-The LLM engine is loaded on-demand, which introduces a significant delay the first time a user performs an LLM-related action.
-
-**Suggestion: Offer Pre-loading as an Option**
-
-*   **Add a User Setting:** Introduce a setting (e.g., in `settings.json` or a new settings dialog) to "Pre-load LLM engine on startup".
-*   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
-
----
-
-## 7. Strategy & Logic Improvements
-
-**Observation:**
-The core strategy logic is sound, but some implementations could be clearer and more robust.
-
-**Suggestions:**
-
-*   **Decouple LLM and Histogram Thresholds:** The LLM comparison reuses the histogram threshold, which is confusing. A dedicated `llm_similarity_threshold` should be added to the UI and options.
-*   **Clarify the "Search" Mode:** The purpose of this mode is unclear. It should either be removed or enhanced to allow searching by specific metadata attributes (e.g., "find all files larger than 10MB").
-*   **Improve `find_duplicates_strategy.py` Robustness:** Warn the user in the UI if they select only "Histogram" for finding duplicates, as this can be extremely slow. Recommend they also select a faster keying strategy like "Size".
 
 ---

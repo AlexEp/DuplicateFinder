@@ -110,6 +110,18 @@ Configuration values are scattered. `config.py` exists, but many UI-facing value
 
 ---
 
+## 8. LLM Engine Lifecycle Management
+
+**Observation:**
+The LLM engine is loaded on-demand, which introduces a significant delay the first time a user performs an LLM-related action.
+
+**Suggestion: Offer Pre-loading as an Option**
+
+*   **Add a User Setting:** Introduce a setting (e.g., in `settings.json` or a new settings dialog) to "Pre-load LLM engine on startup".
+*   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
+
+---
+
 ## 9. UI/UX and Code Readability
 
 **Observation:**
