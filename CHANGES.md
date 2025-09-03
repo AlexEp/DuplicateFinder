@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-09-03
+- **UX/Readability**: Implemented several UI/UX and code readability improvements.
+  - Added tooltips to all major buttons and options to clarify their function.
+  - Implemented keyboard shortcuts for common actions: `Ctrl+B` to build metadata and `Ctrl+R` to run the main action.
+  - Refactored UI code in `ui.py` to reduce duplication, particularly in file operation and context menu logic.
+  - Enhanced error feedback by collecting and displaying a list of inaccessible files/folders to the user after the build process.
+
 ## 2025-09-02
 - **Feature**: Decoupled LLM similarity threshold from the histogram threshold, adding a dedicated input field in the UI.
 - **Refactor**: Removed the non-functional "Search" mode to simplify the user interface.

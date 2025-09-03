@@ -45,6 +45,19 @@ class AppController:
         self._bind_variables_to_view()
         self.view.setup_ui()
 
+    def build_active_folders(self, event=None):
+        """Builds metadata for the folder(s) relevant to the current mode."""
+        mode = self.app_mode.get()
+        logger.info(f"Keyboard shortcut triggered for build. Mode: {mode}")
+        if mode == "compare":
+            if self.folder1_path.get():
+                self._build_metadata(1)
+            if self.folder2_path.get():
+                self._build_metadata(2)
+        else:  # duplicates
+            if self.folder1_path.get():
+                self._build_metadata(1)
+
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
         self.view.folder1_path = self.folder1_path
@@ -168,14 +181,26 @@ class AppController:
                 messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_num}.")
                 return
 
-            structure = logic.build_folder_structure(path)
+            structure, inaccessible_paths = logic.build_folder_structure(path)
             if folder_num == 1: self.folder1_structure = structure
             else: self.folder2_structure = structure
             logger.info(f"Successfully built folder structure for folder {folder_num}.")
 
             self.view.update_status(f"Metadata built for Folder {folder_num}. Saving project...")
             self.project_manager.save_project()
-            messagebox.showinfo("Success", f"Metadata built and saved for Folder {folder_num}.")
+
+            success_message = f"Metadata built and saved for Folder {folder_num}."
+            if inaccessible_paths:
+                warning_message = (
+                    f"{success_message}\n\n"
+                    "Warning: The following files or folders could not be accessed and were skipped:\n\n"
+                    + "\n".join(f"- {p}" for p in inaccessible_paths[:10]) # Show first 10
+                )
+                if len(inaccessible_paths) > 10:
+                    warning_message += f"\n\n...and {len(inaccessible_paths) - 10} more."
+                messagebox.showwarning("Build Warning", warning_message)
+            else:
+                messagebox.showinfo("Success", success_message)
             logger.info(f"Metadata build and save successful for folder {folder_num}.")
 
         except Exception as e:
@@ -185,7 +210,7 @@ class AppController:
             self.view.update_status("Ready.")
             for btn in self.view.build_buttons: btn.config(state='normal')
 
-    def run_action(self):
+    def run_action(self, event=None):
         opts = self.project_manager._gather_settings()['options']
         mode = self.app_mode.get()
 

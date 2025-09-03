@@ -109,15 +109,3 @@ The LLM engine is loaded on-demand, which introduces a significant delay the fir
 *   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
 
 ---
-
-## 9. UI/UX and Code Readability
-
-**Observation:**
-The user experience and code maintainability could be improved with better feedback and refactoring.
-
-**Suggestions:**
-
-*   **Add Tooltips:** Add tooltips to all buttons and options to explain their purpose.
-*   **Implement Keyboard Shortcuts:** Add shortcuts for common actions (`Ctrl+B` to Build, `Ctrl+R` to Run) to improve accessibility.
-*   **Refactor UI Code:** The `_move_file`, `_delete_file`, and `_open_containing_folder` methods in `ui.py` contain duplicated logic. Refactor this into helper methods to improve readability and reduce redundancy. Similarly, the context menu creation logic in `_show_context_menu` should be simplified.
-*   **Enhanced Error Feedback:** In `logic.py`, instead of just logging `OSError`, collect a list of inaccessible files/folders and present them to the user in a summary message after the build process completes.
