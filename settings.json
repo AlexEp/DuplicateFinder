@@ -10,5 +10,89 @@
     "video": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"],
     "audio": [".mp3", ".wav", ".ogg", ".flac", ".m4a"],
     "document": [".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf"]
+  },
+  "histogram_methods": {
+    "Correlation": {
+      "info_text": "(Higher value is more similar)",
+      "default_threshold": 0.9
+    },
+    "Chi-Square": {
+      "info_text": "(Lower value is more similar)",
+      "default_threshold": 0.1
+    },
+    "Intersection": {
+      "info_text": "(Higher value is more similar)",
+      "default_threshold": 0.9
+    },
+    "Bhattacharyya": {
+      "info_text": "(Lower value is more similar)",
+      "default_threshold": 0.1
+    }
+  },
+  "ui": {
+    "title": "Folder Comparison Tool",
+    "modes": {
+      "compare": "Compare Folders",
+      "duplicates": "Find Duplicates"
+    },
+    "file_types": {
+      "all": "All",
+      "image": "Images",
+      "video": "Videos",
+      "audio": "Audio",
+      "document": "Documents"
+    },
+    "labels": {
+        "new_project": "New Project",
+        "open_project": "Open Project...",
+        "save": "Save",
+        "save_as": "Save Project As...",
+        "exit": "Exit",
+        "file": "File",
+        "options": "Options",
+        "mode": "Mode",
+        "file_type": "File Type",
+        "folders_to_compare": "Folders to Compare",
+        "folder_to_analyze": "Folder to Analyze",
+        "options_frame": "Options",
+        "match_find_based_on": "Match/Find based on:",
+        "name": "Name",
+        "date": "Date",
+        "size": "Size",
+        "content_md5": "Content (MD5 Hash)",
+        "image_match_options": "Image Match Options",
+        "content_histogram": "Content (Histogram)",
+        "llm_content": "LLM Content",
+        "llm_threshold_label": "Threshold:",
+        "llm_threshold_range": "(0.0-1.0)",
+        "histogram_method_label": "Method:",
+        "histogram_threshold_label": "Threshold:",
+        "md5_warning": "Warning: Content comparison is slow.",
+        "file_actions": "File Actions",
+        "move_to_folder": "Move to Folder:",
+        "browse": "Browse...",
+        "build": "Build",
+        "include_subfolders": "Include subfolders",
+        "results_frame": "Results",
+        "results_tree_file": "File Name",
+        "results_tree_size": "Size (Bytes)",
+        "results_tree_path": "Relative Path",
+        "folder_1": "Folder 1:",
+        "folder_2": "Folder 2:",
+        "context_menu": {
+            "preview_from_folder_1": "Preview from Folder 1",
+            "preview_from_folder_2": "Preview from Folder 2",
+            "open_in_folder_1": "Open in Folder 1",
+            "open_in_folder_2": "Open in Folder 2",
+            "move_from_folder_1": "Move from Folder 1...",
+            "move_from_folder_2": "Move from Folder 2...",
+            "delete_from_folder_1": "Delete from Folder 1",
+            "delete_from_folder_2": "Delete from Folder 2",
+            "preview_file": "Preview File",
+            "open_containing_folder": "Open Containing Folder",
+            "move_file": "Move File...",
+            "delete_file": "Delete File"
+        }
+    }
   }
 }
