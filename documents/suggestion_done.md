@@ -96,3 +96,16 @@ The LLM engine is loaded on-demand, which introduces a significant delay the fir
 *   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
 
 ---
+
+## 7. Strategy & Logic Improvements
+
+**Observation:**
+The core strategy logic is sound, but some implementations could be clearer and more robust.
+
+**Suggestions:**
+
+*   **Decouple LLM and Histogram Thresholds:** The LLM comparison reuses the histogram threshold, which is confusing. A dedicated `llm_similarity_threshold` should be added to the UI and options.
+*   **Clarify the "Search" Mode:** The purpose of this mode is unclear. It should either be removed or enhanced to allow searching by specific metadata attributes (e.g., "find all files larger than 10MB").
+*   **Improve `find_duplicates_strategy.py` Robustness:** Warn the user in the UI if they select only "Histogram" for finding duplicates, as this can be extremely slow. Recommend they also select a faster keying strategy like "Size".
+
+---

@@ -21,6 +21,7 @@ class AppController:
         self.folder2_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
         self.search_query = tk.StringVar()
+        self.search_size_greater_than = tk.DoubleVar(value=10.0)
         self.move_to_path = tk.StringVar()
         self.file_type_filter = tk.StringVar(value="all")
 
@@ -34,6 +35,7 @@ class AppController:
         self.histogram_method = tk.StringVar(value='Correlation')
         self.histogram_threshold = tk.StringVar(value='0.9')
         self.compare_llm = tk.BooleanVar()
+        self.llm_similarity_threshold = tk.DoubleVar(value=config.get('llm.llm_similarity_threshold', 0.8))
 
         # --- Folder Structures ---
         self.folder1_structure = None
@@ -70,6 +72,7 @@ class AppController:
         self.view.folder2_path = self.folder2_path
         self.view.app_mode = self.app_mode
         self.view.search_query = self.search_query
+        self.view.search_size_greater_than = self.search_size_greater_than
         self.view.move_to_path = self.move_to_path
         self.view.file_type_filter = self.file_type_filter
         self.view.include_subfolders = self.include_subfolders
@@ -81,6 +84,7 @@ class AppController:
         self.view.histogram_method = self.histogram_method
         self.view.histogram_threshold = self.histogram_threshold
         self.view.compare_llm = self.compare_llm
+        self.view.llm_similarity_threshold = self.llm_similarity_threshold
 
         # Pass the controller instance to the view
         self.view.controller = self
@@ -282,6 +286,26 @@ class AppController:
                     messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
                     return
 
+                # Check for histogram-only comparison
+                is_histogram_only = opts.get('compare_histogram') and not (
+                    opts.get('compare_name') or
+                    opts.get('compare_date') or
+                    opts.get('compare_size') or
+                    opts.get('compare_content_md5')
+                )
+                if is_histogram_only:
+                    proceed = messagebox.askyesno(
+                        "Performance Warning",
+                        "Finding duplicates by 'Histogram' alone can be very slow "
+                        "on large numbers of files.\n\n"
+                        "It is recommended to also select a faster attribute like 'Size' "
+                        "to pre-group the files.\n\n"
+                        "Do you want to continue?"
+                    )
+                    if not proceed:
+                        self.view.update_status("Ready.")
+                        return
+
                 results = find_duplicates_strategy.run(info1, opts)
                 logger.info(f"Duplicates action finished. Found {len(results)} duplicate groups.")
                 if not results:
@@ -303,7 +327,13 @@ class AppController:
                     messagebox.showerror("Error", "Please build metadata for the folder before searching.")
                     return
 
-                results = info1.values()
+                size_threshold_mb = self.search_size_greater_than.get()
+                size_threshold_bytes = size_threshold_mb * 1024 * 1024
+
+                results = [
+                    info for info in info1.values()
+                    if info.get('compare_size', 0) > size_threshold_bytes
+                ]
                 logger.info(f"Search action finished. Found {len(results)} matching files.")
                 if not results:
                     self.view.results_tree.insert('', tk.END, values=(f"No files found matching the filter.", "", ""), tags=('info_row',))

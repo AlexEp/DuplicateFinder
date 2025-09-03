@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-09-03
+
+- **Feature**: Decoupled LLM and Histogram thresholds.
+  - Added a dedicated `llm_similarity_threshold` setting in `llm_settings.json`.
+  - The UI now has a separate input field for the LLM similarity threshold.
+- **Feature**: Enhanced "Search" mode.
+  - The "Search" mode now allows filtering files by size (greater than a specified number of MB).
+- **Fix**: Improved robustness of the duplicate finder.
+  - The application now warns the user if they try to find duplicates using only the "Histogram" comparison, which can be very slow.
+
 ## 2025-09-02
 
 -   **Feature**: Added an option to pre-load the LLM engine on startup.

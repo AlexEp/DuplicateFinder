@@ -1,5 +1,5 @@
 {
   "prompt": "Describe this image in one sentence.",
   "embedding_model": "default",
-  "similarity_threshold": 50.0
+  "llm_similarity_threshold": 0.8
 }

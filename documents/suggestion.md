@@ -110,19 +110,6 @@ Configuration values are scattered. `config.py` exists, but many UI-facing value
 
 ---
 
-## 7. Strategy & Logic Improvements
-
-**Observation:**
-The core strategy logic is sound, but some implementations could be clearer and more robust.
-
-**Suggestions:**
-
-*   **Decouple LLM and Histogram Thresholds:** The LLM comparison reuses the histogram threshold, which is confusing. A dedicated `llm_similarity_threshold` should be added to the UI and options.
-*   **Clarify the "Search" Mode:** The purpose of this mode is unclear. It should either be removed or enhanced to allow searching by specific metadata attributes (e.g., "find all files larger than 10MB").
-*   **Improve `find_duplicates_strategy.py` Robustness:** Warn the user in the UI if they select only "Histogram" for finding duplicates, as this can be extremely slow. Recommend they also select a faster keying strategy like "Size".
-
----
-
 ## 9. UI/UX and Code Readability
 
 **Observation:**
