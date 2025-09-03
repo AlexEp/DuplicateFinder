@@ -94,3 +94,15 @@ Configuration is scattered across `settings.json`, `llm_settings.json`, and hard
 *   **Externalize More Settings:** The file extension lists (`VIDEO_EXTENSIONS`, `AUDIO_EXTENSIONS`, `DOCUMENT_EXTENSIONS`) in `strategies/utils.py` should be moved into `settings.json` to make them user-configurable.
 
 ---
+
+---
+
+## 6. Configuration Management
+
+**Observation:**
+Configuration values are scattered. `config.py` exists, but many UI-facing values (e.g., the list of histogram methods, default thresholds, UI labels) are hardcoded directly in `ui.py`.
+
+**Suggestion: Centralize Configuration**
+
+*   **Consolidate into `config.py` or `settings.json`:** Move all user-facing labels, default values, and option lists (like the histogram methods and their properties) into a single, centralized configuration file.
+*   **Dynamic UI Population:** The UI should read these values on startup to populate dropdowns, set default text, and configure options. This makes the application easier to maintain, customize, and even translate in the future.
