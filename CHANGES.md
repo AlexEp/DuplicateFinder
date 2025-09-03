@@ -2,6 +2,12 @@
 
 ## 2025-09-02
 
+-   **Feature**: Added an option to pre-load the LLM engine on startup.
+    -   A new setting, `preload_llm_on_startup`, can be enabled in `settings.json`.
+    -   When enabled, the application will begin loading the LLM engine in a background thread immediately on launch, making it available sooner for LLM-related tasks.
+
+## 2025-09-02
+
 -   **Improved LLM Testing Strategy**:
     -   Refactored `tests/test_llm_similarity.py` to remove dependency on the external `instraction.txt` file, making tests self-contained and more robust.
     -   Strengthened assertions to check for similarity scores within a specific range for "similar but not the same" cases.

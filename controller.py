@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import logging
+import threading
 from pathlib import Path
 from models import FileNode, FolderNode
 from project_manager import ProjectManager
@@ -44,6 +45,24 @@ class AppController:
 
         self._bind_variables_to_view()
         self.view.setup_ui()
+
+        if config.get("preload_llm_on_startup"):
+            self._preload_llm_engine()
+
+    def _preload_llm_engine(self):
+        """
+        Starts the LLM engine loading process in a background thread on app start.
+        """
+        if self.llm_engine or self.llm_engine_loading or not config.get("use_llm", True):
+            return
+
+        self.llm_engine_loading = True
+        self.view.update_status("Pre-loading LLM engine in background...")
+        logger.info("Starting background LLM engine pre-loading.")
+
+        thread = threading.Thread(target=self._load_llm_engine_task)
+        thread.daemon = True
+        thread.start()
 
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
@@ -134,19 +153,22 @@ class AppController:
             logger.info("LLM engine loaded successfully.")
         except Exception as e:
             self.llm_engine = None
-            if hasattr(self.view, 'llm_checkbox'):
-                self.view.llm_checkbox.config(state='disabled')
-            self.view.update_status("LLM engine failed to load. LLM features disabled.")
             logger.error("LLM engine failed to load.", exc_info=True)
-            messagebox.showwarning("LLM Engine Error",
+            # This task can run before the UI is fully interactive, so check for view readiness
+            if self.view.root.winfo_exists():
+                 if hasattr(self.view, 'llm_checkbox'):
+                    self.view.llm_checkbox.config(state='disabled')
+                 self.view.update_status("LLM engine failed to load. LLM features disabled.")
+                 messagebox.showwarning("LLM Engine Error",
                                    f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
         finally:
-            # Re-enable UI elements and reset loading flag
             self.llm_engine_loading = False
-            self.view.action_button.config(state='normal')
-            if config.get("use_llm", True):
-                 if hasattr(self.view, 'llm_checkbox'):
-                    self.view.llm_checkbox.config(state='normal')
+            # This task can run before the UI is fully interactive, so check for view readiness
+            if self.view.root.winfo_exists():
+                self.view.action_button.config(state='normal')
+                if config.get("use_llm", True):
+                    if hasattr(self.view, 'llm_checkbox'):
+                        self.view.llm_checkbox.config(state='normal')
 
     def _build_metadata(self, folder_num):
         path_var = self.folder1_path if folder_num == 1 else self.folder2_path
