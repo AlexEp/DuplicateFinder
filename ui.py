@@ -23,6 +23,35 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
+class ToolTip:
+    """
+    Create a tooltip for a given widget.
+    """
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        self.widget.bind("<Enter>", self.show_tip)
+        self.widget.bind("<Leave>", self.hide_tip)
+
+    def show_tip(self, event=None):
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify='left',
+                       background="#ffffe0", relief='solid', borderwidth=1,
+                       font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide_tip(self, event=None):
+        if self.tip_window:
+            self.tip_window.destroy()
+        self.tip_window = None
+
 class FolderComparisonApp:
     def __init__(self, root):
         self.root = root
@@ -90,25 +119,33 @@ class FolderComparisonApp:
         self.duplicates_mode_frame = self._create_folder_selection_frame(config.get('ui.labels.folder_to_analyze', "Folder to Analyze"))
         options_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.options_frame', "Options"), padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.match_find_based_on', "Match/Find based on:"), padx=5, pady=5); match_frame.pack(fill=tk.X)
-        tk.Checkbutton(match_frame, text=config.get('ui.labels.name', "Name"), variable=self.compare_name).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text=config.get('ui.labels.date', "Date"), variable=self.compare_date).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text=config.get('ui.labels.size', "Size"), variable=self.compare_size).pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(match_frame, text=config.get('ui.labels.content_md5', "Content (MD5 Hash)"), variable=self.compare_content_md5).pack(side=tk.LEFT, padx=5)
+
+        name_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.name', "Name"), variable=self.compare_name); name_cb.pack(side=tk.LEFT, padx=5)
+        ToolTip(name_cb, "Compare files by their exact file name.")
+        date_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.date', "Date"), variable=self.compare_date); date_cb.pack(side=tk.LEFT, padx=5)
+        ToolTip(date_cb, "Compare files by their last modified date.")
+        size_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.size', "Size"), variable=self.compare_size); size_cb.pack(side=tk.LEFT, padx=5)
+        ToolTip(size_cb, "Compare files by their exact size in bytes.")
+        md5_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.content_md5', "Content (MD5 Hash)"), variable=self.compare_content_md5); md5_cb.pack(side=tk.LEFT, padx=5)
+        ToolTip(md5_cb, "Compare files by their content using MD5 hash. Slower, but very accurate.")
 
         self.image_match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.image_match_options', "Image Match Options"), padx=5, pady=5)
         self.image_match_frame.pack(fill=tk.X, pady=(5,0))
 
-        tk.Checkbutton(self.image_match_frame, text=config.get('ui.labels.content_histogram', "Content (Histogram)"), variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
+        hist_cb = tk.Checkbutton(self.image_match_frame, text=config.get('ui.labels.content_histogram', "Content (Histogram)"), variable=self.compare_histogram); hist_cb.pack(side=tk.LEFT, padx=5)
+        ToolTip(hist_cb, "Compare images by their color histogram. Good for finding similar-looking images.")
 
         # LLM Frame
         llm_frame = tk.Frame(self.image_match_frame)
         llm_frame.pack(side=tk.LEFT, padx=5)
         self.llm_checkbox = tk.Checkbutton(llm_frame, text=config.get('ui.labels.llm_content', "LLM Content"), variable=self.compare_llm)
         self.llm_checkbox.pack(side=tk.LEFT)
+        ToolTip(self.llm_checkbox, "Use a Large Language Model (LLM) to compare image content. Very powerful but requires a capable model.")
 
         tk.Label(llm_frame, text=config.get('ui.labels.llm_threshold_label', "Threshold:")).pack(side=tk.LEFT, pady=5)
         self.llm_threshold_entry = tk.Entry(llm_frame, textvariable=self.llm_similarity_threshold, width=8)
         self.llm_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
+        ToolTip(self.llm_threshold_entry, "Similarity threshold for LLM comparison (e.g., 0.85). Higher is stricter.")
         tk.Label(llm_frame, text=config.get('ui.labels.llm_threshold_range', "(0.0-1.0)")).pack(side=tk.LEFT, pady=5)
 
 
@@ -126,11 +163,13 @@ class FolderComparisonApp:
         )
         self.histogram_method_combo.pack(side=tk.LEFT, padx=(2, 10), pady=5)
         self.histogram_method_combo.bind("<Key>", lambda e: "break")
+        ToolTip(self.histogram_method_combo, "The mathematical method used to compare image histograms.")
 
         # Threshold Entry
         tk.Label(self.histogram_options_frame, text=config.get('ui.labels.histogram_threshold_label', "Threshold:")).pack(side=tk.LEFT, pady=5)
         self.histogram_threshold_entry = tk.Entry(self.histogram_options_frame, textvariable=self.histogram_threshold, width=8)
         self.histogram_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
+        ToolTip(self.histogram_threshold_entry, "Similarity threshold for histogram comparison. The required value depends on the method selected.")
         self.histogram_threshold_info_label = tk.Label(self.histogram_options_frame, text="", width=20)
         self.histogram_threshold_info_label.pack(side=tk.LEFT, padx=(0, 5), pady=5)
 
@@ -140,10 +179,13 @@ class FolderComparisonApp:
         move_to_frame.pack(fill=tk.X, pady=(10, 0))
 
         tk.Label(move_to_frame, text=config.get('ui.labels.move_to_folder', "Move to Folder:")).pack(side=tk.LEFT)
-        tk.Entry(move_to_frame, textvariable=self.move_to_path).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        tk.Button(move_to_frame, text=config.get('ui.labels.browse', "Browse..."), command=self.select_move_to_folder).pack(side=tk.LEFT)
+        move_to_entry = tk.Entry(move_to_frame, textvariable=self.move_to_path); move_to_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ToolTip(move_to_entry, "The destination folder for the 'Move' action.")
+        browse_btn = tk.Button(move_to_frame, text=config.get('ui.labels.browse', "Browse..."), command=self.select_move_to_folder); browse_btn.pack(side=tk.LEFT)
+        ToolTip(browse_btn, "Select a folder to move files to.")
         action_frame = tk.Frame(self.main_content_frame); action_frame.pack(fill=tk.X, pady=5)
         self.action_button = tk.Button(action_frame, text="Compare", command=self.controller.run_action); self.action_button.pack()
+        ToolTip(self.action_button, "Run the comparison or duplicate finding process based on the selected options.")
         results_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.results_frame', "Results"), padx=10, pady=10); results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path'), show='headings')
         self.results_tree.heading('File', text=config.get('ui.labels.results_tree_file', 'File Name'))
@@ -172,6 +214,10 @@ class FolderComparisonApp:
         self._toggle_histogram_options()
         self._update_histogram_threshold_ui()
 
+        # --- Keyboard Shortcuts ---
+        self.root.bind('<Control-b>', self.controller.build_active_folders)
+        self.root.bind('<Control-r>', self.controller.run_action)
+
     def _create_folder_selection_frame(self, frame_text, two_folders=False):
         frame = tk.LabelFrame(self.folder_selection_area, text=frame_text, padx=10, pady=10)
 
@@ -179,17 +225,21 @@ class FolderComparisonApp:
             row = tk.Frame(parent)
             row.pack(fill=tk.X, pady=2)
             tk.Label(row, text=label_text).pack(side=tk.LEFT)
-            tk.Entry(row, textvariable=path_var).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-            tk.Button(row, text=config.get('ui.labels.browse', "Browse..."), command=browse_cmd).pack(side=tk.LEFT)
+            entry = tk.Entry(row, textvariable=path_var); entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+            ToolTip(entry, "The full path to the folder.")
+            browse_button = tk.Button(row, text=config.get('ui.labels.browse', "Browse..."), command=browse_cmd); browse_button.pack(side=tk.LEFT)
+            ToolTip(browse_button, "Select a folder to analyze.")
             build_button = tk.Button(row, text=config.get('ui.labels.build', "Build"), command=build_cmd)
             build_button.pack(side=tk.LEFT, padx=(5, 0))
+            ToolTip(build_button, "Scan the selected folder and build the file structure. This is required before running a comparison.")
             self.build_buttons.append(build_button)
 
         create_row(frame, config.get('ui.labels.folder_1', "Folder 1:"), self.folder1_path, self.select_folder1, lambda: self.controller._build_metadata(1))
         if two_folders:
             create_row(frame, config.get('ui.labels.folder_2', "Folder 2:"), self.folder2_path, self.select_folder2, lambda: self.controller._build_metadata(2))
 
-        tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders).pack(anchor=tk.W, pady=(5,0))
+        subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
+        ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
         return frame
 
     def _on_mode_change(self, *args):
@@ -296,31 +346,44 @@ class FolderComparisonApp:
         if not self.histogram_threshold.get():
              self.histogram_threshold.set(default_threshold)
 
+    def _get_selected_file_info(self, folder_num):
+        """Gets the iid, relative path, and base path for the selected file."""
+        iid, relative_path_str = self._get_relative_path_from_selection()
+        if not relative_path_str:
+            return None, None, None
 
+        # In duplicates mode, folder_num is always 1, but the UI might show folder 2 path if it was switched from compare mode.
+        # We should use the path that is actually being displayed.
+        mode = self.app_mode.get()
+        if mode == 'duplicates':
+            base_path_str = self.folder1_path.get()
+        else: # compare mode
+            base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
 
-    
+        if not base_path_str:
+            logger.warning(f"Action cancelled: folder {folder_num} path is not set.")
+            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
+            return None, None, None
+        return iid, relative_path_str, base_path_str
 
     def _move_file(self, folder_num):
-        iid, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        iid, relative_path, base_path = self._get_selected_file_info(folder_num)
+        if not iid:
             return
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        dest_path_str = self.move_to_path.get()
-        file_operations.move_file(base_path_str, relative_path_str, dest_path_str, self.results_tree, iid, self.update_status)
+        dest_path = self.move_to_path.get()
+        file_operations.move_file(base_path, relative_path, dest_path, self.results_tree, iid, self.update_status)
 
     def _delete_file(self, folder_num):
-        iid, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        iid, relative_path, base_path = self._get_selected_file_info(folder_num)
+        if not iid:
             return
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        file_operations.delete_file(base_path_str, relative_path_str, self.results_tree, iid, self.update_status)
+        file_operations.delete_file(base_path, relative_path, self.results_tree, iid, self.update_status)
 
     def _open_containing_folder(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        _, relative_path, base_path = self._get_selected_file_info(folder_num)
+        if not relative_path:
             return
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        file_operations.open_containing_folder(base_path_str, relative_path_str)
+        file_operations.open_containing_folder(base_path, relative_path)
 
     def _show_context_menu(self, event):
         iid = self.results_tree.identify_row(event.y)
@@ -329,16 +392,12 @@ class FolderComparisonApp:
 
         self.results_tree.selection_set(iid)
         item = self.results_tree.item(iid)
-        tags = item.get('tags', [])
-
-        # Only show context menu for actual file rows
-        if 'file_row' not in tags:
+        if 'file_row' not in item.get('tags', []):
             return
 
         context_menu = tk.Menu(self.root, tearoff=0)
         _, relative_path_str = self._get_relative_path_from_selection()
 
-        # Determine preview state
         preview_state = tk.DISABLED
         if relative_path_str:
             file_ext = Path(relative_path_str).suffix.lower()
@@ -347,31 +406,44 @@ class FolderComparisonApp:
             if is_image or is_media:
                 preview_state = tk.NORMAL
 
-        # Determine move state
         move_state = tk.NORMAL if self.move_to_path.get() else tk.DISABLED
-
-        # Build menu based on mode
         mode = self.app_mode.get()
+
+        menu_items = []
         if mode == "compare":
-            context_menu.add_command(label=config.get('ui.labels.context_menu.preview_from_folder_1', "Preview from Folder 1"), command=lambda: self._preview_file(1), state=preview_state)
-            context_menu.add_command(label=config.get('ui.labels.context_menu.preview_from_folder_2', "Preview from Folder 2"), command=lambda: self._preview_file(2), state=preview_state)
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.open_in_folder_1', "Open in Folder 1"), command=lambda: self._open_containing_folder(1))
-            context_menu.add_command(label=config.get('ui.labels.context_menu.open_in_folder_2', "Open in Folder 2"), command=lambda: self._open_containing_folder(2))
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.move_from_folder_1', "Move from Folder 1..."), command=lambda: self._move_file(1), state=move_state)
-            context_menu.add_command(label=config.get('ui.labels.context_menu.move_from_folder_2', "Move from Folder 2..."), command=lambda: self._move_file(2), state=move_state)
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.delete_from_folder_1', "Delete from Folder 1"), command=lambda: self._delete_file(1))
-            context_menu.add_command(label=config.get('ui.labels.context_menu.delete_from_folder_2', "Delete from Folder 2"), command=lambda: self._delete_file(2))
+            menu_items = [
+                ('preview_from_folder_1', lambda: self._preview_file(1), preview_state),
+                ('preview_from_folder_2', lambda: self._preview_file(2), preview_state),
+                'separator',
+                ('open_in_folder_1', lambda: self._open_containing_folder(1)),
+                ('open_in_folder_2', lambda: self._open_containing_folder(2)),
+                'separator',
+                ('move_from_folder_1', lambda: self._move_file(1), move_state),
+                ('move_from_folder_2', lambda: self._move_file(2), move_state),
+                'separator',
+                ('delete_from_folder_1', lambda: self._delete_file(1)),
+                ('delete_from_folder_2', lambda: self._delete_file(2)),
+            ]
         else:  # duplicates mode
-            context_menu.add_command(label=config.get('ui.labels.context_menu.preview_file', "Preview File"), command=lambda: self._preview_file(1), state=preview_state)
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.open_containing_folder', "Open Containing Folder"), command=lambda: self._open_containing_folder(1))
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.move_file', "Move File..."), command=lambda: self._move_file(1), state=move_state)
-            context_menu.add_separator()
-            context_menu.add_command(label=config.get('ui.labels.context_menu.delete_file', "Delete File"), command=lambda: self._delete_file(1))
+            menu_items = [
+                ('preview_file', lambda: self._preview_file(1), preview_state),
+                'separator',
+                ('open_containing_folder', lambda: self._open_containing_folder(1)),
+                'separator',
+                ('move_file', lambda: self._move_file(1), move_state),
+                'separator',
+                ('delete_file', lambda: self._delete_file(1)),
+            ]
+
+        for item in menu_items:
+            if item == 'separator':
+                context_menu.add_separator()
+            else:
+                label_key, command, *state = item
+                state = state[0] if state else tk.NORMAL
+                default_text = label_key.replace('_', ' ').title()
+                label_text = config.get(f'ui.labels.context_menu.{label_key}', default_text)
+                context_menu.add_command(label=label_text, command=command, state=state)
 
         context_menu.post(event.x_root, event.y_root)
 
@@ -394,17 +466,11 @@ class FolderComparisonApp:
         return None, None
 
     def _preview_file(self, folder_num):
-        _, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
+        _, relative_path, base_path = self._get_selected_file_info(folder_num)
+        if not relative_path:
             return
 
-        base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
-        if not base_path_str:
-            logger.warning(f"Preview cancelled: folder {folder_num} path is not set.")
-            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
-            return
-
-        full_path = Path(base_path_str) / relative_path_str
+        full_path = Path(base_path) / relative_path
         logger.info(f"Attempting to preview file: {full_path}")
         if not full_path.is_file():
             logger.error(f"Preview failed: file does not exist at '{full_path}'.")

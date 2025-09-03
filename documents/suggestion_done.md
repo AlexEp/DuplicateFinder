@@ -106,3 +106,17 @@ Configuration values are scattered. `config.py` exists, but many UI-facing value
 
 *   **Consolidate into `config.py` or `settings.json`:** Move all user-facing labels, default values, and option lists (like the histogram methods and their properties) into a single, centralized configuration file.
 *   **Dynamic UI Population:** The UI should read these values on startup to populate dropdowns, set default text, and configure options. This makes the application easier to maintain, customize, and even translate in the future.
+
+---
+
+## 9. UI/UX and Code Readability
+
+**Observation:**
+The user experience and code maintainability could be improved with better feedback and refactoring.
+
+**Suggestions:**
+
+*   **Add Tooltips:** Add tooltips to all buttons and options to explain their purpose.
+*   **Implement Keyboard Shortcuts:** Add shortcuts for common actions (`Ctrl+B` to Build, `Ctrl+R` to Run) to improve accessibility.
+*   **Refactor UI Code:** The `_move_file`, `_delete_file`, and `_open_containing_folder` methods in `ui.py` contain duplicated logic. Refactor this into helper methods to improve readability and reduce redundancy. Similarly, the context menu creation logic in `_show_context_menu` should be simplified.
+*   **Enhanced Error Feedback:** In `logic.py`, instead of just logging `OSError`, collect a list of inaccessible files/folders and present them to the user in a summary message after the build process completes.
