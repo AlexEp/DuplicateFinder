@@ -3,29 +3,6 @@
 This document provides a deep-dive analysis of the codebase and offers suggestions for improvement across several areas, including architecture, code organization, performance, and user experience.
 
 
----
-
-## 2. UI Responsiveness and Concurrency
-
-
-**Observation:**
-Long-running tasks, particularly `build_folder_structure` in `logic.py` and `flatten_structure` in `strategies/utils.py` (especially when calculating MD5 hashes or LLM embeddings), are executed on the main UI thread. This causes the application to freeze, becoming unresponsive until the task is complete, which is a critical user experience issue.
-
-**Best Practice Recommendation: Offload to Background Threads**
-
-**Suggestions:**
-
-*   **Use Background Threads for All I/O-Bound and CPU-Bound Tasks:**
-    *   Refactor `_build_metadata` and `run_action` in `ui.py` to execute their core logic in a background thread using Python's `threading` module.
-    *   The background thread should be responsible for calling `build_folder_structure` and `flatten_structure`.
-    *   Disable relevant UI elements (like the "Build" and "Compare" buttons) while the background task is running to prevent concurrent operations.
-
-*   **Implement Thread-Safe UI Updates:**
-    *   Use a thread-safe queue (`queue` module) or the `root.after()` method to safely send updates from the background thread to the main UI thread.
-    *   This mechanism should be used to update the status bar, populate the progress bar, and display the final results in the treeview without causing threading-related instability in Tkinter.
-
----
-
 ## 3. Data Storage: Migrating from JSON to SQLite
 
 **Observation:**

@@ -120,3 +120,24 @@ The user experience and code maintainability could be improved with better feedb
 *   **Implement Keyboard Shortcuts:** Add shortcuts for common actions (`Ctrl+B` to Build, `Ctrl+R` to Run) to improve accessibility.
 *   **Refactor UI Code:** The `_move_file`, `_delete_file`, and `_open_containing_folder` methods in `ui.py` contain duplicated logic. Refactor this into helper methods to improve readability and reduce redundancy. Similarly, the context menu creation logic in `_show_context_menu` should be simplified.
 *   **Enhanced Error Feedback:** In `logic.py`, instead of just logging `OSError`, collect a list of inaccessible files/folders and present them to the user in a summary message after the build process completes.
+
+---
+
+## 2. UI Responsiveness and Concurrency
+
+
+**Observation:**
+Long-running tasks, particularly `build_folder_structure` in `logic.py` and `flatten_structure` in `strategies/utils.py` (especially when calculating MD5 hashes or LLM embeddings), are executed on the main UI thread. This causes the application to freeze, becoming unresponsive until the task is complete, which is a critical user experience issue.
+
+**Best Practice Recommendation: Offload to Background Threads**
+
+**Suggestions:**
+
+*   **Use Background Threads for All I/O-Bound and CPU-Bound Tasks:**
+    *   Refactor `_build_metadata` and `run_action` in `ui.py` to execute their core logic in a background thread using Python's `threading` module.
+    *   The background thread should be responsible for calling `build_folder_structure` and `flatten_structure`.
+    *   Disable relevant UI elements (like the "Build" and "Compare" buttons) while the background task is running to prevent concurrent operations.
+
+*   **Implement Thread-Safe UI Updates:**
+    *   Use a thread-safe queue (`queue` module) or the `root.after()` method to safely send updates from the background thread to the main UI thread.
+    *   This mechanism should be used to update the status bar, populate the progress bar, and display the final results in the treeview without causing threading-related instability in Tkinter.

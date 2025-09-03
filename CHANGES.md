@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2025-09-03
+- **Responsiveness**: Refactored long-running operations to execute in background threads, preventing the UI from freezing.
+  - Implemented a `TaskRunner` utility to manage background tasks and communicate with the main UI thread safely.
+  - The initial metadata build (`build_folder_structure`) now runs in the background.
+  - The main "Compare" and "Find Duplicates" action, including metadata calculation (`flatten_structure`) and strategy execution, now runs in the background.
+  - UI components (buttons, status bar) are disabled and updated appropriately during background processing.
+
+## 2025-09-03
 - **UX/Readability**: Implemented several UI/UX and code readability improvements.
   - Added tooltips to all major buttons and options to clarify their function.
   - Implemented keyboard shortcuts for common actions: `Ctrl+B` to build metadata and `Ctrl+R` to run the main action.
