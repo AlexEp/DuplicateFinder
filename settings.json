@@ -1,7 +1,6 @@
 {
   "log_level": "INFO",
   "use_llm": false,
-  "preload_llm_on_startup": false,
   "models": {
     "llava_model_path": "./models/llava-v1.5-7b-Q5_K_M.gguf",
     "mmproj_model_path": "./models/mmproj-model-f16.gguf"

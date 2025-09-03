@@ -1,10 +1,9 @@
 # Changelog
 
 ## 2025-09-02
-
--   **Feature**: Added an option to pre-load the LLM engine on startup.
-    -   A new setting, `preload_llm_on_startup`, can be enabled in `settings.json`.
-    -   When enabled, the application will begin loading the LLM engine in a background thread immediately on launch, making it available sooner for LLM-related tasks.
+- **Feature**: Decoupled LLM similarity threshold from the histogram threshold, adding a dedicated input field in the UI.
+- **Refactor**: Removed the non-functional "Search" mode to simplify the user interface.
+- **UX**: Added a performance warning when running a "Find Duplicates" action using only the "Histogram" comparison, which can be very slow.
 
 ## 2025-09-02
 

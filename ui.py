@@ -65,7 +65,6 @@ class FolderComparisonApp:
         options_menu.add_cascade(label="Mode", menu=mode_menu)
         mode_menu.add_radiobutton(label="Compare Folders", variable=self.app_mode, value="compare")
         mode_menu.add_radiobutton(label="Find Duplicates", variable=self.app_mode, value="duplicates")
-        mode_menu.add_radiobutton(label="Folder Search", variable=self.app_mode, value="search")
 
         options_menu.add_separator()
 
@@ -89,7 +88,6 @@ class FolderComparisonApp:
         # --- Create UI Frames for different modes ---
         self.compare_mode_frame = self._create_folder_selection_frame("Folders to Compare", two_folders=True)
         self.duplicates_mode_frame = self._create_folder_selection_frame("Folder to Analyze")
-        self.search_mode_frame = self._create_folder_selection_frame("Folder to Search")
         options_frame = tk.LabelFrame(self.main_content_frame, text="Options", padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text="Match/Find based on:", padx=5, pady=5); match_frame.pack(fill=tk.X)
         tk.Checkbutton(match_frame, text="Name", variable=self.compare_name).pack(side=tk.LEFT, padx=5)
@@ -101,8 +99,18 @@ class FolderComparisonApp:
         self.image_match_frame.pack(fill=tk.X, pady=(5,0))
 
         tk.Checkbutton(self.image_match_frame, text="Content (Histogram)", variable=self.compare_histogram).pack(side=tk.LEFT, padx=5)
-        self.llm_checkbox = tk.Checkbutton(self.image_match_frame, text="LLM Content", variable=self.compare_llm)
-        self.llm_checkbox.pack(side=tk.LEFT, padx=5)
+
+        # LLM Frame
+        llm_frame = tk.Frame(self.image_match_frame)
+        llm_frame.pack(side=tk.LEFT, padx=5)
+        self.llm_checkbox = tk.Checkbutton(llm_frame, text="LLM Content", variable=self.compare_llm)
+        self.llm_checkbox.pack(side=tk.LEFT)
+
+        tk.Label(llm_frame, text="Threshold:").pack(side=tk.LEFT, pady=5)
+        self.llm_threshold_entry = tk.Entry(llm_frame, textvariable=self.llm_similarity_threshold, width=8)
+        self.llm_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
+        tk.Label(llm_frame, text="(0.0-1.0)").pack(side=tk.LEFT, pady=5)
+
 
         self.histogram_options_frame = tk.Frame(self.image_match_frame)
 
@@ -187,7 +195,6 @@ class FolderComparisonApp:
         mode = self.app_mode.get()
         self.compare_mode_frame.pack_forget()
         self.duplicates_mode_frame.pack_forget()
-        self.search_mode_frame.pack_forget()
 
         if mode == "compare":
             self.compare_mode_frame.pack(fill=tk.X)
@@ -195,9 +202,6 @@ class FolderComparisonApp:
         elif mode == "duplicates":
             self.duplicates_mode_frame.pack(fill=tk.X)
             self.action_button.config(text="Find Duplicates")
-        elif mode == "search":
-            self.search_mode_frame.pack(fill=tk.X)
-            self.action_button.config(text="Search")
 
     def _on_file_type_change(self, *args):
         if self.file_type_filter.get() == "image":
