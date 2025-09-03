@@ -13,7 +13,9 @@ class Config:
         return cls._instance
 
     def _load_config(self):
-        self.config = {}
+        self.config = {
+            "preload_llm_on_startup": False
+        }
         self._load_json("settings.json")
         self._load_json("llm_settings.json", parent_key="llm")
 

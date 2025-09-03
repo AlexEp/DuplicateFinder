@@ -83,3 +83,16 @@ Configuration is scattered across `settings.json`, `llm_settings.json`, and hard
 *   **Externalize More Settings:** The file extension lists (`VIDEO_EXTENSIONS`, `AUDIO_EXTENSIONS`, `DOCUMENT_EXTENSIONS`) in `strategies/utils.py` should be moved into `settings.json` to make them user-configurable.
 
 ---
+---
+
+## 8. LLM Engine Lifecycle Management
+
+**Observation:**
+The LLM engine is loaded on-demand, which introduces a significant delay the first time a user performs an LLM-related action.
+
+**Suggestion: Offer Pre-loading as an Option**
+
+*   **Add a User Setting:** Introduce a setting (e.g., in `settings.json` or a new settings dialog) to "Pre-load LLM engine on startup".
+*   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
+
+---
