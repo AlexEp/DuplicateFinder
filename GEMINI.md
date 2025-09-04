@@ -47,15 +47,15 @@ The application follows a separation of concerns between the UI, business logic,
     -   These objects have a `to_dict()` method for JSON serialization into the `.cfp` project file.
 
 -   **`strategies/` (Comparison & Duplicate Logic)**: This directory contains the "brains" of the comparison and duplicate-finding operations. **This is where the core algorithms are implemented.**
+        -   **`strategies/calculators/`**: This sub-package contains modular "calculators" for metadata. Each calculator is responsible for a single piece of metadata (e.g., `MD5Calculator`, `HistogramCalculator`). This makes the system more extensible.
     -   **`utils.py`**: A crucial file containing functions to calculate metadata. 
-        - `flatten_structure` traverses the `FileNode` tree for JSON projects. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
+        - `flatten_structure` traverses the `FileNode` tree for JSON projects, using the modular calculators to gather metadata. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
         - `calculate_metadata_db` reads from and updates the SQLite database for `.cfp-db` projects.
     -   **`find_common_strategy.py`**: Orchestrates the logic for the "Compare Folders" mode. It takes the metadata for two folders and runs a series of simple, one-to-one comparisons.
     -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It uses a more complex, two-phase approach:
         1.  **Grouping**: Uses `key_by_*.py` modules to group files into buckets based on shared properties (e.g., all files with the same size).
         2.  **Pairwise Comparison**: If necessary (e.g., for histograms), it performs detailed comparisons *within* the groups.
     -   **`compare_by_*.py`**: These are the individual, granular comparison functions (e.g., `compare_by_size.py`). They compare two files based on a single criterion.
-    -   **`key_by_*.py`**: These modules generate a "key" for a single file (e.g., `key_by_size.py` returns the file's size). This key is used for the grouping phase in the duplicate-finding strategy.
 
 ## 4. The Metadata-First Workflow
 

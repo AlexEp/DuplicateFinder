@@ -4,6 +4,19 @@ This file contains suggestions that have been implemented.
 
 ---
 
+## 4. Metadata Calculation Architecture
+
+**Observation:**
+The `flatten_structure` function in `strategies/utils.py` is a monolithic function that mixes concerns: traversing the file tree, filtering files, and calculating various types of metadata (size, date, MD5, histogram, LLM). The logic for checking for cached metadata is also repeated for each type.
+
+**Suggestion: Modularize with Metadata Providers**
+
+*   **Create Metadata "Calculators":** Refactor the metadata calculation logic into separate classes or functions (e.g., `MD5Calculator`, `HistogramCalculator`, `LLMEmbeddingCalculator`).
+*   **Define a Common Interface:** Each calculator should have a consistent interface, for example, a `calculate(file_node)` method.
+*   **Dynamic Dispatch:** The main processing loop in `flatten_structure` would iterate through the files and, based on the user's selected options, invoke only the required calculators for each file. Each calculator would be responsible for its own caching logic (i.e., checking if the metadata already exists on the `file_node` before performing an expensive calculation).
+
+---
+
 ## 7. Strategy & Logic Improvements
 
 **Observation:**
