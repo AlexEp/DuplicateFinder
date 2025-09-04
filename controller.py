@@ -6,8 +6,10 @@ from models import FileNode, FolderNode
 from project_manager import ProjectManager
 from config import config
 import logic
+import database
 from strategies import utils, find_common_strategy, find_duplicates_strategy
 from threading_utils import TaskRunner
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +157,9 @@ class AppController:
             self.view.update_status("LLM engine failed to load. LLM features disabled.")
             logger.error("LLM engine failed to load.", exc_info=True)
             messagebox.showwarning("LLM Engine Error",
-                                   f"Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}")
+                                   f"""Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.
+
+Error: {e}""")
         finally:
             # Re-enable UI elements and reset loading flag
             self.llm_engine_loading = False
@@ -165,6 +169,67 @@ class AppController:
                     self.view.llm_checkbox.config(state='normal')
 
     def _build_metadata(self, folder_num):
+        if self.project_manager.current_project_path and self.project_manager.current_project_path.endswith(".cfp-db"):
+            self._build_metadata_db(folder_num)
+        else:
+            self._build_metadata_json(folder_num)
+
+    def _build_metadata_db(self, folder_num):
+        path_var = self.folder1_path if folder_num == 1 else self.folder2_path
+        path = path_var.get()
+        logger.info(f"Queueing metadata build for folder {folder_num} at path: {path} (DB)")
+
+        if not self.project_manager.save_project():
+            logger.warning("Metadata build aborted because project save was cancelled.")
+            messagebox.showwarning("Save Cancelled", "Metadata build aborted because the project was not saved.")
+            return
+
+        if not path or not Path(path).is_dir():
+            logger.error(f"Invalid directory for folder {folder_num}: {path}")
+            messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_num}.")
+            return
+
+        for btn in self.view.build_buttons: btn.config(state='disabled')
+        self.view.action_button.config(state='disabled')
+        self.view.update_status(f"Building metadata for Folder {folder_num} into database...")
+
+        def build_task():
+            conn = database.get_db_connection(self.project_manager.current_project_path)
+            inaccessible_paths = logic.build_folder_structure_db(conn, folder_num, path)
+            conn.close()
+            return inaccessible_paths
+
+        def on_success(inaccessible_paths):
+            logger.info(f"Successfully built folder structure for folder {folder_num} into DB.")
+            self.view.update_status(f"Metadata built for Folder {folder_num}. Saving project...")
+            self.project_manager.save_project()
+
+            success_message = f"Metadata built and saved for Folder {folder_num}."
+            if inaccessible_paths:
+                warning_message = (
+                    f"{success_message}\n\n"
+                    "Warning: The following files or folders could not be accessed and were skipped:\n\n"
+                    + "\n".join(f"- {p}" for p in inaccessible_paths[:10])
+                )
+                if len(inaccessible_paths) > 10:
+                    warning_message += f"...and {len(inaccessible_paths) - 10} more."
+                messagebox.showwarning("Build Warning", warning_message)
+            else:
+                messagebox.showinfo("Success", success_message)
+            logger.info(f"Metadata build and save successful for folder {folder_num}.")
+
+        def on_error(e):
+            logger.error(f"Failed to build metadata for folder {folder_num} into DB.", exc_info=e)
+            messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
+
+        def on_finally():
+            self.view.update_status("Ready.")
+            for btn in self.view.build_buttons: btn.config(state='normal')
+            self.view.action_button.config(state='normal')
+
+        self.task_runner.run_task(build_task, on_success, on_error, on_finally)
+
+    def _build_metadata_json(self, folder_num):
         path_var = self.folder1_path if folder_num == 1 else self.folder2_path
         path = path_var.get()
         logger.info(f"Queueing metadata build for folder {folder_num} at path: {path}")
@@ -210,7 +275,7 @@ class AppController:
                     + "\n".join(f"- {p}" for p in inaccessible_paths[:10])
                 )
                 if len(inaccessible_paths) > 10:
-                    warning_message += f"\n\n...and {len(inaccessible_paths) - 10} more."
+                    warning_message += f"...and {len(inaccessible_paths) - 10} more."
                 messagebox.showwarning("Build Warning", warning_message)
             else:
                 messagebox.showinfo("Success", success_message)
@@ -242,12 +307,17 @@ class AppController:
         if opts.get('compare_llm') and not self._ensure_llm_engine_loaded():
             return
 
-        if mode == "compare" and (not self.folder1_structure or not self.folder2_structure):
-            messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
-            return
-        if mode == "duplicates" and not self.folder1_structure:
-            messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
-            return
+        if self.project_manager.current_project_path and self.project_manager.current_project_path.endswith(".cfp-db"):
+            # DB mode checks
+            pass # For now, we assume data is in the DB
+        else:
+            # JSON mode checks
+            if mode == "compare" and (not self.folder1_structure or not self.folder2_structure):
+                messagebox.showerror("Error", "Please build metadata for both folders before comparing.")
+                return
+            if mode == "duplicates" and not self.folder1_structure:
+                messagebox.showerror("Error", "Please build metadata for the folder before finding duplicates.")
+                return
 
         # --- Disable UI and prepare for background task ---
         self.view.action_button.config(state='disabled')
@@ -260,42 +330,10 @@ class AppController:
             # --- This function runs in the background thread ---
             logger.info("Background task starting: metadata calculation and strategy execution.")
 
-            total_llm_files = 0
-            def progress_callback(message, processed_count):
-                progress_percentage = (processed_count / total_llm_files) * 100 if total_llm_files > 0 else 0
-                # Use post_to_main_thread for UI updates from the thread
-                self.task_runner.post_to_main_thread(self.view.update_status, message, progress_percentage)
-
-            # --- Metadata Generation ---
-            self.task_runner.post_to_main_thread(self.view.update_status, "Calculating metadata...")
-
-            info1, info2 = None, None
-            file_filter = self.file_type_filter.get()
-            base_path1 = self.folder1_path.get()
-            info1, total1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
-            total_llm_files += total1
-            self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
-            self.task_runner.post_to_main_thread(self.view._update_filenode_metadata, self.folder1_structure, info1, base_path1)
-
-            if self.folder2_structure and mode == "compare":
-                base_path2 = self.folder2_path.get()
-                info2, total2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
-                total_llm_files += total2
-                self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
-                self.task_runner.post_to_main_thread(self.view._update_filenode_metadata, self.folder2_structure, info2, base_path2)
-
-            # --- Project Save ---
-            self.task_runner.post_to_main_thread(self.view.update_status, "Saving metadata to project...")
-            self.project_manager.save_project()
-
-            # --- Strategy Execution ---
-            self.task_runner.post_to_main_thread(self.view.update_status, f"Running {mode} strategy...")
-            if mode == "compare":
-                results = find_common_strategy.run(info1, info2, opts)
-            else: # duplicates
-                results = find_duplicates_strategy.run(info1, opts)
-
-            return results
+            if self.project_manager.current_project_path and self.project_manager.current_project_path.endswith(".cfp-db"):
+                return self._run_action_db(opts, mode)
+            else:
+                return self._run_action_json(opts, mode)
 
         def on_success(results):
             # --- This function runs in the main thread ---
@@ -305,7 +343,7 @@ class AppController:
                 self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
             elif mode == "compare":
                 for file_info in results:
-                    size = file_info.get('compare_size', 'N/A')
+                    size = file_info.get('size', 'N/A')
                     relative_path = file_info.get('relative_path', '')
                     file_name = Path(relative_path).name
                     self.view.results_tree.insert('', tk.END, values=(file_name, size, relative_path), tags=('file_row',))
@@ -314,7 +352,7 @@ class AppController:
                     header_text = f"Duplicate Set {i} ({len(group)} files)"
                     parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", ""), open=True, tags=('header_row',))
                     for file_info in group:
-                        size = file_info.get('compare_size', 'N/A')
+                        size = file_info.get('size', 'N/A')
                         relative_path = file_info.get('relative_path', '')
                         file_name = Path(relative_path).name
                         self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
@@ -335,3 +373,70 @@ class AppController:
 
         # --- Run the task ---
         self.task_runner.run_task(action_task, on_success, on_error, on_finally)
+
+    def _run_action_db(self, opts, mode):
+        logger.info(f"Running DB action: {mode}")
+        conn = database.get_db_connection(self.project_manager.current_project_path)
+
+        total_llm_files = 0
+        def progress_callback(message, processed_count):
+            progress_percentage = (processed_count / total_llm_files) * 100 if total_llm_files > 0 else 0
+            self.task_runner.post_to_main_thread(self.view.update_status, message, progress_percentage)
+
+        self.task_runner.post_to_main_thread(self.view.update_status, "Calculating metadata...")
+
+        info1, info2 = None, None
+        file_filter = self.file_type_filter.get()
+        base_path1 = self.folder1_path.get()
+        info1, total1 = utils.calculate_metadata_db(conn, 1, base_path1, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
+        total_llm_files += total1
+        self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
+
+        if mode == "compare":
+            base_path2 = self.folder2_path.get()
+            info2, total2 = utils.calculate_metadata_db(conn, 2, base_path2, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
+            total_llm_files += total2
+            self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
+
+        self.task_runner.post_to_main_thread(self.view.update_status, f"Running {mode} strategy...")
+        if mode == "compare":
+            results = find_common_strategy.run(info1, info2, opts)
+        else: # duplicates
+            results = find_duplicates_strategy.run(info1, opts, base_path1)
+
+        conn.close()
+        return results
+
+    def _run_action_json(self, opts, mode):
+        total_llm_files = 0
+        def progress_callback(message, processed_count):
+            progress_percentage = (processed_count / total_llm_files) * 100 if total_llm_files > 0 else 0
+            self.task_runner.post_to_main_thread(self.view.update_status, message, progress_percentage)
+
+        self.task_runner.post_to_main_thread(self.view.update_status, "Calculating metadata...")
+
+        info1, info2 = None, None
+        file_filter = self.file_type_filter.get()
+        base_path1 = self.folder1_path.get()
+        info1, total1 = utils.flatten_structure(self.folder1_structure, base_path1, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
+        total_llm_files += total1
+        self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
+        self.task_runner.post_to_main_thread(self.view._update_filenode_metadata, self.folder1_structure, info1, base_path1)
+
+        if self.folder2_structure and mode == "compare":
+            base_path2 = self.folder2_path.get()
+            info2, total2 = utils.flatten_structure(self.folder2_structure, base_path2, opts, file_type_filter=file_filter, llm_engine=self.llm_engine, progress_callback=progress_callback)
+            total_llm_files += total2
+            self.task_runner.post_to_main_thread(lambda: self.view.progress_bar.config(maximum=total_llm_files if total_llm_files > 0 else 100))
+            self.task_runner.post_to_main_thread(self.view._update_filenode_metadata, self.folder2_structure, info2, base_path2)
+
+        self.task_runner.post_to_main_thread(self.view.update_status, "Saving metadata to project...")
+        self.project_manager.save_project()
+
+        self.task_runner.post_to_main_thread(self.view.update_status, f"Running {mode} strategy...")
+        if mode == "compare":
+            results = find_common_strategy.run(info1, info2, opts)
+        else: # duplicates
+            results = find_duplicates_strategy.run(info1, opts, base_path1)
+
+        return results

@@ -1,3 +1,4 @@
-def get_key(path, info):
+def get_key(path_obj, info):
     """Returns the MD5 hash as the key, or None if not present."""
-    return info.get('metadata', {}).get('compare_content_md5')
+    return info.get('md5')
+

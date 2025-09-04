@@ -1,3 +1,4 @@
-def get_key(path, info):
+def get_key(path_obj, info):
     """Returns the file size as the key."""
-    return info.get('compare_size')
+    return info.get('size')
+

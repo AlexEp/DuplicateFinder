@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-09-04
+- **Fix**: Corrected a bug preventing comparisons from running on projects using the older `.cfp` (JSON) format. The data structure returned after metadata calculation for JSON projects now correctly matches the format expected by the comparison strategies.
+
+## 2025-09-03
+- **Refactor**: Migrated project data storage from JSON to SQLite for improved performance, scalability, and data integrity.
+  - Introduced a new `.cfp-db` project format based on SQLite.
+  - Created a `database.py` module to handle all database operations.
+  - Refactored `project_manager.py`, `logic.py`, and `controller.py` to support both JSON and SQLite project formats.
+  - Updated comparison strategies to work with data from the SQLite database.
+
 ## 2025-09-03
 - **Responsiveness**: Refactored long-running operations to execute in background threads, preventing the UI from freezing.
   - Implemented a `TaskRunner` utility to manage background tasks and communicate with the main UI thread safely.

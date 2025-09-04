@@ -43,7 +43,7 @@ def run(info1, info2, opts):
 
         if is_match:
             # Add relative path to the dictionary for easier access later
-            file1_info['relative_path'] = str(path.as_posix())
+            file1_info['relative_path'] = str(path)
             matching_files.append(file1_info)
 
     return sorted(matching_files, key=lambda f: f['relative_path'])

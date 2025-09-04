@@ -1,6 +1,7 @@
 from collections import defaultdict
 import itertools
 import json
+from pathlib import Path
 from . import utils
 from . import key_by_name
 from . import key_by_date
@@ -10,7 +11,7 @@ from . import compare_by_histogram
 from . import compare_by_llm
 from utils.graph_utils import find_connected_components
 
-def run(all_files_info, opts):
+def run(all_files_info, opts, base_path=None):
     """
     Finds duplicate files within a single metadata dictionary.
     This function orchestrates calls to individual key-building strategies
@@ -19,10 +20,16 @@ def run(all_files_info, opts):
     if not all_files_info:
         return []
 
+    base_path_obj = Path(base_path) if base_path else None
+
     # Create a lookup from fullpath to info dict for later, and add relative_path
     fullpath_to_info = {}
     for path, info in all_files_info.items():
-        info['relative_path'] = str(path.as_posix())
+        info['relative_path'] = str(path)
+        if base_path_obj:
+            info['fullpath'] = str(base_path_obj / path)
+        else:
+            info['fullpath'] = str(path)
         fullpath_to_info[info['fullpath']] = info
 
     # --- Phase 1: Grouping by Keys ---
@@ -50,7 +57,8 @@ def run(all_files_info, opts):
         groups['all_files'] = list(all_files_info.values())
     else:
         for path, info in all_files_info.items():
-            key_parts = [strategy(path, info) for strategy in active_key_strategies]
+            path_obj = Path(path)
+            key_parts = [strategy(path_obj, info) for strategy in active_key_strategies]
             if key_parts and None not in key_parts:
                 groups[tuple(key_parts)].append(info)
 

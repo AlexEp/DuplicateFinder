@@ -3,31 +3,6 @@
 This document provides a deep-dive analysis of the codebase and offers suggestions for improvement across several areas, including architecture, code organization, performance, and user experience.
 
 
-## 3. Data Storage: Migrating from JSON to SQLite
-
-**Observation:**
-The current project file format (`.cfp`) is a single, large JSON file. This approach suffers from poor performance and scalability, as the entire file must be loaded into memory for any operation. A crash during a save can also corrupt the entire project.
-
-**Best Practice Recommendation: Use SQLite**
-
-**Advantages:**
-
-*   **Performance & Scalability:** SQLite is designed for efficient, indexed queries. Finding duplicates or comparing files can be done with SQL queries that are orders of magnitude faster and more memory-efficient than iterating through a large Python object.
-*   **Data Integrity:** SQLite provides atomic, transactional updates, protecting the project file from corruption if the application crashes.
-*   **Efficient Queries:** Logic can be simplified. For example: `SELECT * FROM files GROUP BY size, md5 HAVING COUNT(*) > 1;`
-*   **No New Dependencies:** The `sqlite3` module is part of the Python standard library.
-
-**Implementation Steps:**
-
-1.  **Define a Schema:** Create a simple schema on project creation (e.g., in `project_manager.py`).
-    *   `project_settings` table: A key-value table for folder paths, UI options, etc.
-    *   `files` table: Columns for `id`, `folder_index`, `relative_path`, `size`, `modified_date`, `md5`, `histogram`, `llm_embedding`.
-2.  **Refactor Logic:**
-    *   `build_folder_structure` would `INSERT` file records.
-    *   `flatten_structure` would `UPDATE` rows with new metadata.
-    *   Comparison strategies would be replaced with efficient SQL queries.
-
----
 
 ## 4. Metadata Calculation Architecture
 
