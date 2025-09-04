@@ -1,3 +1,4 @@
-def get_key(path, info):
+def get_key(path_obj, info):
     """Returns the modification time as the key."""
-    return info.get('compare_date')
+    return info.get('modified_date')
+

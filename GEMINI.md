@@ -20,7 +20,9 @@ pip install -r requirements.txt
 
 ## 2. Project Overview
 
-This application allows users to save and load "projects" (`.cfp` files), which store folder paths, comparison settings, and file metadata.
+This application allows users to save and load "projects". It supports two project file formats:
+- **`.cfp`**: A JSON-based format for smaller projects.
+- **`.cfp-db`**: A SQLite-based format for larger projects, offering better performance and scalability.
 
 The application has two primary modes:
 1.  **Compare Folders**: Finds files that are common to two different folders.
@@ -32,16 +34,22 @@ The application follows a separation of concerns between the UI, business logic,
 
 -   **`ui.py` (UI & Orchestration)**: This is the core of the application. The `FolderComparisonApp` class manages the Tkinter GUI, application state (folder paths, selected options), and orchestrates the calls to the business logic. It handles all user interactions, project saving/loading, and displaying results. **Most changes to application flow will likely involve this file.**
 
--   **`logic.py` (Initial Structure Building)**: This module is responsible for the initial scan of a folder. The `build_folder_structure` function recursively walks a directory path and creates a tree of `FileNode` and `FolderNode` objects. This is a one-time operation per folder, and the result is saved in the project file.
+-   **`database.py` (Database Logic)**: This module handles all SQLite-related operations, including creating the database schema, inserting and updating file information, and retrieving data for comparison.
 
--   **`models.py` (Data Models)**: Defines the core data structures:
+-   **`logic.py` (Initial Structure Building)**: This module is responsible for the initial scan of a folder. 
+    - For JSON-based projects, `build_folder_structure` recursively walks a directory path and creates a tree of `FileNode` and `FolderNode` objects.
+    - For SQLite-based projects, `build_folder_structure_db` scans a directory and inserts file information directly into the database.
+
+-   **`models.py` (Data Models)**: Defines the core data structures for JSON-based projects:
     -   `FileSystemNode`: A base class for files and folders.
     -   `FileNode`: Represents a single file and contains a `metadata` dictionary.
     -   `FolderNode`: Represents a folder and contains a list of other nodes (`content`).
     -   These objects have a `to_dict()` method for JSON serialization into the `.cfp` project file.
 
 -   **`strategies/` (Comparison & Duplicate Logic)**: This directory contains the "brains" of the comparison and duplicate-finding operations. **This is where the core algorithms are implemented.**
-    -   **`utils.py`**: A crucial file containing the `flatten_structure` function. This function traverses the built `FileNode` tree and calculates the actual metadata (size, date, MD5 hash, image histogram) based on the user's selected options. **This is where file I/O and CPU-intensive calculations happen.**
+    -   **`utils.py`**: A crucial file containing functions to calculate metadata. 
+        - `flatten_structure` traverses the `FileNode` tree for JSON projects. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
+        - `calculate_metadata_db` reads from and updates the SQLite database for `.cfp-db` projects.
     -   **`find_common_strategy.py`**: Orchestrates the logic for the "Compare Folders" mode. It takes the metadata for two folders and runs a series of simple, one-to-one comparisons.
     -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It uses a more complex, two-phase approach:
         1.  **Grouping**: Uses `key_by_*.py` modules to group files into buckets based on shared properties (e.g., all files with the same size).
@@ -53,15 +61,20 @@ The application follows a separation of concerns between the UI, business logic,
 
 It is critical to understand the application's workflow to work on it effectively:
 
-1.  **Build**: The user selects a folder and clicks "Build". `logic.build_folder_structure` is called to create a basic tree of file and folder objects. This structure is saved to the project file. **No expensive metadata is calculated at this stage.**
+1.  **Build**: The user selects a folder and clicks "Build". 
+    - For `.cfp` projects, `logic.build_folder_structure` is called to create a basic tree of file and folder objects. This structure is saved to the project file. **No expensive metadata is calculated at this stage.**
+    - For `.cfp-db` projects, `logic.build_folder_structure_db` is called to scan the folder and insert basic file information into the database.
 2.  **Compare Action**: The user selects comparison options (e.g., "Size", "Content (MD5)") and clicks the main "Compare" button.
-3.  **Metadata Calculation**: The `run_action` method in `ui.py` calls `strategies.utils.flatten_structure`. This function iterates through the previously built structure and **calculates the required metadata** (e.g., it now runs the MD5 hash calculation).
-4.  **Metadata Persistence**: The newly calculated metadata is immediately saved back into the project file (`.cfp`). This ensures that if the user runs the same comparison again, the metadata does not need to be recalculated.
+3.  **Metadata Calculation**: The `run_action` method in `controller.py` calls the appropriate function in `strategies/utils.py`:
+    - `flatten_structure` for `.cfp` projects.
+    - `calculate_metadata_db` for `.cfp-db` projects.
+    This function calculates the required metadata (e.g., it now runs the MD5 hash calculation).
+4.  **Metadata Persistence**: The newly calculated metadata is immediately saved back into the project file. This ensures that if the user runs the same comparison again, the metadata does not need to be recalculated.
 5.  **Strategy Execution**: The metadata is passed to the appropriate strategy (`find_common_strategy` or `find_duplicates_strategy`) to get the final results.
 
 **When adding a new comparison criterion, you must:**
 1.  Add a checkbox or other UI element in `ui.py`.
-2.  In `strategies/utils.py`, add the logic to `flatten_structure` to calculate the new metadata when the option is selected.
+2.  In `strategies/utils.py`, add the logic to `calculate_metadata_db` and `flatten_structure` to calculate the new metadata when the option is selected.
 3.  Create a new `compare_by_your_new_criterion.py` file in `strategies/`.
 4.  If it can be used for finding duplicates, also create a `key_by_your_new_criterion.py` file.
 5.  Integrate the new strategy module into `find_common_strategy.py` and/or `find_duplicates_strategy.py`.
@@ -74,7 +87,7 @@ The application includes a powerful but resource-intensive image similarity feat
 
 1.  **Engine Initialization**: On startup, the application looks for the required LLaVA model files in the `models/` directory. If found, it loads the model into memory.
 2.  **Embedding Generation**: When the "LLM Content" option is selected, the application uses the LLaVA model to generate a high-dimensional vector (an "embedding") for each image. This embedding represents the semantic content of the image.
-3.  **Metadata Persistence**: These embeddings are stored in the project's `.cfp` file, so they only need to be generated once per image.
+3.  **Metadata Persistence**: These embeddings are stored in the project's `.cfp` or `.cfp-db` file, so they only need to be generated once per image.
 4.  **Comparison**: The application then calculates the cosine similarity between the embeddings of different images to determine how similar they are.
 
 ### Requirements

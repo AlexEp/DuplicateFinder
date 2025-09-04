@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import json
 
 # Map UI strings to OpenCV constants
 HISTOGRAM_METHODS = {
@@ -38,19 +39,21 @@ def get_histogram(path):
         print(f"Could not calculate histogram for {path}: {e}")
         return None
 
-def compare(file1_info, file2_info, options):
+def compare(file1_info, file2_info, opts):
     """
     Compares two image files based on a selected histogram comparison method,
     using pre-calculated histograms from file metadata.
     """
-    hist1 = file1_info.get('metadata', {}).get('histogram')
-    hist2 = file2_info.get('metadata', {}).get('histogram')
-    method_name = options.get('histogram_method', 'Correlation')
+    hist1_str = file1_info.get('histogram')
+    hist2_str = file2_info.get('histogram')
+    method_name = opts.get('histogram_method', 'Correlation')
 
-    if hist1 is None or hist2 is None or method_name not in HISTOGRAM_METHODS:
+    if hist1_str is None or hist2_str is None or method_name not in HISTOGRAM_METHODS:
         return None
 
     try:
+        hist1 = np.array(json.loads(hist1_str))
+        hist2 = np.array(json.loads(hist2_str))
         comparison_method = HISTOGRAM_METHODS[method_name]
         score = cv2.compareHist(hist1, hist2, comparison_method)
 

@@ -21,15 +21,13 @@ class TestKeyingStrategies(unittest.TestCase):
     def test_key_by_content_md5(self):
         hash_val = "c" * 32
         # Test case: Key exists
-        self.assertEqual(key_by_content_md5.get_key(None, {'metadata': {'compare_content_md5': hash_val}}), hash_val)
+        self.assertEqual(key_by_content_md5.get_key(None, {'md5': hash_val}), hash_val)
 
         # Test case: Key is missing
         self.assertIsNone(key_by_content_md5.get_key(None, {}))
-        self.assertIsNone(key_by_content_md5.get_key(None, {'metadata': {}}))
-
 
         # Test case: Value is None
-        self.assertIsNone(key_by_content_md5.get_key(None, {'metadata': {'compare_content_md5': None}}))
+        self.assertIsNone(key_by_content_md5.get_key(None, {'md5': None}))
 
 if __name__ == '__main__':
     unittest.main()
