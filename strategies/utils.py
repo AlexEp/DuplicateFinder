@@ -6,6 +6,7 @@ import database
 from models import FileNode, FolderNode
 from . import compare_by_histogram
 from config import config
+from .calculators import get_calculators, LLMEmbeddingCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -94,117 +95,70 @@ def calculate_metadata_db(conn, folder_index, base_path, opts=None, file_type_fi
 def flatten_structure(structure, base_path, opts=None, file_type_filter="all", llm_engine=None, progress_callback=None):
     """
     Flattens the object tree into a dictionary of file info, calculating
-    metadata only for the options specified.
+    metadata only for the options specified using a modular calculator approach.
     Keys are relative paths to the provided base_path.
     Returns a tuple of (file_info, total_llm_files_processed).
     """
     logger.info(f"Flattening structure for base path '{base_path}' with options: {opts}")
-    if opts is None:
-        opts = {}
+    if opts is None: opts = {}
+    
     file_info = {}
     base_path_obj = Path(base_path)
-
-    # Get total number of files for progress reporting
-    llm_files_to_process = []
     image_extensions = config.get("file_extensions.image", [])
-    if opts.get('compare_llm') and llm_engine:
-        def find_llm_files(node):
-            if isinstance(node, FileNode):
-                if Path(node.fullpath).suffix.lower() in image_extensions:
-                    llm_files_to_process.append(node)
-            elif isinstance(node, FolderNode):
-                for child in node.content:
-                    find_llm_files(child)
-        for root_node in structure:
-            find_llm_files(root_node)
+    
+    # Initialize calculators
+    calculators = get_calculators(llm_engine, progress_callback)
+    llm_calculator = next((c for c in calculators if isinstance(c, LLMEmbeddingCalculator)), None)
 
-    processed_llm_files = 0
-    total_llm_files = len(llm_files_to_process)
-
-    def traverse(node):
-        nonlocal processed_llm_files
+    # --- Pre-computation for progress tracking ---
+    files_to_process = []
+    def collect_files(node):
         if isinstance(node, FileNode):
-            p = Path(node.fullpath)
-            if not p.exists():
-                logger.warning(f"File listed in structure does not exist, skipping: {p}")
-                return
-
-            # File type filtering
-            if file_type_filter != "all":
-                ext = p.suffix.lower()
-                if file_type_filter == "image" and ext not in image_extensions:
-                    return
-                if file_type_filter == "video" and ext not in config.get("file_extensions.video", []):
-                    return
-                if file_type_filter == "audio" and ext not in config.get("file_extensions.audio", []):
-                    return
-                if file_type_filter == "document" and ext not in config.get("file_extensions.document", []):
-                    return
-
-            try:
-                relative_path = p.relative_to(base_path_obj)
-            except ValueError:
-                logger.warning(f"Could not determine relative path for {p} against base {base_path_obj}, skipping.")
-                return
-
-            # Start with existing metadata
-            info = node.metadata.copy()
-            info['fullpath'] = node.fullpath
-            
-            if opts.get('compare_name'):
-                info['name'] = node.name
-
-            needs_stat = opts.get('compare_size') or opts.get('compare_date')
-            if needs_stat:
-                try:
-                    stat = p.stat()
-                    if opts.get('compare_size'):
-                        info['size'] = stat.st_size
-                    if opts.get('compare_date'):
-                        info['date'] = stat.st_mtime
-                except OSError as e:
-                    logger.error(f"Could not get stat for file {p}: {e}")
-
-            if opts.get('compare_content_md5'):
-                if 'md5' not in info or info['md5'] is None:
-                    info['md5'] = calculate_md5(p)
-                else:
-                    logger.debug(f"Using cached MD5 for: {p}")
-
-            if opts.get('compare_histogram'):
-                if 'histogram' not in info or info['histogram'] is None:
-                    hist = compare_by_histogram.get_histogram(str(p))
-                    if hist is not None:
-                        info['histogram'] = hist
-                else:
-                    logger.debug(f"Using cached histogram for: {p}")
-            
-            if opts.get('compare_llm') and llm_engine and node in llm_files_to_process:
-                if 'llm_embedding' not in info or info['llm_embedding'] is None:
-                    processed_llm_files += 1
-                    if progress_callback:
-                        progress_message = f"LLM Processing ({processed_llm_files}/{total_llm_files}): {p.name}"
-                        progress_callback(progress_message, processed_llm_files)
-
-                    embedding = llm_engine.get_image_embedding(str(p))
-                    if embedding is not None:
-                        info['llm_embedding'] = embedding.tolist()
-                else:
-                    logger.debug(f"Using cached LLM embedding for: {p}")
-                    processed_llm_files += 1
-                    if progress_callback:
-                        progress_callback(f"LLM Cached ({processed_llm_files}/{total_llm_files}): {p.name}", processed_llm_files)
-
-            # Update the node's metadata in-place for saving
-            node.metadata.update(info)
-            
-            file_info[relative_path] = info
-
+            files_to_process.append(node)
         elif isinstance(node, FolderNode):
             for child in node.content:
-                traverse(child)
-
+                collect_files(child)
     for root_node in structure:
-        traverse(root_node)
+        collect_files(root_node)
 
+    if llm_calculator:
+        llm_files_to_process = [ 
+            node for node in files_to_process 
+            if Path(node.fullpath).suffix.lower() in image_extensions
+        ]
+        llm_calculator.total_llm_files = len(llm_files_to_process)
+
+    # --- Main Processing Loop ---
+    for node in files_to_process:
+        p = Path(node.fullpath)
+        if not p.exists():
+            logger.warning(f"File listed in structure does not exist, skipping: {p}")
+            continue
+
+        # File type filtering
+        if file_type_filter != "all":
+            ext = p.suffix.lower()
+            if file_type_filter == "image" and ext not in image_extensions:
+                continue
+            # (Add other file type filters if necessary)
+
+        try:
+            relative_path = p.relative_to(base_path_obj)
+        except ValueError:
+            logger.warning(f"Could not determine relative path for {p} against base {base_path_obj}, skipping.")
+            continue
+
+        # Dynamically run calculators
+        for calculator in calculators:
+            calculator.calculate(node, opts)
+
+        # Collect results
+        info = node.metadata.copy()
+        info['fullpath'] = node.fullpath
+        if opts.get('compare_name'):
+            info['name'] = node.name
+
+        file_info[relative_path] = info
+
+    total_llm_files = llm_calculator.processed_llm_files if llm_calculator else 0
     return file_info, total_llm_files
