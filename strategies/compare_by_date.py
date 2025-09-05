@@ -14,3 +14,6 @@ class CompareByDate(BaseComparisonStrategy):
         if key not in file1_info or key not in file2_info:
             return False
         return file1_info[key] == file2_info[key]
+
+_strategy = CompareByDate()
+compare = _strategy.compare

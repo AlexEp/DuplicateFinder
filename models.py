@@ -12,8 +12,13 @@ class FileNode(FileSystemNode):
     """Represents a file in the file system tree."""
     def __init__(self, path_obj, metadata=None):
         super().__init__(path_obj)
+        self.path_obj = path_obj
         self.type = 'file'
         self.metadata = metadata if metadata is not None else {}
+
+    @property
+    def ext(self):
+        return "".join(self.path_obj.suffixes)
 
     def to_dict(self):
         return {

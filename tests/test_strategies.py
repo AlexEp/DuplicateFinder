@@ -5,26 +5,26 @@ class TestComparisonStrategies(unittest.TestCase):
 
     def test_compare_by_size(self):
         # Test case: Sizes are equal
-        self.assertTrue(compare_by_size.compare({'compare_size': 100}, {'compare_size': 100}))
+        self.assertTrue(compare_by_size.compare({'size': 100}, {'size': 100}))
 
         # Test case: Sizes are not equal
-        self.assertFalse(compare_by_size.compare({'compare_size': 100}, {'compare_size': 200}))
+        self.assertFalse(compare_by_size.compare({'size': 100}, {'size': 200}))
 
         # Test case: Key missing in one dictionary
-        self.assertFalse(compare_by_size.compare({'compare_size': 100}, {}))
+        self.assertFalse(compare_by_size.compare({'size': 100}, {}))
 
         # Test case: Key missing in both dictionaries
         self.assertFalse(compare_by_size.compare({}, {}))
 
     def test_compare_by_date(self):
         # Test case: Dates are equal
-        self.assertTrue(compare_by_date.compare({'compare_date': 12345.67}, {'compare_date': 12345.67}))
+        self.assertTrue(compare_by_date.compare({'date': 12345.67}, {'date': 12345.67}))
 
         # Test case: Dates are not equal
-        self.assertFalse(compare_by_date.compare({'compare_date': 12345.67}, {'compare_date': 76543.21}))
+        self.assertFalse(compare_by_date.compare({'date': 12345.67}, {'date': 76543.21}))
 
         # Test case: Key missing in one dictionary
-        self.assertFalse(compare_by_date.compare({'compare_date': 12345.67}, {}))
+        self.assertFalse(compare_by_date.compare({'date': 12345.67}, {}))
 
         # Test case: Key missing in both dictionaries
         self.assertFalse(compare_by_date.compare({}, {}))
