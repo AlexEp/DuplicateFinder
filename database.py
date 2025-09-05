@@ -1,4 +1,3 @@
-
 import sqlite3
 import json
 from models import FileNode, FolderNode
@@ -43,6 +42,10 @@ def load_setting(conn, key):
 def clear_folder_data(conn, folder_index):
     with conn:
         conn.execute("DELETE FROM files WHERE folder_index = ?", (folder_index,))
+
+def delete_file_by_path(conn, relative_path):
+    with conn:
+        conn.execute("DELETE FROM files WHERE relative_path = ?", (relative_path,))
 
 def insert_file_node(conn, node, folder_index, parent_path=''):
     relative_path = f"{parent_path}/{node.name}" if parent_path else node.name

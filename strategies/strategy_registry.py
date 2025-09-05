@@ -13,6 +13,7 @@ class StrategyRegistry:
         import strategies.compare_by_date
         import strategies.compare_by_content_md5
         import strategies.compare_by_llm
+        import strategies.compare_by_name
 
         for importer, modname, ispkg in pkgutil.iter_modules(strategies.__path__):
             if modname.startswith('compare_by_'):

@@ -159,7 +159,8 @@ class AppController:
             messagebox.showwarning("LLM Engine Error",
                                    f"""Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.
 
-Error: {e}""")
+Error: {e}"""
+                                   )
         finally:
             # Re-enable UI elements and reset loading flag
             self.llm_engine_loading = False
@@ -341,13 +342,7 @@ Error: {e}""")
             if not results:
                 message = "No matching files found." if mode == "compare" else "No duplicate files found."
                 self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
-            elif mode == "compare":
-                for file_info in results:
-                    size = file_info.get('size', 'N/A')
-                    relative_path = file_info.get('relative_path', '')
-                    file_name = Path(relative_path).name
-                    self.view.results_tree.insert('', tk.END, values=(file_name, size, relative_path), tags=('file_row',))
-            else: # duplicates
+            elif mode == "compare" or mode == "duplicates":
                 for i, group in enumerate(results, 1):
                     header_text = f"Duplicate Set {i} ({len(group)} files)"
                     parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", ""), open=True, tags=('header_row',))
@@ -400,7 +395,8 @@ Error: {e}""")
 
         self.task_runner.post_to_main_thread(self.view.update_status, f"Running {mode} strategy...")
         if mode == "compare":
-            results = find_common_strategy.run(info1, info2, opts)
+            info1.update(info2)
+            results = find_duplicates_strategy.run(info1, opts, base_path1)
         else: # duplicates
             results = find_duplicates_strategy.run(info1, opts, base_path1)
 
@@ -435,7 +431,8 @@ Error: {e}""")
 
         self.task_runner.post_to_main_thread(self.view.update_status, f"Running {mode} strategy...")
         if mode == "compare":
-            results = find_common_strategy.run(info1, info2, opts)
+            info1.update(info2)
+            results = find_duplicates_strategy.run(info1, opts, base_path1)
         else: # duplicates
             results = find_duplicates_strategy.run(info1, opts, base_path1)
 

@@ -6,10 +6,23 @@ import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
 import logging
+import database
+from models import FileNode, FolderNode
 
 logger = logging.getLogger(__name__)
 
-def move_file(base_path_str, relative_path_str, dest_path_str, results_tree, iid, update_status_callback):
+def _remove_node_from_structure(structure, fullpath):
+    """Recursively removes a node from the structure by its fullpath."""
+    for i, node in enumerate(structure):
+        if isinstance(node, FileNode) and str(node.fullpath) == str(fullpath):
+            del structure[i]
+            return True
+        elif isinstance(node, FolderNode):
+            if _remove_node_from_structure(node.content, fullpath):
+                return True
+    return False
+
+def move_file(controller, base_path_str, relative_path_str, dest_path_str, results_tree, iid, update_status_callback):
     if not base_path_str or not dest_path_str:
         logger.warning("Move file cancelled: source or destination folder path is not set.")
         messagebox.showwarning("Warning", "Source or destination folder path is not set.")
@@ -40,6 +53,18 @@ def move_file(base_path_str, relative_path_str, dest_path_str, results_tree, iid
 
         shutil.move(source_path, dest_path)
         results_tree.delete(iid)
+
+        # Update data
+        if controller.project_manager.current_project_path.endswith(".cfp-db"):
+            conn = database.get_db_connection(controller.project_manager.current_project_path)
+            database.delete_file_by_path(conn, relative_path_str)
+            conn.close()
+        else:
+            if controller.folder1_path.get() == base_path_str:
+                _remove_node_from_structure(controller.folder1_structure, source_path)
+            elif controller.folder2_path.get() == base_path_str:
+                _remove_node_from_structure(controller.folder2_structure, source_path)
+
         update_status_callback(f"Moved: {source_path.name} to {dest_path}")
         logger.info(f"Successfully moved file from '{source_path}' to '{dest_path}'.")
 
@@ -47,7 +72,7 @@ def move_file(base_path_str, relative_path_str, dest_path_str, results_tree, iid
         logger.error(f"Failed to move file from '{source_path}' to '{dest_path}'.", exc_info=True)
         messagebox.showerror("Error", f"Could not move file:\n{e}")
 
-def delete_file(base_path_str, relative_path_str, results_tree, iid, update_status_callback):
+def delete_file(controller, base_path_str, relative_path_str, results_tree, iid, update_status_callback):
     if not base_path_str:
         logger.warning(f"Delete file cancelled: base path is not set.")
         messagebox.showwarning("Warning", "Base path is not set.")
@@ -71,6 +96,18 @@ def delete_file(base_path_str, relative_path_str, results_tree, iid, update_stat
 
         os.remove(full_path)
         results_tree.delete(iid)
+
+        # Update data
+        if controller.project_manager.current_project_path.endswith(".cfp-db"):
+            conn = database.get_db_connection(controller.project_manager.current_project_path)
+            database.delete_file_by_path(conn, relative_path_str)
+            conn.close()
+        else:
+            if controller.folder1_path.get() == base_path_str:
+                _remove_node_from_structure(controller.folder1_structure, full_path)
+            elif controller.folder2_path.get() == base_path_str:
+                _remove_node_from_structure(controller.folder2_structure, full_path)
+
         update_status_callback(f"Deleted: {full_path}")
         logger.info(f"Successfully deleted file: {full_path}")
 

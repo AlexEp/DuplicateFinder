@@ -53,7 +53,7 @@ def calculate_metadata_db(conn, folder_index, base_path, opts=None, file_type_fi
 
         update_data = {'id': file_id}
         
-        if opts.get('compare_content_md5') and md5 is None:
+        if opts.get('compare_content_md5'):
             update_data['md5'] = calculate_md5(p)
 
         if opts.get('compare_histogram') and histogram is None:
@@ -138,9 +138,9 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
         # File type filtering
         if file_type_filter != "all":
             ext = p.suffix.lower()
-            if file_type_filter == "image" and ext not in image_extensions:
+            allowed_extensions = config.get(f"file_extensions.{file_type_filter}", [])
+            if ext not in allowed_extensions:
                 continue
-            # (Add other file type filters if necessary)
 
         try:
             relative_path = p.relative_to(base_path_obj)

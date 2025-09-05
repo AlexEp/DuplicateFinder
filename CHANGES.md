@@ -1,5 +1,9 @@
 # Changelog
 
+## 2025-09-05
+- **Fix**: Fixed the "Compare by Name" functionality in the "Compare Folders" mode. A dedicated comparison strategy for names was created and registered, ensuring that the feature works as intended.
+- **Fix**: Corrected the file type filtering logic. The application now correctly filters files based on the selected file type (Image, Video, Document, All) in both JSON and SQLite-based projects.
+
 ## 2025-09-04
 - **Fix**: Corrected a bug preventing comparisons from running on projects using the older `.cfp` (JSON) format. The data structure returned after metadata calculation for JSON projects now correctly matches the format expected by the comparison strategies.
 

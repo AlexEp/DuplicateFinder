@@ -42,8 +42,8 @@ class TestAppController(unittest.TestCase):
 
     @patch('controller.messagebox')
     @patch('controller.utils')
-    @patch('controller.find_common_strategy')
-    def test_run_action_compare_mode(self, mock_find_common, mock_utils, mock_messagebox):
+    @patch('controller.find_duplicates_strategy')
+    def test_run_action_compare_mode(self, mock_find_duplicates, mock_utils, mock_messagebox):
         """Test the main action in 'compare' mode."""
         self.controller.app_mode.get.return_value = "compare"
         self.controller.project_manager.current_project_path = "test.cfp"
@@ -51,7 +51,7 @@ class TestAppController(unittest.TestCase):
         self.controller.folder2_structure = [MagicMock()]
         self.controller.project_manager._gather_settings.return_value = {'options': {'compare_llm': False}}
 
-        mock_find_common.run.return_value = [{'name': 'file1.txt', 'size': 100, 'relative_path': 'file1.txt'}]
+        mock_find_duplicates.run.return_value = [[{'name': 'file1.txt', 'size': 100, 'relative_path': 'file1.txt'}]]
         mock_utils.flatten_structure.return_value = ({}, 0)
 
 
@@ -65,8 +65,8 @@ class TestAppController(unittest.TestCase):
         results = action_task()
         on_success(results)
 
-        mock_find_common.run.assert_called_once()
-        self.mock_view.results_tree.insert.assert_called_once_with('', tk.END, values=('file1.txt', 100, 'file1.txt'), tags=('file_row',))
+        mock_find_duplicates.run.assert_called_once()
+        self.mock_view.results_tree.insert.assert_any_call('', tk.END, values=('Duplicate Set 1 (1 files)', '', ''), open=True, tags=('header_row',))
 
 if __name__ == '__main__':
     unittest.main()

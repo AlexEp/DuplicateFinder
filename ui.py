@@ -371,13 +371,13 @@ class FolderComparisonApp:
         if not iid:
             return
         dest_path = self.move_to_path.get()
-        file_operations.move_file(base_path, relative_path, dest_path, self.results_tree, iid, self.update_status)
+        file_operations.move_file(self.controller, base_path, relative_path, dest_path, self.results_tree, iid, self.update_status)
 
     def _delete_file(self, folder_num):
         iid, relative_path, base_path = self._get_selected_file_info(folder_num)
         if not iid:
             return
-        file_operations.delete_file(base_path, relative_path, self.results_tree, iid, self.update_status)
+        file_operations.delete_file(self.controller, base_path, relative_path, self.results_tree, iid, self.update_status)
 
     def _open_containing_folder(self, folder_num):
         _, relative_path, base_path = self._get_selected_file_info(folder_num)
