@@ -1,4 +1,4 @@
-from .strategy_registry import strategy_registry
+from . import strategy_registry
 
 def run(info1, info2, opts):
     """
@@ -19,7 +19,7 @@ def run(info1, info2, opts):
         file1_info = info1[path]
         file2_info = info2[path]
 
-        is_match = all(strategy.compare(file1_info, file2_info, opts) for strategy in active_strategies)
+        is_match = all(strategy(file1_info, file2_info, opts) for strategy in active_strategies)
 
         if is_match:
             file1_info['relative_path'] = str(path)

@@ -411,7 +411,7 @@ class FolderComparisonApp:
         mode = self.app_mode.get()
 
         menu_items = []
-        if mode == "compare":
+        if mode == constants.UI_MODE_COMPARE:
             menu_items = [
                 ('preview_from_folder_1', lambda: self._preview_file(1), preview_state),
                 ('preview_from_folder_2', lambda: self._preview_file(2), preview_state),
