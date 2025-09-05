@@ -14,6 +14,7 @@ from config import config
 import file_operations
 from project_manager import ProjectManager
 from controller import AppController
+import constants
 
 logger = logging.getLogger(__name__)
 
@@ -92,18 +93,18 @@ class FolderComparisonApp:
         menubar.add_cascade(label=config.get('ui.labels.options', "Options"), menu=options_menu)
         mode_menu = tk.Menu(options_menu, tearoff=0)
         options_menu.add_cascade(label=config.get('ui.labels.mode', "Mode"), menu=mode_menu)
-        mode_menu.add_radiobutton(label=config.get('ui.modes.compare', "Compare Folders"), variable=self.app_mode, value="compare")
-        mode_menu.add_radiobutton(label=config.get('ui.modes.duplicates', "Find Duplicates"), variable=self.app_mode, value="duplicates")
+        mode_menu.add_radiobutton(label=config.get('ui.modes.compare', "Compare Folders"), variable=self.app_mode, value=constants.UI_MODE_COMPARE)
+        mode_menu.add_radiobutton(label=config.get('ui.modes.duplicates', "Find Duplicates"), variable=self.app_mode, value=constants.UI_MODE_DUPLICATES)
 
         options_menu.add_separator()
 
         file_type_menu = tk.Menu(options_menu, tearoff=0)
         options_menu.add_cascade(label=config.get('ui.labels.file_type', "File Type"), menu=file_type_menu)
-        file_type_menu.add_radiobutton(label=config.get('ui.file_types.all', "All"), variable=self.file_type_filter, value="all")
-        file_type_menu.add_radiobutton(label=config.get('ui.file_types.image', "Images"), variable=self.file_type_filter, value="image")
-        file_type_menu.add_radiobutton(label=config.get('ui.file_types.video', "Videos"), variable=self.file_type_filter, value="video")
-        file_type_menu.add_radiobutton(label=config.get('ui.file_types.audio', "Audio"), variable=self.file_type_filter, value="audio")
-        file_type_menu.add_radiobutton(label=config.get('ui.file_types.document', "Documents"), variable=self.file_type_filter, value="document")
+        file_type_menu.add_radiobutton(label=config.get('ui.file_types.all', "All"), variable=self.file_type_filter, value=constants.UI_FILE_TYPE_ALL)
+        file_type_menu.add_radiobutton(label=config.get('ui.file_types.image', "Images"), variable=self.file_type_filter, value=constants.UI_FILE_TYPE_IMAGE)
+        file_type_menu.add_radiobutton(label=config.get('ui.file_types.video', "Videos"), variable=self.file_type_filter, value=constants.UI_FILE_TYPE_VIDEO)
+        file_type_menu.add_radiobutton(label=config.get('ui.file_types.audio', "Audio"), variable=self.file_type_filter, value=constants.UI_FILE_TYPE_AUDIO)
+        file_type_menu.add_radiobutton(label=config.get('ui.file_types.document', "Documents"), variable=self.file_type_filter, value=constants.UI_FILE_TYPE_DOCUMENT)
 
         top_frame = tk.Frame(self.root)
         top_frame.pack(fill=tk.X, padx=10, pady=(10,0))
@@ -247,15 +248,15 @@ class FolderComparisonApp:
         self.compare_mode_frame.pack_forget()
         self.duplicates_mode_frame.pack_forget()
 
-        if mode == "compare":
+        if mode == constants.UI_MODE_COMPARE:
             self.compare_mode_frame.pack(fill=tk.X)
             self.action_button.config(text=config.get('ui.modes.compare', "Compare Folders"))
-        elif mode == "duplicates":
+        elif mode == constants.UI_MODE_DUPLICATES:
             self.duplicates_mode_frame.pack(fill=tk.X)
             self.action_button.config(text=config.get('ui.modes.duplicates', "Find Duplicates"))
 
     def _on_file_type_change(self, *args):
-        if self.file_type_filter.get() == "image":
+        if self.file_type_filter.get() == constants.UI_FILE_TYPE_IMAGE:
             self.image_match_frame.pack(fill=tk.X, pady=(5,0))
         else:
             self.image_match_frame.pack_forget()
@@ -355,7 +356,7 @@ class FolderComparisonApp:
         # In duplicates mode, folder_num is always 1, but the UI might show folder 2 path if it was switched from compare mode.
         # We should use the path that is actually being displayed.
         mode = self.app_mode.get()
-        if mode == 'duplicates':
+        if mode == constants.UI_MODE_DUPLICATES:
             base_path_str = self.folder1_path.get()
         else: # compare mode
             base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
@@ -392,7 +393,7 @@ class FolderComparisonApp:
 
         self.results_tree.selection_set(iid)
         item = self.results_tree.item(iid)
-        if 'file_row' not in item.get('tags', []):
+        if constants.UI_TREE_TAG_FILE not in item.get('tags', []):
             return
 
         context_menu = tk.Menu(self.root, tearoff=0)
@@ -456,7 +457,7 @@ class FolderComparisonApp:
         item = self.results_tree.item(iid)
 
         # Perform robust checks to ensure it's a valid file row with a path
-        is_file_row = 'file_row' in item.get('tags', [])
+        is_file_row = constants.UI_TREE_TAG_FILE in item.get('tags', [])
         has_values = item.get('values')
         has_path = has_values and len(has_values) > 2 and has_values[2]
 

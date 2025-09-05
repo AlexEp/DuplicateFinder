@@ -1,16 +1,13 @@
-from .base_comparison_strategy import BaseComparisonStrategy
+import constants
 
-class CompareBySize(BaseComparisonStrategy):
-    @property
-    def option_key(self):
-        return 'compare_size'
+def compare(file1_info, file2_info, opts=None):
+    """
+    Compares two files based on their size.
+    Returns False if size information is missing from either file.
+    """
+    size1 = file1_info.get(constants.METADATA_SIZE)
+    size2 = file2_info.get(constants.METADATA_SIZE)
 
-    def compare(self, file1_info, file2_info, opts=None):
-        """
-        Compares two files based on their size.
-        Returns False if size information is missing from either file.
-        """
-        key = 'size'
-        if key not in file1_info or key not in file2_info:
-            return False
-        return file1_info[key] == file2_info[key]
+    if size1 is None or size2 is None:
+        return False
+    return size1 == size2

@@ -246,3 +246,16 @@ The current project file format (`.cfp`) is a single, large JSON file. This appr
     3.think about what heppand if we rebuild the folder again, how it will clean the old data ?
     will it delete only the non exist files ? how it will addor update the already exist
 ---
+
+## 2. Clean Code & Readability
+
+**Observation:**
+There are a lot of "magic strings" used throughout the code, especially for dictionary keys and option names. Some functions are still quite long and could be broken down into smaller, more manageable functions. Some comments are outdated or could be improved.
+
+**Suggestion: Improve Code Quality**
+
+*   **Use Constants for Magic Strings:** Replace dictionary keys and option names with constants to improve readability and reduce the risk of typos.
+*   **Refactor Long Functions:** Break down long functions, like the `run` function in `find_duplicates_strategy.py`, into smaller, more manageable functions.
+*   **Update Comments:** Review and update comments to ensure they are accurate and helpful.
+
+---

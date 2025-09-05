@@ -44,14 +44,17 @@ def clear_folder_data(conn, folder_index):
     with conn:
         conn.execute("DELETE FROM files WHERE folder_index = ?", (folder_index,))
 
+import os
+
 def insert_file_node(conn, node, folder_index, parent_path=''):
     relative_path = f"{parent_path}/{node.name}" if parent_path else node.name
     if isinstance(node, FileNode):
+        _, ext = os.path.splitext(node.name)
         with conn:
             conn.execute("""
                 INSERT INTO files (folder_index, relative_path, name, ext, size, modified_date)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (folder_index, relative_path, node.name, node.ext, node.metadata.get('size'), node.metadata.get('date')))
+            """, (folder_index, relative_path, node.name, ext, node.metadata.get('size'), node.metadata.get('date')))
     elif isinstance(node, FolderNode):
         for child in node.content:
             insert_file_node(conn, child, folder_index, relative_path)

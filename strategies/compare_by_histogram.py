@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import json
+import constants
 
 # Map UI strings to OpenCV constants
 HISTOGRAM_METHODS = {
@@ -9,9 +10,6 @@ HISTOGRAM_METHODS = {
     'Intersection': cv2.HISTCMP_INTERSECT,
     'Bhattacharyya': cv2.HISTCMP_BHATTACHARYYA
 }
-
-# Define which methods measure similarity (higher is better) vs. distance (lower is better)
-SIMILARITY_METRICS = ['Correlation', 'Intersection']
 
 def get_histogram(path):
     """
@@ -44,9 +42,9 @@ def compare(file1_info, file2_info, opts):
     Compares two image files based on a selected histogram comparison method,
     using pre-calculated histograms from file metadata.
     """
-    hist1_str = file1_info.get('histogram')
-    hist2_str = file2_info.get('histogram')
-    method_name = opts.get('histogram_method', 'Correlation')
+    hist1_str = file1_info.get(constants.METADATA_HISTOGRAM)
+    hist2_str = file2_info.get(constants.METADATA_HISTOGRAM)
+    method_name = opts.get(constants.HISTOGRAM_METHOD, 'Correlation')
 
     if hist1_str is None or hist2_str is None or method_name not in HISTOGRAM_METHODS:
         return None
@@ -58,10 +56,10 @@ def compare(file1_info, file2_info, opts):
         score = cv2.compareHist(hist1, hist2, comparison_method)
 
         # Return the score in the specified nested dictionary structure
-        return {'histogram_method': {method_name: score}}
+        return {constants.HISTOGRAM_METHOD: {method_name: score}}
 
     except Exception as e:
-        path1 = file1_info.get('fullpath')
-        path2 = file2_info.get('fullpath')
+        path1 = file1_info.get(constants.METADATA_FULLPATH)
+        path2 = file2_info.get(constants.METADATA_FULLPATH)
         print(f"Could not compare histograms for {path1} and {path2}: {e}")
         return None

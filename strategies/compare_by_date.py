@@ -1,16 +1,13 @@
-from .base_comparison_strategy import BaseComparisonStrategy
+import constants
 
-class CompareByDate(BaseComparisonStrategy):
-    @property
-    def option_key(self):
-        return 'compare_date'
+def compare(file1_info, file2_info, opts=None):
+    """
+    Compares two files based on their modification time.
+    Returns False if date information is missing from either file.
+    """
+    date1 = file1_info.get(constants.METADATA_DATE)
+    date2 = file2_info.get(constants.METADATA_DATE)
 
-    def compare(self, file1_info, file2_info, opts=None):
-        """
-        Compares two files based on their modification time.
-        Returns False if date information is missing from either file.
-        """
-        key = 'date'
-        if key not in file1_info or key not in file2_info:
-            return False
-        return file1_info[key] == file2_info[key]
+    if date1 is None or date2 is None:
+        return False
+    return date1 == date2

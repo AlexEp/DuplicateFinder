@@ -6,14 +6,14 @@ class TestKeyingStrategies(unittest.TestCase):
 
     def test_key_by_size(self):
         # Test case: Key exists
-        self.assertEqual(key_by_size.get_key(None, {'compare_size': 12345}), 12345)
+        self.assertEqual(key_by_size.get_key(None, {'size': 12345}), 12345)
 
         # Test case: Key is missing
         self.assertIsNone(key_by_size.get_key(None, {}))
 
     def test_key_by_date(self):
         # Test case: Key exists
-        self.assertEqual(key_by_date.get_key(None, {'compare_date': 54321.0}), 54321.0)
+        self.assertEqual(key_by_date.get_key(None, {'modified_date': 54321.0}), 54321.0)
 
         # Test case: Key is missing
         self.assertIsNone(key_by_date.get_key(None, {}))
