@@ -1,63 +1,61 @@
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 import logic
-from models import FileNode, FolderNode
+from models import FileNode
 
 class TestLogic(unittest.TestCase):
 
     def test_build_folder_structure_json(self):
-        """Test building a folder structure for JSON projects."""
-        # Create a mock file system structure
+        """Test building a folder structure for JSON projects (new flat model)."""
         # Create a mock file system structure
         mock_file1 = MagicMock(spec=Path)
         mock_file1.name = "file1.txt"
-        mock_file1.is_dir.return_value = False
         mock_file1.is_file.return_value = True
-
-        mock_subfolder = MagicMock(spec=Path)
-        mock_subfolder.name = "subfolder"
-        mock_subfolder.is_dir.return_value = True
-        mock_subfolder.is_file.return_value = False
 
         mock_file2 = MagicMock(spec=Path)
         mock_file2.name = "file2.txt"
-        mock_file2.is_dir.return_value = False
         mock_file2.is_file.return_value = True
 
-        # Make the mocks comparable
-        mock_file1.__lt__ = lambda self, other: self.name < other.name
-        mock_subfolder.__lt__ = lambda self, other: self.name < other.name
-        mock_file2.__lt__ = lambda self, other: self.name < other.name
+        # is_file for directories should be false
+        mock_dir = MagicMock(spec=Path)
+        mock_dir.name = "subfolder"
+        mock_dir.is_file.return_value = False
+
+        mock_root_path_str = "/tmp/dummy_root"
+        mock_file1_path = Path(mock_root_path_str) / "file1.txt"
+        mock_file2_path = Path(mock_root_path_str) / "sub" / "file2.txt"
+
+        mock_file1 = MagicMock(spec=Path)
+        mock_file1.name = "file1.txt"
+        mock_file1.is_file.return_value = True
+        mock_file1.resolve.return_value = mock_file1_path
+
+        mock_file2 = MagicMock(spec=Path)
+        mock_file2.name = "file2.txt"
+        mock_file2.is_file.return_value = True
+        mock_file2.resolve.return_value = mock_file2_path
+
+        mock_dir = MagicMock(spec=Path)
+        mock_dir.name = "sub"
+        mock_dir.is_file.return_value = False
 
         mock_root = MagicMock(spec=Path)
         mock_root.is_dir.return_value = True
-        mock_root.iterdir.return_value = [mock_file1, mock_subfolder]
+        mock_root.rglob.return_value = [mock_file1, mock_dir, mock_file2]
 
-        mock_subfolder.iterdir.return_value = [mock_file2]
-
-        # Patch Path() to return our mock objects
-        with patch('logic.Path', return_value=mock_root) as mock_path:
-            # When build_folder_structure is called recursively for the subfolder,
-            # we need to make sure the Path constructor returns the subfolder mock.
-            def path_side_effect(path_arg):
-                if path_arg == mock_subfolder:
-                    return mock_subfolder
-                return mock_root
-            mock_path.side_effect = path_side_effect
-
+        # Patch Path() to return our mock root
+        with patch('logic.Path') as mock_path_constructor:
+            mock_path_constructor.return_value = mock_root
             # Call the function
-            structure, inaccessible_paths = logic.build_folder_structure("dummy_path")
+            structure, inaccessible_paths = logic.build_folder_structure(mock_root_path_str)
 
         # Assertions
         self.assertEqual(len(structure), 2)
         self.assertIsInstance(structure[0], FileNode)
         self.assertEqual(structure[0].name, "file1.txt")
-        self.assertIsInstance(structure[1], FolderNode)
-        self.assertEqual(structure[1].name, "subfolder")
-        self.assertEqual(len(structure[1].content), 1)
-        self.assertIsInstance(structure[1].content[0], FileNode)
-        self.assertEqual(structure[1].content[0].name, "file2.txt")
+        self.assertIsInstance(structure[1], FileNode)
+        self.assertEqual(structure[1].name, "file2.txt")
         self.assertEqual(len(inaccessible_paths), 0)
 
     def test_build_folder_structure_db(self):

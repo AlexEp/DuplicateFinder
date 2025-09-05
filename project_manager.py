@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from models import FileNode, FolderNode
+from models import FileNode
 import database
 
 logger = logging.getLogger(__name__)

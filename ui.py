@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 import logic
-from models import FileNode, FolderNode
+from models import FileNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
 from config import config
 import file_operations

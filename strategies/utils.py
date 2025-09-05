@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import json
 import database
-from models import FileNode, FolderNode
+from models import FileNode
 from . import compare_by_histogram
 from config import config
 from .calculators import get_calculators, LLMEmbeddingCalculator
@@ -94,16 +94,14 @@ def calculate_metadata_db(conn, folder_index, base_path, opts=None, file_type_fi
 
 def flatten_structure(structure, base_path, opts=None, file_type_filter="all", llm_engine=None, progress_callback=None):
     """
-    Flattens the object tree into a dictionary of file info, calculating
-    metadata only for the options specified using a modular calculator approach.
-    Keys are relative paths to the provided base_path.
-    Returns a tuple of (file_info, total_llm_files_processed).
+    Flattens the list of file nodes into a dictionary of file info, calculating
+    metadata only for the options specified.
+    Keys are the relative_path stored in the node.
     """
     logger.info(f"Flattening structure for base path '{base_path}' with options: {opts}")
     if opts is None: opts = {}
     
     file_info = {}
-    base_path_obj = Path(base_path)
     image_extensions = config.get("file_extensions.image", [])
     
     # Initialize calculators
@@ -111,15 +109,8 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
     llm_calculator = next((c for c in calculators if isinstance(c, LLMEmbeddingCalculator)), None)
 
     # --- Pre-computation for progress tracking ---
-    files_to_process = []
-    def collect_files(node):
-        if isinstance(node, FileNode):
-            files_to_process.append(node)
-        elif isinstance(node, FolderNode):
-            for child in node.content:
-                collect_files(child)
-    for root_node in structure:
-        collect_files(root_node)
+    # The structure is now a flat list of FileNodes
+    files_to_process = [node for node in structure if isinstance(node, FileNode)]
 
     if llm_calculator:
         llm_files_to_process = [ 
@@ -140,13 +131,6 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
             ext = p.suffix.lower()
             if file_type_filter == "image" and ext not in image_extensions:
                 continue
-            # (Add other file type filters if necessary)
-
-        try:
-            relative_path = p.relative_to(base_path_obj)
-        except ValueError:
-            logger.warning(f"Could not determine relative path for {p} against base {base_path_obj}, skipping.")
-            continue
 
         # Dynamically run calculators
         for calculator in calculators:
@@ -155,10 +139,10 @@ def flatten_structure(structure, base_path, opts=None, file_type_filter="all", l
         # Collect results
         info = node.metadata.copy()
         info['fullpath'] = node.fullpath
-        if opts.get('compare_name'):
-            info['name'] = node.name
+        info['relative_path'] = node.relative_path
 
-        file_info[relative_path] = info
+        # Use the stored relative_path as the key
+        file_info[node.relative_path] = info
 
     total_llm_files = llm_calculator.processed_llm_files if llm_calculator else 0
     return file_info, total_llm_files

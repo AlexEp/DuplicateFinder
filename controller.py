@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 from pathlib import Path
-from models import FileNode, FolderNode
+from models import FileNode
 from project_manager import ProjectManager
 from config import config
 import logic
@@ -104,14 +104,16 @@ class AppController:
                 self.view.results_tree.delete(i)
 
     def _dict_to_structure(self, node_list):
+        """Converts a list of dicts from a .cfp file back into a list of FileNode objects."""
         structure = []
         for node_dict in node_list:
-            if node_dict['type'] == 'folder':
-                node = FolderNode(Path(node_dict['fullpath']))
-                node.content = self._dict_to_structure(node_dict.get('content', []))
-                structure.append(node)
-            elif node_dict['type'] == 'file':
-                node = FileNode(Path(node_dict['fullpath']), node_dict.get('metadata'))
+            # The new structure is flat, so we only expect files.
+            if node_dict.get('type') == 'file':
+                # We don't have the original root_path, so we pass None.
+                # The important part is that the node_dict contains the pre-calculated relative_path.
+                node = FileNode(Path(node_dict['fullpath']), root_path=None, metadata=node_dict.get('metadata'))
+                # Manually restore the portable relative_path from the file.
+                node.relative_path = node_dict.get('relative_path', node.name)
                 structure.append(node)
         return structure
 

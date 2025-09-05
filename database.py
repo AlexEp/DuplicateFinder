@@ -1,7 +1,7 @@
 
 import sqlite3
 import json
-from models import FileNode, FolderNode
+from models import FileNode
 
 def get_db_connection(project_file):
     return sqlite3.connect(project_file)
@@ -44,17 +44,26 @@ def clear_folder_data(conn, folder_index):
     with conn:
         conn.execute("DELETE FROM files WHERE folder_index = ?", (folder_index,))
 
-def insert_file_node(conn, node, folder_index, parent_path=''):
-    relative_path = f"{parent_path}/{node.name}" if parent_path else node.name
+def insert_file_node(conn, node, folder_index):
+    """
+    Inserts a single FileNode into the database. Used for testing.
+    The main application uses bulk inserts via build_folder_structure_db.
+    """
     if isinstance(node, FileNode):
+        try:
+            stat = node.path_obj.stat()
+            size = stat.st_size
+            modified_date = stat.st_mtime
+        except (OSError, AttributeError):
+            # If it's a mock object or path doesn't exist, use defaults
+            size = 0
+            modified_date = 0
+
         with conn:
             conn.execute("""
                 INSERT INTO files (folder_index, relative_path, name, ext, size, modified_date)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (folder_index, relative_path, node.name, node.ext, node.metadata.get('size'), node.metadata.get('date')))
-    elif isinstance(node, FolderNode):
-        for child in node.content:
-            insert_file_node(conn, child, folder_index, relative_path)
+            """, (folder_index, node.relative_path, node.name, node.ext, size, modified_date))
 
 def get_all_files(conn, folder_index):
     cursor = conn.cursor()

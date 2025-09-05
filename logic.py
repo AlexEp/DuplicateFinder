@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from models import FileNode, FolderNode
+from models import FileNode
 import database
 
 logger = logging.getLogger(__name__)
@@ -48,8 +48,8 @@ def build_folder_structure_db(conn, folder_index, root_path):
 
 def build_folder_structure(root_path):
     """
-    Recursively builds a tree of FileNode and FolderNode objects.
-    Returns a tuple containing the content list and a list of inaccessible paths.
+    Builds a flat list of FileNode objects from a directory.
+    This is more efficient and aligns with the DB-based approach.
     """
     path_obj = Path(root_path)
     logger.debug(f"Building structure for directory: {path_obj}")
@@ -59,21 +59,15 @@ def build_folder_structure(root_path):
 
     content = []
     inaccessible_paths = []
-    try:
-        for item in sorted(path_obj.iterdir()):
-            try:
-                if item.is_dir():
-                    folder_node = FolderNode(item)
-                    folder_node.content, new_inaccessible = build_folder_structure(item)
-                    content.append(folder_node)
-                    inaccessible_paths.extend(new_inaccessible)
-                elif item.is_file():
-                    file_node = FileNode(item)
-                    content.append(file_node)
-            except OSError as e:
-                logger.error(f"Cannot access item {item} in {path_obj}: {e}")
-                inaccessible_paths.append(str(item))
-    except OSError as e:
-        logger.error(f"Cannot iterate directory {path_obj}: {e}")
-        inaccessible_paths.append(str(path_obj))
+
+    for item in path_obj.rglob('*'):
+        try:
+            if item.is_file():
+                # Pass root_path to FileNode to store relative path correctly
+                file_node = FileNode(item, root_path)
+                content.append(file_node)
+        except OSError as e:
+            logger.error(f"Cannot access item {item}: {e}")
+            inaccessible_paths.append(str(item))
+
     return content, inaccessible_paths
