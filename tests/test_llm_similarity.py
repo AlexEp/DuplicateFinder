@@ -109,9 +109,15 @@ class TestLLMSimilarity(unittest.TestCase):
                     self.assertLess(score, 95.0)
                 elif isinstance(expectation, tuple):
                     min_score, max_score = expectation
-                    # For "similar but not same", we don't check `is_similar` as it depends on the threshold
                     self.assertTrue(min_score <= score <= max_score,
                                     f"Score {score:.1f}% for '{description}' was not in the expected range [{min_score}, {max_score}]")
+
+                    # Test threshold boundaries
+                    is_similar_low_thresh, _ = compare_by_llm.compare(file1_info, file2_info, threshold=min_score - 1)
+                    self.assertTrue(is_similar_low_thresh, f"Should be similar with threshold below min_score for '{description}'")
+
+                    is_similar_high_thresh, _ = compare_by_llm.compare(file1_info, file2_info, threshold=max_score + 1)
+                    self.assertFalse(is_similar_high_thresh, f"Should be dissimilar with threshold above max_score for '{description}'")
 
 if __name__ == '__main__':
     unittest.main()

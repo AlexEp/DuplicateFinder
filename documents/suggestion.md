@@ -30,19 +30,6 @@ There are a lot of "magic strings" used throughout the code, especially for dict
 
 ---
 
-## 3. Testing
-
-**Observation:**
-The test coverage is decent for the strategies, but there are no tests for the UI, the controller, or the database logic. The tests rely on the files in the `tests/imgs` directory. Some assertions could be more specific.
-
-**Suggestion: Improve Test Coverage and Robustness**
-
-*   **Add UI, Controller, and Database Tests:** Write tests for the UI, the controller, and the database logic to increase test coverage.
-*   **Use Mock Files for Tests:** Create mock files in the tests to make them more self-contained and less dependent on the file system.
-*   **Improve Assertions:** Make assertions more specific, especially in `test_llm_similarity.py` for the "similar but not the same" case.
-
----
-
 ## 4. Performance
 
 **Observation:**

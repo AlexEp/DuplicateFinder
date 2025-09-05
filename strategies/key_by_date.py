@@ -1,4 +1,4 @@
 def get_key(path_obj, info):
     """Returns the modification time as the key."""
-    return info.get('modified_date')
+    return info.get('date')
 
