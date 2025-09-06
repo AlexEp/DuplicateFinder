@@ -35,9 +35,21 @@ class ToolTip:
         self.widget.bind("<Leave>", self.hide_tip)
 
     def show_tip(self, event=None):
-        x, y, _, _ = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + 25
-        y += self.widget.winfo_rooty() + 20
+        x, y = 0, 0
+        try:
+            # This works for widgets with an insert cursor
+            x, y, _, _ = self.widget.bbox("insert")
+            x += self.widget.winfo_rootx() + 25
+            y += self.widget.winfo_rooty() + 20
+        except (tk.TclError, TypeError):
+            # This is a fallback for widgets like Listbox
+            if event:
+                x = event.x_root + 15
+                y = event.y_root + 10
+            else:
+                # Last resort if event is not available
+                x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+                y = self.widget.winfo_rooty() + self.widget.winfo_height()
 
         self.tip_window = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
