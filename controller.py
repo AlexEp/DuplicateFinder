@@ -224,7 +224,9 @@ Error: {e}"""
 
         def build_task():
             conn = database.get_db_connection(self.project_manager.current_project_path)
-            inaccessible_paths = logic.build_folder_structure_db(conn, folder_index, path)
+            inaccessible_paths = logic.build_folder_structure_db(
+                conn, folder_index, path, self.include_subfolders.get()
+            )
             conn.close()
             return inaccessible_paths
 

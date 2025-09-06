@@ -5,13 +5,13 @@ import database
 
 logger = logging.getLogger(__name__)
 
-def build_folder_structure_db(conn, folder_index, root_path):
+def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=True):
     """
-    Recursively scans a directory and inserts file information into the database.
+    Scans a directory and inserts file information into the database.
     Returns a list of inaccessible paths.
     """
     path_obj = Path(root_path)
-    logger.debug(f"Building structure for directory: {path_obj} into DB")
+    logger.debug(f"Building structure for directory: {path_obj} into DB. Subfolders: {include_subfolders}")
     if not path_obj.is_dir():
         logger.warning(f"Path is not a directory, cannot build structure: {path_obj}")
         return [str(path_obj)]
@@ -21,7 +21,9 @@ def build_folder_structure_db(conn, folder_index, root_path):
 
     nodes_to_insert = []
 
-    for item in path_obj.rglob('*'):
+    iterator = path_obj.rglob('*') if include_subfolders else path_obj.glob('*')
+
+    for item in iterator:
         try:
             if item.is_file():
                 relative_path = item.relative_to(root_path).as_posix()
