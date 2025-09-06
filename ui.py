@@ -300,6 +300,7 @@ class FolderComparisonApp:
                 pass
 
         self.folder_list_box.insert(tk.END, str(new_path))
+        self.action_button.config(state='disabled')
 
     def remove_folder_from_list(self):
         selected_indices = self.folder_list_box.curselection()
@@ -309,6 +310,7 @@ class FolderComparisonApp:
         # Reverse sorted indices to avoid index shifting issues
         for i in sorted(selected_indices, reverse=True):
             self.folder_list_box.delete(i)
+        self.action_button.config(state='disabled')
 
     def _on_mode_change(self, *args):
         mode = self.app_mode.get()

@@ -98,6 +98,8 @@ class AppController:
         if hasattr(self.view, 'results_tree'):
             for i in self.view.results_tree.get_children():
                 self.view.results_tree.delete(i)
+        if hasattr(self.view, 'folder_list_box') and self.view.folder_list_box:
+            self.view.folder_list_box.delete(0, tk.END)
 
     def _dict_to_structure(self, node_list):
         structure = []
@@ -172,17 +174,32 @@ Error: {e}"""
             messagebox.showwarning("Build Warning", "No folders to build. Please add folders to the list.")
             return
 
-        # Assign indices dynamically
+        self.view.action_button.config(state='disabled')
+        for btn in self.view.build_buttons: btn.config(state='disabled')
+
+        remaining_tasks = len(folders_to_build)
+        lock = threading.Lock()
+
+        def on_task_finally():
+            nonlocal remaining_tasks
+            with lock:
+                remaining_tasks -= 1
+                if remaining_tasks == 0:
+                    logger.info("All build tasks completed.")
+                    self.view.update_status("All builds finished.")
+                    for btn in self.view.build_buttons: btn.config(state='normal')
+                    self.view.action_button.config(state='normal')
+
         for i, folder_path in enumerate(folders_to_build, 1):
-            self._build_metadata(folder_path, i)
+            self._build_metadata(folder_path, i, on_task_finally)
 
-    def _build_metadata(self, folder_path, folder_index):
+    def _build_metadata(self, folder_path, folder_index, on_finally_callback=None):
         if self.project_manager.current_project_path and self.project_manager.current_project_path.endswith(".cfp-db"):
-            self._build_metadata_db(folder_path, folder_index)
+            self._build_metadata_db(folder_path, folder_index, on_finally_callback)
         else:
-            self._build_metadata_json(folder_path, folder_index)
+            self._build_metadata_json(folder_path, folder_index, on_finally_callback)
 
-    def _build_metadata_db(self, path, folder_index):
+    def _build_metadata_db(self, path, folder_index, on_finally_callback=None):
         logger.info(f"Queueing metadata build for folder {folder_index} at path: {path} (DB)")
 
         if not self.project_manager.save_project():
@@ -195,13 +212,10 @@ Error: {e}"""
             messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_index}.")
             return
 
-        for btn in self.view.build_buttons: btn.config(state='disabled')
-        self.view.action_button.config(state='disabled')
         self.view.update_status(f"Building metadata for Folder {folder_index} into database...")
 
         def build_task():
             conn = database.get_db_connection(self.project_manager.current_project_path)
-            # Note the parameter order change here to match logic.py
             inaccessible_paths = logic.build_folder_structure_db(conn, folder_index, path)
             conn.close()
             return inaccessible_paths
@@ -229,12 +243,9 @@ Error: {e}"""
             logger.error(f"Failed to build metadata for folder {folder_index} into DB.", exc_info=e)
             messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
 
-        def on_finally():
-            self.view.update_status("Ready.")
-            for btn in self.view.build_buttons: btn.config(state='normal')
-            self.view.action_button.config(state='normal')
-
-        self.task_runner.run_task(build_task, on_success, on_error, on_finally)
+        # Use the provided callback if it exists, otherwise use a no-op
+        final_callback = on_finally_callback if on_finally_callback else lambda: None
+        self.task_runner.run_task(build_task, on_success, on_error, final_callback)
 
     def _build_metadata_json(self, path, folder_index):
         logger.info(f"Queueing metadata build for folder {folder_index} at path: {path}")
@@ -249,8 +260,6 @@ Error: {e}"""
             messagebox.showerror("Error", f"Please select a valid directory for Folder {folder_index}.")
             return
 
-        for btn in self.view.build_buttons: btn.config(state='disabled')
-        self.view.action_button.config(state='disabled')
         self.view.update_status(f"Building metadata for Folder {folder_index}...")
 
         def build_task():
@@ -283,12 +292,8 @@ Error: {e}"""
             logger.error(f"Failed to build metadata for folder {folder_index}.", exc_info=e)
             messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
 
-        def on_finally():
-            self.view.update_status("Ready.")
-            for btn in self.view.build_buttons: btn.config(state='normal')
-            self.view.action_button.config(state='normal')
-
-        self.task_runner.run_task(build_task, on_success, on_error, on_finally)
+        final_callback = on_finally_callback if on_finally_callback else lambda: None
+        self.task_runner.run_task(build_task, on_success, on_error, final_callback)
 
     def run_action(self, event=None):
         opts = self.project_manager._gather_settings()['options']
@@ -395,7 +400,6 @@ Error: {e}"""
                 all_results.append((pair, matches))
         else: # duplicates
             self.task_runner.post_to_main_thread(self.view.update_status, "Calculating metadata...")
-            # In duplicates mode, we use folder_index 1 and the folder1_path
             info, _ = utils.calculate_metadata_db(conn, 1, self.folder1_path.get(), opts, file_type_filter=file_filter, llm_engine=self.llm_engine)
             self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
             all_results = find_duplicates_strategy.run(info, opts, self.folder1_path.get())
