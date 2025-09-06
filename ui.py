@@ -215,7 +215,7 @@ class FolderComparisonApp:
         self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=100, mode="determinate")
         self.progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self._on_mode_change()
+        self.update_action_button_text()
         self._on_file_type_change()
         self._toggle_histogram_options()
         self._update_histogram_threshold_ui()
