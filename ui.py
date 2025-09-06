@@ -193,13 +193,15 @@ class FolderComparisonApp:
         self.action_button = tk.Button(action_frame, text="Compare", command=self.controller.run_action); self.action_button.pack()
         ToolTip(self.action_button, "Run the comparison or duplicate finding process based on the selected options.")
         results_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.results_frame', "Results"), padx=10, pady=10); results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path'), show='headings')
+        self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path', 'FullPath'), show='headings')
         self.results_tree.heading('File', text=config.get('ui.labels.results_tree_file', 'File Name'))
         self.results_tree.heading('Size', text=config.get('ui.labels.results_tree_size', 'Size (Bytes)'))
         self.results_tree.heading('Path', text=config.get('ui.labels.results_tree_path', 'Relative Path'))
+        self.results_tree.heading('FullPath', text='Full Path')
         self.results_tree.column('File', width=250, anchor=tk.W)
         self.results_tree.column('Size', width=100, anchor=tk.E)
         self.results_tree.column('Path', width=400, anchor=tk.W)
+        self.results_tree.column('FullPath', width=0, stretch=tk.NO) # Hidden column
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview); scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_tree.config(yscrollcommand=scrollbar.set)
@@ -330,18 +332,6 @@ class FolderComparisonApp:
             self.progress_bar['value'] = progress_value
         self.root.update_idletasks()
 
-    def select_folder1(self):
-        path = filedialog.askdirectory()
-        if path:
-            self.folder1_path.set(path)
-            logger.info(f"Selected folder 1: {path}")
-
-    def select_folder2(self):
-        path = filedialog.askdirectory()
-        if path:
-            self.folder2_path.set(path)
-            logger.info(f"Selected folder 2: {path}")
-
     def select_move_to_folder(self):
         path = filedialog.askdirectory()
         if path:
@@ -398,104 +388,84 @@ class FolderComparisonApp:
         if not self.histogram_threshold.get():
              self.histogram_threshold.set(default_threshold)
 
-    def _get_selected_file_info(self, folder_num):
-        """Gets the iid, relative path, and base path for the selected file."""
-        iid, relative_path_str = self._get_relative_path_from_selection()
-        if not relative_path_str:
-            return None, None, None
+    def _get_selected_file_info(self):
+        """Gets the iid and full path for the selected file."""
+        selection = self.results_tree.selection()
+        if not selection:
+            return None, None
 
-        # In duplicates mode, folder_num is always 1, but the UI might show folder 2 path if it was switched from compare mode.
-        # We should use the path that is actually being displayed.
-        mode = self.app_mode.get()
-        if mode == 'duplicates':
-            base_path_str = self.folder1_path.get()
-        else: # compare mode
-            base_path_str = self.folder1_path.get() if folder_num == 1 else self.folder2_path.get()
+        iid = selection[0]
+        item = self.results_tree.item(iid)
 
-        if not base_path_str:
-            logger.warning(f"Action cancelled: folder {folder_num} path is not set.")
-            messagebox.showwarning("Warning", f"Folder {folder_num} path is not set.")
-            return None, None, None
-        return iid, relative_path_str, base_path_str
+        is_file_row = 'file_row' in item.get('tags', [])
+        has_values = item.get('values')
+        has_full_path = has_values and len(has_values) > 3 and has_values[3]
 
-    def _move_file(self, folder_num):
-        iid, relative_path, base_path = self._get_selected_file_info(folder_num)
-        if not iid:
-            return
+        if is_file_row and has_full_path:
+            return iid, has_values[3].strip()
+
+        return None, None
+
+    def _move_file(self):
+        iid, full_path_str = self._get_selected_file_info()
+        if not iid: return
+
         dest_path = self.move_to_path.get()
-        file_operations.move_file(self.controller, base_path, relative_path, dest_path, self.results_tree, iid, self.update_status)
-
-    def _delete_file(self, folder_num):
-        iid, relative_path, base_path = self._get_selected_file_info(folder_num)
-        if not iid:
+        if not dest_path:
+            messagebox.showwarning("Warning", "Move-to folder is not set.")
             return
-        file_operations.delete_file(self.controller, base_path, relative_path, self.results_tree, iid, self.update_status)
 
-    def _open_containing_folder(self, folder_num):
-        _, relative_path, base_path = self._get_selected_file_info(folder_num)
-        if not relative_path:
-            return
-        file_operations.open_containing_folder(base_path, relative_path)
+        # We need to derive the base path and relative path from the full path
+        full_path = Path(full_path_str)
+        base_path = full_path.parent
+        relative_path = full_path.name
+
+        file_operations.move_file(self.controller, str(base_path), relative_path, dest_path, self.results_tree, iid, self.update_status)
+
+    def _delete_file(self):
+        iid, full_path_str = self._get_selected_file_info()
+        if not iid: return
+
+        full_path = Path(full_path_str)
+        base_path = full_path.parent
+        relative_path = full_path.name
+
+        file_operations.delete_file(self.controller, str(base_path), relative_path, self.results_tree, iid, self.update_status)
+
+    def _open_containing_folder(self):
+        _, full_path_str = self._get_selected_file_info()
+        if not full_path_str: return
+
+        file_operations.open_containing_folder(str(Path(full_path_str).parent), "")
 
     def _show_context_menu(self, event):
         iid = self.results_tree.identify_row(event.y)
-        if not iid:
-            return
+        if not iid: return
 
         self.results_tree.selection_set(iid)
         item = self.results_tree.item(iid)
-        if 'file_row' not in item.get('tags', []):
-            return
+        if 'file_row' not in item.get('tags', []): return
 
         context_menu = tk.Menu(self.root, tearoff=0)
-        _, relative_path_str = self._get_relative_path_from_selection()
+        _, full_path_str = self._get_selected_file_info()
 
         preview_state = tk.DISABLED
-        if relative_path_str:
-            file_ext = Path(relative_path_str).suffix.lower()
+        if full_path_str:
+            file_ext = Path(full_path_str).suffix.lower()
             is_image = file_ext in config.get("file_extensions.image", []) and PIL_AVAILABLE
             is_media = file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", [])
             if is_image or is_media:
                 preview_state = tk.NORMAL
 
         move_state = tk.NORMAL if self.move_to_path.get() else tk.DISABLED
-        mode = self.app_mode.get()
 
-        menu_items = []
-        if mode == "compare":
-            menu_items = [
-                ('preview_from_folder_1', lambda: self._preview_file(1), preview_state),
-                ('preview_from_folder_2', lambda: self._preview_file(2), preview_state),
-                'separator',
-                ('open_in_folder_1', lambda: self._open_containing_folder(1)),
-                ('open_in_folder_2', lambda: self._open_containing_folder(2)),
-                'separator',
-                ('move_from_folder_1', lambda: self._move_file(1), move_state),
-                ('move_from_folder_2', lambda: self._move_file(2), move_state),
-                'separator',
-                ('delete_from_folder_1', lambda: self._delete_file(1)),
-                ('delete_from_folder_2', lambda: self._delete_file(2)),
-            ]
-        else:  # duplicates mode
-            menu_items = [
-                ('preview_file', lambda: self._preview_file(1), preview_state),
-                'separator',
-                ('open_containing_folder', lambda: self._open_containing_folder(1)),
-                'separator',
-                ('move_file', lambda: self._move_file(1), move_state),
-                'separator',
-                ('delete_file', lambda: self._delete_file(1)),
-            ]
-
-        for item in menu_items:
-            if item == 'separator':
-                context_menu.add_separator()
-            else:
-                label_key, command, *state = item
-                state = state[0] if state else tk.NORMAL
-                default_text = label_key.replace('_', ' ').title()
-                label_text = config.get(f'ui.labels.context_menu.{label_key}', default_text)
-                context_menu.add_command(label=label_text, command=command, state=state)
+        context_menu.add_command(label="Preview", command=self._preview_file, state=preview_state)
+        context_menu.add_separator()
+        context_menu.add_command(label="Open Containing Folder", command=self._open_containing_folder)
+        context_menu.add_separator()
+        context_menu.add_command(label="Move File", command=self._move_file, state=move_state)
+        context_menu.add_separator()
+        context_menu.add_command(label="Delete File", command=self._delete_file)
 
         context_menu.post(event.x_root, event.y_root)
 
@@ -517,12 +487,11 @@ class FolderComparisonApp:
 
         return None, None
 
-    def _preview_file(self, folder_num):
-        _, relative_path, base_path = self._get_selected_file_info(folder_num)
-        if not relative_path:
-            return
+    def _preview_file(self):
+        iid, full_path_str = self._get_selected_file_info()
+        if not iid: return
 
-        full_path = Path(base_path) / relative_path
+        full_path = Path(full_path_str)
         logger.info(f"Attempting to preview file: {full_path}")
         if not full_path.is_file():
             logger.error(f"Preview failed: file does not exist at '{full_path}'.")

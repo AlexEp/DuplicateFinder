@@ -46,10 +46,32 @@ class AppController:
         self._bind_variables_to_view()
         self.view.setup_ui()
 
-    def build_folders(self, event=None):
+    def build_active_folders(self, event=None):
         """Builds metadata for all folders in the list."""
         logger.info("Build triggered.")
-        self.build_compare_folders()
+        folders_to_build = self.view.folder_list_box.get(0, tk.END)
+        if not folders_to_build:
+            messagebox.showwarning("Build Warning", "No folders to build. Please add folders to the list.")
+            return
+
+        self.view.action_button.config(state='disabled')
+        for btn in self.view.build_buttons: btn.config(state='disabled')
+
+        remaining_tasks = len(folders_to_build)
+        lock = threading.Lock()
+
+        def on_task_finally():
+            nonlocal remaining_tasks
+            with lock:
+                remaining_tasks -= 1
+                if remaining_tasks == 0:
+                    logger.info("All build tasks completed.")
+                    self.view.update_status("All builds finished.")
+                    for btn in self.view.build_buttons: btn.config(state='normal')
+                    self.view.action_button.config(state='normal')
+
+        for i, folder_path in enumerate(folders_to_build, 1):
+            self._build_metadata(folder_path, i, on_task_finally)
 
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
@@ -260,21 +282,23 @@ Error: {e}"""
                     pair, files = pair_info
                     total_matches += len(files)
                     header_text = f"Comparing '{Path(pair[0]).name}' vs '{Path(pair[1]).name}' ({len(files)} matches)"
-                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", ""), open=True, tags=('header_row',))
+                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
                     for file_info in files:
                         size = file_info.get('size', 'N/A')
                         relative_path = file_info.get('relative_path', '')
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {Path(relative_path).name}", size, relative_path), tags=('file_row',))
+                        full_path = file_info.get('fullpath', '')
+                        self.view.results_tree.insert(parent, tk.END, values=(f"  {Path(relative_path).name}", size, relative_path, full_path), tags=('file_row',))
             else: # Duplicates mode results
                 total_matches = sum(len(group) for group in all_results)
                 for i, group in enumerate(all_results, 1):
                     header_text = f"Duplicate Set {i} ({len(group)} files)"
-                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", ""), open=True, tags=('header_row',))
+                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
                     for file_info in group:
                         size = file_info.get('size', 'N/A')
                         relative_path = file_info.get('relative_path', '')
+                        full_path = file_info.get('fullpath', '')
                         file_name = Path(relative_path).name
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path), tags=('file_row',))
+                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path, full_path), tags=('file_row',))
             messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
 
         def on_error(e):
