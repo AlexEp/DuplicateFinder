@@ -74,7 +74,6 @@ class FolderComparisonApp:
 
     def setup_ui(self):
         # --- Tracers ---
-        self.app_mode.trace_add('write', self._on_mode_change)
         self.file_type_filter.trace_add('write', self._on_file_type_change)
         self.compare_content_md5.trace_add('write', self._toggle_md5_warning)
         self.compare_histogram.trace_add('write', self._toggle_histogram_options)
@@ -103,12 +102,6 @@ class FolderComparisonApp:
 
         options_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label=config.get('ui.labels.options', "Options"), menu=options_menu)
-        mode_menu = tk.Menu(options_menu, tearoff=0)
-        options_menu.add_cascade(label=config.get('ui.labels.mode', "Mode"), menu=mode_menu)
-        mode_menu.add_radiobutton(label=config.get('ui.modes.compare', "Compare Folders"), variable=self.app_mode, value="compare")
-        mode_menu.add_radiobutton(label=config.get('ui.modes.duplicates', "Find Duplicates"), variable=self.app_mode, value="duplicates")
-
-        options_menu.add_separator()
 
         file_type_menu = tk.Menu(options_menu, tearoff=0)
         options_menu.add_cascade(label=config.get('ui.labels.file_type', "File Type"), menu=file_type_menu)
@@ -128,8 +121,8 @@ class FolderComparisonApp:
         self.folder_selection_area.pack(fill=tk.X)
 
         # --- Create UI Frames for different modes ---
-        self.compare_mode_frame = self._create_folder_selection_frame(config.get('ui.labels.folders_to_compare', "Folders to Compare"), two_folders=True)
-        self.duplicates_mode_frame = self._create_folder_selection_frame(config.get('ui.labels.folder_to_analyze', "Folder to Analyze"))
+        self.main_folder_frame = self._create_folder_selection_frame(config.get('ui.labels.folders_to_compare', "Folders to Analyze"))
+        self.main_folder_frame.pack(fill=tk.X)
         options_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.options_frame', "Options"), padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.match_find_based_on', "Match/Find based on:"), padx=5, pady=5); match_frame.pack(fill=tk.X)
 
@@ -231,48 +224,31 @@ class FolderComparisonApp:
         self.root.bind('<Control-b>', self.controller.build_active_folders)
         self.root.bind('<Control-r>', self.controller.run_action)
 
-    def _create_folder_selection_frame(self, frame_text, two_folders=False):
+    def _create_folder_selection_frame(self, frame_text):
         frame = tk.LabelFrame(self.folder_selection_area, text=frame_text, padx=10, pady=10)
 
-        if two_folders:
-             # Folder listbox for compare mode
-            list_frame = tk.Frame(frame)
-            list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        list_frame = tk.Frame(frame)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-            self.folder_list_box = tk.Listbox(list_frame)
-            self.folder_list_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.folder_list_box = tk.Listbox(list_frame)
+        self.folder_list_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-            scrollbar = ttk.Scrollbar(list_frame, command=self.folder_list_box.yview)
-            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-            self.folder_list_box.config(yscrollcommand=scrollbar.set)
-            ToolTip(self.folder_list_box, "List of folders to compare. Max 4.")
+        scrollbar = ttk.Scrollbar(list_frame, command=self.folder_list_box.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.folder_list_box.config(yscrollcommand=scrollbar.set)
+        ToolTip(self.folder_list_box, "List of folders to analyze. Add one folder to find duplicates, or 2-4 folders to compare.")
 
-            button_frame = tk.Frame(frame)
-            button_frame.pack(fill=tk.X, pady=(5,0))
-            add_button = tk.Button(button_frame, text="Add Folder", command=self.add_folder_to_list)
-            add_button.pack(side=tk.LEFT)
-            remove_button = tk.Button(button_frame, text="Remove Folder", command=self.remove_folder_from_list)
-            remove_button.pack(side=tk.LEFT, padx=5)
+        button_frame = tk.Frame(frame)
+        button_frame.pack(fill=tk.X, pady=(5,0))
+        add_button = tk.Button(button_frame, text="Add Folder", command=self.add_folder_to_list)
+        add_button.pack(side=tk.LEFT)
+        remove_button = tk.Button(button_frame, text="Remove Folder", command=self.remove_folder_from_list)
+        remove_button.pack(side=tk.LEFT, padx=5)
 
-            build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_compare_folders())
-            build_button.pack(side=tk.LEFT, padx=5)
-            ToolTip(build_button, "Build metadata for all folders in the list.")
-            self.build_buttons.append(build_button)
-        else:
-            # Original single folder selection for duplicates mode
-            def create_row(parent, label_text, path_var, browse_cmd, build_cmd):
-                row = tk.Frame(parent)
-                row.pack(fill=tk.X, pady=2)
-                tk.Label(row, text=label_text).pack(side=tk.LEFT)
-                entry = tk.Entry(row, textvariable=path_var); entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-                ToolTip(entry, "The full path to the folder.")
-                browse_button = tk.Button(row, text=config.get('ui.labels.browse', "Browse..."), command=browse_cmd); browse_button.pack(side=tk.LEFT)
-                ToolTip(browse_button, "Select a folder to analyze.")
-                build_button = tk.Button(row, text=config.get('ui.labels.build', "Build"), command=build_cmd)
-                build_button.pack(side=tk.LEFT, padx=(5, 0))
-                ToolTip(build_button, "Scan the selected folder and build the file structure. This is required before running a comparison.")
-                self.build_buttons.append(build_button)
-            create_row(frame, config.get('ui.labels.folder_1', "Folder 1:"), self.folder1_path, self.select_folder1, lambda: self.controller._build_metadata(1))
+            build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
+        build_button.pack(side=tk.LEFT, padx=5)
+        ToolTip(build_button, "Build metadata for all folders in the list.")
+        self.build_buttons.append(build_button)
 
         subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
         ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
@@ -288,12 +264,10 @@ class FolderComparisonApp:
 
         new_path = Path(path)
 
-        # Prevent adding the same folder twice
         if str(new_path) in self.folder_list_box.get(0, tk.END):
             messagebox.showwarning("Duplicate", "This folder is already in the list.")
             return
 
-        # Prevent adding subfolders or parent folders
         for item in self.folder_list_box.get(0, tk.END):
             existing_path = Path(item)
             if new_path == existing_path:
@@ -303,7 +277,7 @@ class FolderComparisonApp:
                     messagebox.showerror("Invalid Folder", f"Cannot add a subfolder.\n'{new_path}' is inside '{existing_path}'.")
                     return
             except ValueError:
-                pass # Not a subfolder, check the other way
+                pass
             try:
                 if existing_path.relative_to(new_path):
                     messagebox.showerror("Invalid Folder", f"Cannot add a parent folder.\n'{existing_path}' is inside '{new_path}'.")
@@ -312,6 +286,7 @@ class FolderComparisonApp:
                 pass
 
         self.folder_list_box.insert(tk.END, str(new_path))
+        self.update_action_button_text()
         self.action_button.config(state='disabled')
 
     def remove_folder_from_list(self):
@@ -319,22 +294,17 @@ class FolderComparisonApp:
         if not selected_indices:
             messagebox.showwarning("No Selection", "Please select a folder to remove.")
             return
-        # Reverse sorted indices to avoid index shifting issues
         for i in sorted(selected_indices, reverse=True):
             self.folder_list_box.delete(i)
+        self.update_action_button_text()
         self.action_button.config(state='disabled')
 
-    def _on_mode_change(self, *args):
-        mode = self.app_mode.get()
-        self.compare_mode_frame.pack_forget()
-        self.duplicates_mode_frame.pack_forget()
-
-        if mode == "compare":
-            self.compare_mode_frame.pack(fill=tk.X)
-            self.action_button.config(text=config.get('ui.modes.compare', "Compare Folders"))
-        elif mode == "duplicates":
-            self.duplicates_mode_frame.pack(fill=tk.X)
+    def update_action_button_text(self):
+        num_folders = self.folder_list_box.size()
+        if num_folders == 1:
             self.action_button.config(text=config.get('ui.modes.duplicates', "Find Duplicates"))
+        else:
+            self.action_button.config(text=config.get('ui.modes.compare', "Compare Folders"))
 
     def _on_file_type_change(self, *args):
         if self.file_type_filter.get() == "image":

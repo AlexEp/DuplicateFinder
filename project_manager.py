@@ -84,7 +84,7 @@ class ProjectManager:
     def save_project_as(self):
         path = filedialog.asksaveasfilename(
             defaultextension=".cfp-db",
-            filetypes=[("Comparison Project DB", "*.cfp-db"), ("Comparison Project JSON", "*.cfp")]
+            filetypes=[("Comparison Project DB", "*.cfp-db")]
         )
         if not path:
             logger.info("'Save As' operation cancelled by user.")
@@ -133,6 +133,15 @@ class ProjectManager:
             self.controller.view.root.title(f"{Path(path).name} - Folder Comparison Tool")
             self.controller.view._set_main_ui_state('normal')
             logger.info(f"Successfully loaded project: {path}")
+
+            # Force user to upgrade the project format
+            self.current_project_path = None
+            messagebox.showinfo(
+                "Project Upgrade",
+                "Legacy .cfp project loaded. Please use 'File > Save Project As...' to save it in the new .cfp-db format. You will need to re-build the folder metadata after saving."
+            )
+            self.controller.view.root.title(f"UNSAVED - {Path(path).name} - Folder Comparison Tool")
+
         except Exception as e:
             logger.error(f"Failed to load project file: {path}", exc_info=True)
             messagebox.showerror("Error", f"Could not load project file:\n{e}")
