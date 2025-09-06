@@ -1,5 +1,5 @@
-2025-09-06 12:54:02,994 - root - INFO - Logging initialized with level INFO.
-2025-09-06 12:54:03,004 - root - CRITICAL - Application crashed with an unhandled exception.
+2025-09-06 14:37:15,866 - root - INFO - Logging initialized with level INFO.
+2025-09-06 14:37:15,881 - root - CRITICAL - Application crashed with an unhandled exception.
 Traceback (most recent call last):
   File "/app/main.py", line 10, in <module>
     root = tk.Tk()

@@ -29,7 +29,7 @@ class ProjectManager:
                 "llm_similarity_threshold": self.controller.llm_similarity_threshold.get()
             }
         }
-        if settings["app_mode"] == "compare" and self.controller.view.folder_list_box:
+        if hasattr(self.controller.view, 'folder_list_box') and self.controller.view.folder_list_box:
             settings["compare_folder_list"] = self.controller.view.folder_list_box.get(0, "end")
 
         return settings
