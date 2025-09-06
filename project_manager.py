@@ -32,7 +32,9 @@ class ProjectManager:
                 "llm_similarity_threshold": self.controller.llm_similarity_threshold.get()
             }
         }
-        # Metadata is handled by the database now
+        if settings["app_mode"] == "compare" and self.controller.view.folder_list_box:
+            settings["compare_folder_list"] = self.controller.view.folder_list_box.get(0, "end")
+
         return settings
 
     def save_project(self):
@@ -48,13 +50,13 @@ class ProjectManager:
         logger.info(f"Saving project to {self.current_project_path} (JSON)")
         try:
             settings = self._gather_settings()
-            metadata = {}
-            if self.controller.folder1_structure:
-                metadata["folder1"] = [node.to_dict() for node in self.controller.folder1_structure]
-            if self.controller.folder2_structure:
-                metadata["folder2"] = [node.to_dict() for node in self.controller.folder2_structure]
-            if metadata:
-                settings["metadata"] = metadata
+
+            # Handle multiple folder structures
+            if self.controller.folder_structures:
+                settings["folder_structures"] = {
+                    path: [node.to_dict() for node in structure]
+                    for path, structure in self.controller.folder_structures.items()
+                }
 
             with open(self.current_project_path, 'w') as f:
                 json.dump(settings, f, indent=4)
@@ -121,11 +123,11 @@ class ProjectManager:
             self.controller.clear_all_settings()
             self._apply_settings(settings)
 
-            if "metadata" in settings:
-                if "folder1" in settings["metadata"]:
-                    self.controller.folder1_structure = self.controller._dict_to_structure(settings["metadata"]["folder1"])
-                if "folder2" in settings["metadata"]:
-                    self.controller.folder2_structure = self.controller._dict_to_structure(settings["metadata"]["folder2"])
+            if "folder_structures" in settings:
+                self.controller.folder_structures = {
+                    path: self.controller._dict_to_structure(structure)
+                    for path, structure in settings["folder_structures"].items()
+                }
 
             self.current_project_path = path
             self.controller.view.root.title(f"{Path(path).name} - Folder Comparison Tool")
@@ -170,6 +172,11 @@ class ProjectManager:
         for opt, val in opts.items():
             if hasattr(self.controller, opt) and hasattr(getattr(self.controller, opt), 'set'):
                 getattr(self.controller, opt).set(val)
+
+        if "compare_folder_list" in settings and self.controller.view.folder_list_box:
+            self.controller.view.folder_list_box.delete(0, "end")
+            for folder in settings["compare_folder_list"]:
+                self.controller.view.folder_list_box.insert("end", folder)
 
     def new_project(self):
         logger.info("Creating new project.")

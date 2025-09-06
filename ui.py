@@ -271,8 +271,35 @@ class FolderComparisonApp:
             messagebox.showwarning("Limit Reached", "You can add a maximum of 4 folders.")
             return
         path = filedialog.askdirectory()
-        if path:
-            self.folder_list_box.insert(tk.END, path)
+        if not path:
+            return
+
+        new_path = Path(path)
+
+        # Prevent adding the same folder twice
+        if str(new_path) in self.folder_list_box.get(0, tk.END):
+            messagebox.showwarning("Duplicate", "This folder is already in the list.")
+            return
+
+        # Prevent adding subfolders or parent folders
+        for item in self.folder_list_box.get(0, tk.END):
+            existing_path = Path(item)
+            if new_path == existing_path:
+                continue
+            try:
+                if new_path.relative_to(existing_path):
+                    messagebox.showerror("Invalid Folder", f"Cannot add a subfolder.\n'{new_path}' is inside '{existing_path}'.")
+                    return
+            except ValueError:
+                pass # Not a subfolder, check the other way
+            try:
+                if existing_path.relative_to(new_path):
+                    messagebox.showerror("Invalid Folder", f"Cannot add a parent folder.\n'{existing_path}' is inside '{new_path}'.")
+                    return
+            except ValueError:
+                pass
+
+        self.folder_list_box.insert(tk.END, str(new_path))
 
     def remove_folder_from_list(self):
         selected_indices = self.folder_list_box.curselection()
