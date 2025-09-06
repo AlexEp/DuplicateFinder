@@ -66,3 +66,15 @@ The LLM engine is loaded on-demand, which introduces a significant delay the fir
 *   **Background Loading:** If this setting is enabled, the application should start loading the LLM engine in a background thread immediately on launch. The status bar can indicate the loading progress, making the engine instantly available when the user needs it.
 
 ---
+
+## 10. New UI - "Compare folders" logic
+
+**Observation:**
+In selection of "Compare folders" we should alow not only 2 folders but a list + 1 build batton.
+for each folder in the list, the build btn will rebuld the metadata again (delete the old one)
+
+the "compare folders" operation will look forcomperation between the folder in the list
+
+
+
+---
