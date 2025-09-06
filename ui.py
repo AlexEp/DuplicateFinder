@@ -245,7 +245,7 @@ class FolderComparisonApp:
         remove_button = tk.Button(button_frame, text="Remove Folder", command=self.remove_folder_from_list)
         remove_button.pack(side=tk.LEFT, padx=5)
 
-            build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
+        build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
         build_button.pack(side=tk.LEFT, padx=5)
         ToolTip(build_button, "Build metadata for all folders in the list.")
         self.build_buttons.append(build_button)
