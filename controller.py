@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import logging
+import os
 from pathlib import Path
 from models import FileNode, FolderNode
 from project_manager import ProjectManager
@@ -22,6 +23,7 @@ class AppController:
         # --- UI variables ---
         self.folder1_path = tk.StringVar()
         self.folder2_path = tk.StringVar()
+        self.base_folder_path = tk.StringVar()
         self.app_mode = tk.StringVar(value="compare")
         self.move_to_path = tk.StringVar()
         self.file_type_filter = tk.StringVar(value="all")
@@ -54,18 +56,31 @@ class AppController:
         mode = self.app_mode.get()
         logger.info(f"Keyboard shortcut triggered for build. Mode: {mode}")
         if mode == "compare":
-            if self.folder1_path.get():
-                self._build_metadata(1)
-            if self.folder2_path.get():
-                self._build_metadata(2)
+            self.build_compare_folders()
         else:  # duplicates
             if self.folder1_path.get():
                 self._build_metadata(1)
+
+    def build_compare_folders(self):
+        folders = self.view.folder_list_box.get(0, tk.END)
+        if len(folders) < 2:
+            messagebox.showerror("Error", "Not enough folders to build. Please scan a base folder with at least two subdirectories.")
+            return
+
+        self.folder1_path.set(folders[0])
+        self.folder2_path.set(folders[1])
+        logger.info(f"Building metadata for folder 1: {folders[0]}")
+        logger.info(f"Building metadata for folder 2: {folders[1]}")
+
+        # Build metadata for both folders sequentially
+        self._build_metadata(1)
+        self._build_metadata(2)
 
     def _bind_variables_to_view(self):
         # This makes the controller's variables directly usable by the view's widgets
         self.view.folder1_path = self.folder1_path
         self.view.folder2_path = self.folder2_path
+        self.view.base_folder_path = self.base_folder_path
         self.view.app_mode = self.app_mode
         self.view.move_to_path = self.move_to_path
         self.view.file_type_filter = self.file_type_filter
@@ -84,6 +99,7 @@ class AppController:
         self.view.controller = self
 
     def clear_all_settings(self):
+        self.base_folder_path.set("")
         self.folder1_path.set("")
         self.folder2_path.set("")
         self.move_to_path.set("")
@@ -139,6 +155,25 @@ class AppController:
         thread.start()
 
         return False
+
+    def scan_base_folder(self):
+        base_path_str = self.base_folder_path.get()
+        if not base_path_str or not os.path.isdir(base_path_str):
+            messagebox.showwarning("Scan Warning", "Please select a valid base folder first.")
+            return
+
+        logger.info(f"Scanning base folder: {base_path_str}")
+        self.view.folder_list_box.delete(0, tk.END)
+
+        try:
+            subfolders = [f.path for f in os.scandir(base_path_str) if f.is_dir()]
+            for folder in sorted(subfolders):
+                self.view.folder_list_box.insert(tk.END, folder)
+            logger.info(f"Found {len(subfolders)} subdirectories.")
+            self.view.update_status(f"Scan complete. Found {len(subfolders)} folders.")
+        except Exception as e:
+            logger.error(f"Error scanning folder {base_path_str}", exc_info=True)
+            messagebox.showerror("Scan Error", f"An error occurred while scanning the folder:\n{e}")
 
     def _load_llm_engine_task(self):
         """The actual task of loading the LLM engine. To be run in a thread."""
@@ -299,6 +334,16 @@ Error: {e}"""
     def run_action(self, event=None):
         opts = self.project_manager._gather_settings()['options']
         mode = self.app_mode.get()
+
+        if mode == "compare":
+            folders = self.view.folder_list_box.get(0, tk.END)
+            if len(folders) < 2:
+                messagebox.showerror("Error", "Please scan a base folder that contains at least two subdirectories.")
+                return
+            self.folder1_path.set(folders[0])
+            self.folder2_path.set(folders[1])
+            logger.info(f"Comparing folder 1: {folders[0]}")
+            logger.info(f"Comparing folder 2: {folders[1]}")
 
         # --- Pre-flight checks in the main thread ---
         if mode == "duplicates" and opts.get('compare_histogram') and not (opts.get('compare_size') or opts.get('compare_content_md5') or opts.get('compare_name') or opts.get('compare_date')):

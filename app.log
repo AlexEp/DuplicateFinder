@@ -1,0 +1,40 @@
+2025-09-06 09:18:20,584 - root - INFO - Logging initialized with level INFO.
+2025-09-06 09:18:20,637 - root - CRITICAL - Application crashed with an unhandled exception.
+Traceback (most recent call last):
+  File "/app/main.py", line 10, in <module>
+    root = tk.Tk()
+           ^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/__init__.py", line 2346, in __init__
+    self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: no display name and no $DISPLAY environment variable
+Traceback (most recent call last):
+  File "/app/main.py", line 10, in <module>
+    root = tk.Tk()
+           ^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/__init__.py", line 2346, in __init__
+    self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: no display name and no $DISPLAY environment variable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/main.py", line 17, in <module>
+    tk.messagebox.showerror("Fatal Error", "A critical error occurred. Please check the logs for details.")
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/messagebox.py", line 98, in showerror
+    return _show(title, message, ERROR, OK, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/messagebox.py", line 76, in _show
+    res = Message(**options).show()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/commondialog.py", line 42, in show
+    master = _get_temp_root()
+             ^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/__init__.py", line 338, in _get_temp_root
+    root = Tk()
+           ^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/tkinter/__init__.py", line 2346, in __init__
+    self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: no display name and no $DISPLAY environment variable
