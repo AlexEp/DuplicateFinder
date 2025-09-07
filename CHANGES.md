@@ -1,5 +1,10 @@
 # Changelog
 
+## 2025-09-07
+- **UX**: Removed the 'Add/Remove Folder' buttons from the main window to simplify the UI.
+- **Fix**: The "X" button on the 'New Project' window now correctly closes the window.
+- **UX**: Increased the default size of the 'New Project' window for better usability.
+
 ## 2025-09-05
 - **Fix**: Fixed the "Compare by Name" functionality in the "Compare Folders" mode. A dedicated comparison strategy for names was created and registered, ensuring that the feature works as intended.
 - **Fix**: Corrected the file type filtering logic. The application now correctly filters files based on the selected file type (Image, Video, Document, All) in both JSON and SQLite-based projects.

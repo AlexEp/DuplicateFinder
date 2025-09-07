@@ -248,15 +248,13 @@ class FolderComparisonApp:
         button_frame = tk.Frame(frame)
         button_frame.pack(fill=tk.X, pady=(5,0))
 
-        add_button = tk.Button(button_frame, text="Add Folder", command=lambda: self.add_folder_to_list(folder_list_box))
-        add_button.pack(side=tk.LEFT)
+        if not is_immutable:
+            add_button = tk.Button(button_frame, text="Add Folder", command=lambda: self.add_folder_to_list(folder_list_box))
+            add_button.pack(side=tk.LEFT)
 
-        remove_button = tk.Button(button_frame, text="Remove Folder", command=lambda: self.remove_folder_from_list(folder_list_box))
-        remove_button.pack(side=tk.LEFT, padx=5)
-
-        if is_immutable:
-            add_button.config(state=tk.DISABLED)
-            remove_button.config(state=tk.DISABLED)
+            remove_button = tk.Button(button_frame, text="Remove Folder", command=lambda: self.remove_folder_from_list(folder_list_box))
+            remove_button.pack(side=tk.LEFT, padx=5)
+        else:
             build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
             build_button.pack(side=tk.LEFT, padx=5)
             ToolTip(build_button, "Build metadata for all folders in the list.")
@@ -547,13 +545,15 @@ class FolderComparisonApp:
         dialog.transient(self.root)
         dialog.grab_set()
 
+        dialog.geometry("600x400")
+
         # Center the dialog
         self.root.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_reqwidth()) / 2
         y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_reqheight()) / 2
         dialog.geometry(f"+{int(x)}+{int(y)}")
 
-        dialog.protocol("WM_DELETE_WINDOW", lambda: None) # Prevent closing with 'X'
+        dialog.protocol("WM_DELETE_WINDOW", lambda: self._cancel_new_project(dialog))
 
         self._set_main_ui_state('disabled')
 
@@ -592,6 +592,10 @@ class FolderComparisonApp:
         save_button.pack()
 
         self.root.wait_window(dialog)
+
+    def _cancel_new_project(self, dialog):
+        dialog.destroy()
+        self._set_main_ui_state('normal')
 
     def _update_filenode_metadata(self, structure, metadata_info, base_path):
         """Recursively update metadata of FileNodes in the structure."""

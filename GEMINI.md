@@ -110,4 +110,6 @@ This application is designed to be run from the source code. There is no separat
 
 ## 9. License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+## 10. UI Modifications
+
+- Increased the default size of the 'New Project' window for better usability.
