@@ -13,7 +13,6 @@ class TestFolderComparisonApp(unittest.TestCase):
         self.app.controller = MagicMock()
 
         # Mock the variables that are created in the controller
-        self.app.app_mode = MagicMock()
         self.app.file_type_filter = MagicMock()
         self.app.compare_content_md5 = MagicMock()
         self.app.compare_histogram = MagicMock()
@@ -23,25 +22,6 @@ class TestFolderComparisonApp(unittest.TestCase):
         """Test that the UI initializes correctly."""
         self.assertEqual(self.app.root, self.root)
         self.assertIsNotNone(self.app.controller)
-
-    @patch('ui.config')
-    def test_on_mode_change(self, mock_config):
-        """Test the _on_mode_change method."""
-        # Mock the frames
-        self.app.compare_mode_frame = MagicMock()
-        self.app.duplicates_mode_frame = MagicMock()
-        self.app.action_button = MagicMock()
-
-        # Test "compare" mode
-        self.app.app_mode.get.return_value = "compare"
-        self.app._on_mode_change()
-        self.app.compare_mode_frame.pack.assert_called_once_with(fill=tk.X)
-        self.app.duplicates_mode_frame.pack_forget.assert_called_once()
-
-        # Test "duplicates" mode
-        self.app.app_mode.get.return_value = "duplicates"
-        self.app._on_mode_change()
-        self.app.duplicates_mode_frame.pack.assert_called_once_with(fill=tk.X)
 
     def test_on_file_type_change(self):
         """Test the _on_file_type_change method."""

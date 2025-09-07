@@ -14,6 +14,12 @@ def create_tables(conn):
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL UNIQUE
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS files (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 folder_index INTEGER,
@@ -24,7 +30,9 @@ def create_tables(conn):
                 modified_date REAL,
                 md5 TEXT,
                 histogram TEXT,
-                llm_embedding BLOB
+                llm_embedding BLOB,
+                last_seen REAL,
+                FOREIGN KEY (folder_index) REFERENCES sources (id)
             )
         """)
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path_folder ON files (folder_index, relative_path)")
@@ -62,4 +70,15 @@ def insert_file_node(conn, node, folder_index, parent_path=''):
 def get_all_files(conn, folder_index):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM files WHERE folder_index = ?", (folder_index,))
+    return cursor.fetchall()
+
+def add_source(conn, path):
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO sources (path) VALUES (?)", (path,))
+        return cursor.lastrowid
+
+def get_sources(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, path FROM sources ORDER BY id")
     return cursor.fetchall()

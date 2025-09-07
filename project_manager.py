@@ -93,6 +93,7 @@ class ProjectManager:
         try:
             conn = database.get_db_connection(path)
             settings = database.load_setting(conn, 'project_settings')
+            sources = database.get_sources(conn)
             conn.close()
 
             self.controller.clear_all_settings()
@@ -101,8 +102,15 @@ class ProjectManager:
 
             # In DB mode, folder structures are not loaded into memory upfront.
             # They are queried when needed.
-            # In DB mode, folder structures are not loaded into memory upfront.
             self.controller.folder_structures = {}
+
+            self.controller.view.folder_list_box.config(state='normal')
+            self.controller.view.folder_list_box.delete(0, 'end')
+            for _, folder_path in sources:
+                self.controller.view.folder_list_box.insert('end', folder_path)
+            self.controller.view.folder_list_box.config(state='disabled')
+            self.controller.view.update_action_button_text()
+
 
             self.current_project_path = path
             self.controller.view.root.title(f"{Path(path).name} - Folder Comparison Tool")
@@ -121,14 +129,34 @@ class ProjectManager:
             if hasattr(self.controller, opt) and hasattr(getattr(self.controller, opt), 'set'):
                 getattr(self.controller, opt).set(val)
 
-        if "compare_folder_list" in settings and self.controller.view.folder_list_box:
-            self.controller.view.folder_list_box.delete(0, "end")
-            for folder in settings["compare_folder_list"]:
-                self.controller.view.folder_list_box.insert("end", folder)
+        # The folder list is now loaded from the sources table, so this is no longer needed.
+        # if "compare_folder_list" in settings and self.controller.view.folder_list_box:
+        #     self.controller.view.folder_list_box.delete(0, "end")
+        #     for folder in settings["compare_folder_list"]:
+        #         self.controller.view.folder_list_box.insert("end", folder)
+
+    def create_new_project_file(self, path, folders):
+        logger.info(f"Creating new project file at: {path}")
+        self.current_project_path = path
+        try:
+            conn = database.get_db_connection(self.current_project_path)
+            database.create_tables(conn)
+            for folder in folders:
+                database.add_source(conn, folder)
+
+            settings = self._gather_settings()
+            database.save_setting(conn, 'project_settings', settings)
+
+            conn.close()
+            self.controller.view.root.title(f"{Path(path).name} - Folder Comparison Tool")
+            logger.info(f"Successfully created and saved new project: {path}")
+        except Exception as e:
+            logger.error(f"Failed to create new project file: {path}", exc_info=True)
+            messagebox.showerror("Error", f"Could not create project file:\n{e}")
+            self.current_project_path = None
 
     def new_project(self):
-        logger.info("Creating new project.")
-        self.controller.clear_all_settings()
-        self.current_project_path = None
-        self.controller.view.root.title("New Project - Folder Comparison Tool")
-        self.controller.view._set_main_ui_state('normal')
+        # This method is now primarily a pass-through.
+        # The main logic is handled by the UI in `show_new_project_dialog`.
+        logger.info("New project creation initiated by user.")
+        self.controller.view.show_new_project_dialog()

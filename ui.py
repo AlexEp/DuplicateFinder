@@ -8,6 +8,7 @@ import json
 import logging
 import threading
 import logic
+import database
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
 from config import config
@@ -121,7 +122,7 @@ class FolderComparisonApp:
         self.folder_selection_area.pack(fill=tk.X)
 
         # --- Create UI Frames for different modes ---
-        self.main_folder_frame = self._create_folder_selection_frame(config.get('ui.labels.folders_to_compare', "Folders to Analyze"))
+        self.main_folder_frame, self.folder_list_box = self._create_folder_selection_frame(self.folder_selection_area, config.get('ui.labels.folders_to_compare', "Folders to Analyze"), is_immutable=True)
         self.main_folder_frame.pack(fill=tk.X)
         options_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.options_frame', "Options"), padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
         match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.match_find_based_on', "Match/Find based on:"), padx=5, pady=5); match_frame.pack(fill=tk.X)
@@ -226,51 +227,61 @@ class FolderComparisonApp:
         self.root.bind('<Control-b>', self.controller.build_active_folders)
         self.root.bind('<Control-r>', self.controller.run_action)
 
-    def _create_folder_selection_frame(self, frame_text):
-        frame = tk.LabelFrame(self.folder_selection_area, text=frame_text, padx=10, pady=10)
+    def _create_folder_selection_frame(self, parent, frame_text, is_immutable=False):
+        frame = tk.LabelFrame(parent, text=frame_text, padx=10, pady=10)
 
         list_frame = tk.Frame(frame)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        self.folder_list_box = tk.Listbox(list_frame)
-        self.folder_list_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        folder_list_box = tk.Listbox(list_frame)
+        folder_list_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        scrollbar = ttk.Scrollbar(list_frame, command=self.folder_list_box.yview)
+        scrollbar = ttk.Scrollbar(list_frame, command=folder_list_box.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.folder_list_box.config(yscrollcommand=scrollbar.set)
-        ToolTip(self.folder_list_box, "List of folders to analyze. Add one folder to find duplicates, or 2-4 folders to compare.")
+        folder_list_box.config(yscrollcommand=scrollbar.set)
+        ToolTip(folder_list_box, "List of folders to analyze. Add one folder to find duplicates, or 2-4 folders to compare.")
+
+        if is_immutable:
+            self.folder_list_box = folder_list_box
+            self.folder_list_box.config(state=tk.DISABLED)
 
         button_frame = tk.Frame(frame)
         button_frame.pack(fill=tk.X, pady=(5,0))
-        add_button = tk.Button(button_frame, text="Add Folder", command=self.add_folder_to_list)
+
+        add_button = tk.Button(button_frame, text="Add Folder", command=lambda: self.add_folder_to_list(folder_list_box))
         add_button.pack(side=tk.LEFT)
-        remove_button = tk.Button(button_frame, text="Remove Folder", command=self.remove_folder_from_list)
+
+        remove_button = tk.Button(button_frame, text="Remove Folder", command=lambda: self.remove_folder_from_list(folder_list_box))
         remove_button.pack(side=tk.LEFT, padx=5)
 
-        build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
-        build_button.pack(side=tk.LEFT, padx=5)
-        ToolTip(build_button, "Build metadata for all folders in the list.")
-        self.build_buttons.append(build_button)
+        if is_immutable:
+            add_button.config(state=tk.DISABLED)
+            remove_button.config(state=tk.DISABLED)
+            build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
+            build_button.pack(side=tk.LEFT, padx=5)
+            ToolTip(build_button, "Build metadata for all folders in the list.")
+            self.build_buttons.append(build_button)
 
         subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
         ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
-        return frame
 
-    def add_folder_to_list(self):
-        if self.folder_list_box.size() >= 4:
+        return frame, folder_list_box
+
+    def add_folder_to_list(self, listbox):
+        if listbox.size() >= 4:
             messagebox.showwarning("Limit Reached", "You can add a maximum of 4 folders.")
             return
-        path = filedialog.askdirectory()
+        path = filedialog.askdirectory(parent=listbox.winfo_toplevel())
         if not path:
             return
 
         new_path = Path(path)
 
-        if str(new_path) in self.folder_list_box.get(0, tk.END):
+        if str(new_path) in listbox.get(0, tk.END):
             messagebox.showwarning("Duplicate", "This folder is already in the list.")
             return
 
-        for item in self.folder_list_box.get(0, tk.END):
+        for item in listbox.get(0, tk.END):
             existing_path = Path(item)
             if new_path == existing_path:
                 continue
@@ -287,19 +298,22 @@ class FolderComparisonApp:
             except ValueError:
                 pass
 
-        self.folder_list_box.insert(tk.END, str(new_path))
-        self.update_action_button_text()
-        self.action_button.config(state='disabled')
+        listbox.insert(tk.END, str(new_path))
+        if listbox == self.folder_list_box:
+            self.update_action_button_text()
+            self.action_button.config(state='disabled')
 
-    def remove_folder_from_list(self):
-        selected_indices = self.folder_list_box.curselection()
+    def remove_folder_from_list(self, listbox):
+        selected_indices = listbox.curselection()
         if not selected_indices:
             messagebox.showwarning("No Selection", "Please select a folder to remove.")
             return
         for i in sorted(selected_indices, reverse=True):
-            self.folder_list_box.delete(i)
-        self.update_action_button_text()
-        self.action_button.config(state='disabled')
+            listbox.delete(i)
+
+        if listbox == self.folder_list_box:
+            self.update_action_button_text()
+            self.action_button.config(state='disabled')
 
     def update_action_button_text(self):
         num_folders = self.folder_list_box.size()
@@ -523,6 +537,61 @@ class FolderComparisonApp:
             messagebox.showerror("Error", f"Could not preview file:\n{e}")
 
 
+
+    def show_new_project_dialog(self):
+        self.controller.clear_all_settings()
+        self.root.title("New Project - Folder Comparison Tool")
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Create New Project")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Center the dialog
+        self.root.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_reqwidth()) / 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_reqheight()) / 2
+        dialog.geometry(f"+{int(x)}+{int(y)}")
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: None) # Prevent closing with 'X'
+
+        self._set_main_ui_state('disabled')
+
+        folder_frame, listbox = self._create_folder_selection_frame(dialog, "Step 1: Add Folders for the Project")
+        folder_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=10)
+
+        def on_save():
+            folders = listbox.get(0, tk.END)
+            if not folders:
+                messagebox.showwarning("No Folders", "Please add at least one folder.", parent=dialog)
+                return
+
+            path = filedialog.asksaveasfilename(
+                parent=dialog,
+                defaultextension=".cfp-db",
+                filetypes=[("Comparison Project DB", "*.cfp-db")]
+            )
+            if not path:
+                return
+
+            self.controller.project_manager.create_new_project_file(path, folders)
+            self.folder_list_box.config(state=tk.NORMAL)
+            self.folder_list_box.delete(0, tk.END)
+            for folder in folders:
+                self.folder_list_box.insert(tk.END, folder)
+            self.folder_list_box.config(state=tk.DISABLED)
+
+            self.update_action_button_text()
+            self._set_main_ui_state('normal')
+            dialog.destroy()
+
+        save_button = tk.Button(button_frame, text="Save Project and Continue", command=on_save)
+        save_button.pack()
+
+        self.root.wait_window(dialog)
 
     def _update_filenode_metadata(self, structure, metadata_info, base_path):
         """Recursively update metadata of FileNodes in the structure."""

@@ -21,7 +21,7 @@ class TestFileOperations(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_delete_file_json(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = "test.cfp"
@@ -44,7 +44,7 @@ class TestFileOperations(unittest.TestCase):
 
         self.assertEqual(len(mock_controller.folder1_structure), 0)
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_delete_file_db(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = self.db_path
@@ -70,7 +70,7 @@ class TestFileOperations(unittest.TestCase):
         self.assertEqual(len(cursor.fetchall()), 0)
         conn.close()
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_move_file_json(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = "test.cfp"
@@ -94,7 +94,7 @@ class TestFileOperations(unittest.TestCase):
         self.assertEqual(len(mock_controller.folder1_structure), 0)
         self.assertTrue((Path(self.dest_dir) / "file1.txt").exists())
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_move_file_db(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = self.db_path
