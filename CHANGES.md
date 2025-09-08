@@ -1,6 +1,8 @@
 # Changelog
 
 ## 2025-09-07
+- **Feature**: Modified database schema and logic to store only the directory path in `relative_path` column, improving data consistency. The UI now correctly reconstructs and displays the full relative path.
+- **Fix**: Resolved `sqlite3.IntegrityError: UNIQUE constraint failed: sources.path` when creating a new project with an existing file name by clearing existing sources before adding new ones.
 - **UX**: Removed the 'Add/Remove Folder' buttons from the main window to simplify the UI.
 - **Fix**: The "X" button on the 'New Project' window now correctly closes the window.
 - **UX**: Increased the default size of the 'New Project' window for better usability.

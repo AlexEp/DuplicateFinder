@@ -287,9 +287,11 @@ Error: {e}"""
                     parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
                     for file_info in files:
                         size = file_info.get('size', 'N/A')
-                        relative_path = file_info.get('relative_path', '')
+                        relative_path_dir = file_info.get('relative_path', '')
+                        file_name = file_info.get('name', '')
                         full_path = file_info.get('fullpath', '')
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {Path(relative_path).name}", size, relative_path, full_path), tags=('file_row',))
+                        display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
             else: # Duplicates mode results
                 total_matches = sum(len(group) for group in all_results)
                 for i, group in enumerate(all_results, 1):
@@ -297,10 +299,11 @@ Error: {e}"""
                     parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
                     for file_info in group:
                         size = file_info.get('size', 'N/A')
-                        relative_path = file_info.get('relative_path', '')
+                        relative_path_dir = file_info.get('relative_path', '')
+                        file_name = file_info.get('name', '') # Get the actual file name
                         full_path = file_info.get('fullpath', '')
-                        file_name = Path(relative_path).name
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, relative_path, full_path), tags=('file_row',))
+                        display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
             messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
 
         def on_error(e):

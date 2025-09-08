@@ -28,10 +28,13 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
     for item in iterator:
         try:
             if item.is_file():
-                relative_path = item.relative_to(root_path).as_posix()
+                relative_dir = item.parent.relative_to(root_path).as_posix()
+                # Ensure relative_dir is empty string if it's the root itself
+                if relative_dir == '.':
+                    relative_dir = ''
                 nodes_to_sync.append({
                     'folder_index': folder_index,
-                    'relative_path': relative_path,
+                    'relative_path': relative_dir,
                     'name': item.name,
                     'ext': item.suffix,
                     'size': item.stat().st_size,

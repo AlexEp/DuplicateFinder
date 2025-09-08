@@ -55,17 +55,17 @@ def delete_file_by_path(conn, relative_path):
     with conn:
         conn.execute("DELETE FROM files WHERE relative_path = ?", (relative_path,))
 
-def insert_file_node(conn, node, folder_index, parent_path=''):
-    relative_path = f"{parent_path}/{node.name}" if parent_path else node.name
+def insert_file_node(conn, node, folder_index, current_folder_path=''):
     if isinstance(node, FileNode):
         with conn:
             conn.execute("""
                 INSERT INTO files (folder_index, relative_path, name, ext, size, modified_date)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (folder_index, relative_path, node.name, node.ext, node.metadata.get('size'), node.metadata.get('date')))
+            """, (folder_index, current_folder_path, node.name, node.ext, node.metadata.get('size'), node.metadata.get('date')))
     elif isinstance(node, FolderNode):
+        new_folder_path = f"{current_folder_path}/{node.name}" if current_folder_path else node.name
         for child in node.content:
-            insert_file_node(conn, child, folder_index, relative_path)
+            insert_file_node(conn, child, folder_index, new_folder_path)
 
 def get_all_files(conn, folder_index):
     cursor = conn.cursor()
@@ -82,3 +82,7 @@ def get_sources(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT id, path FROM sources ORDER BY id")
     return cursor.fetchall()
+
+def clear_sources(conn):
+    with conn:
+        conn.execute("DELETE FROM sources")

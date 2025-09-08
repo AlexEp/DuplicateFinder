@@ -141,6 +141,7 @@ class ProjectManager:
         try:
             conn = database.get_db_connection(self.current_project_path)
             database.create_tables(conn)
+            database.clear_sources(conn) # Clear existing sources for a new project
             for folder in folders:
                 database.add_source(conn, folder)
 
