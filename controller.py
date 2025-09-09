@@ -330,7 +330,9 @@ Error: {e}"""
                                 size = file_info.get('size', 'N/A')
                                 relative_path_dir = file_info.get('relative_path', '')
                                 file_name = file_info.get('name', '')
-                                full_path = file_info.get('fullpath', '')
+                                folder_index = file_info.get('folder_index')
+                                base_path = folders_in_list[folder_index - 1]
+                                full_path = str(Path(base_path) / relative_path_dir)
                                 display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
                                 self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
 

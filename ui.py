@@ -265,10 +265,6 @@ class FolderComparisonApp:
         subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
         ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
 
-        if is_immutable:
-            self.find_duplicates_in_folder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.find_duplicates_in_folder', "Find duplicates within each folder"), variable=self.find_duplicates_in_folder); self.find_duplicates_in_folder_cb.pack(anchor=tk.W, pady=(5,0))
-            ToolTip(self.find_duplicates_in_folder_cb, "When comparing multiple folders, also find duplicates within each folder.")
-
         return frame, folder_list_box
 
     def add_folder_to_list(self, listbox):
