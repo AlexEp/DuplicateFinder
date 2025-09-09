@@ -26,15 +26,16 @@ class AppController:
 
         # --- Comparison options ---
         self.include_subfolders = tk.BooleanVar()
-        self.compare_name = tk.BooleanVar(value=True)
-        self.compare_date = tk.BooleanVar()
-        self.compare_size = tk.BooleanVar()
-        self.compare_content_md5 = tk.BooleanVar()
-        self.compare_histogram = tk.BooleanVar()
+        self.compare_name = tk.BooleanVar(value=False)
+        self.compare_date = tk.BooleanVar(value=False)
+        self.compare_size = tk.BooleanVar(value=True)
+        self.compare_content_md5 = tk.BooleanVar(value=False)
+        self.compare_histogram = tk.BooleanVar(value=False)
         self.histogram_method = tk.StringVar(value='Correlation')
         self.histogram_threshold = tk.StringVar(value='0.9')
-        self.compare_llm = tk.BooleanVar()
+        self.compare_llm = tk.BooleanVar(value=False)
         self.llm_similarity_threshold = tk.StringVar(value='0.8')
+        self.find_duplicates_in_folder = tk.BooleanVar(value=False)
 
         # --- Folder Structures ---
         self.folder_structures = {}
@@ -87,6 +88,7 @@ class AppController:
         self.view.histogram_threshold = self.histogram_threshold
         self.view.compare_llm = self.compare_llm
         self.view.llm_similarity_threshold = self.llm_similarity_threshold
+        self.view.find_duplicates_in_folder = self.find_duplicates_in_folder
 
         # Pass the controller instance to the view
         self.view.controller = self
@@ -275,36 +277,71 @@ Error: {e}"""
 
         def on_success(all_results):
             logger.info(f"Action finished successfully.")
-            total_matches = 0
-            if not all_results:
-                message = "No matching files found." if num_folders > 1 else "No duplicate files found."
-                self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
-            elif num_folders > 1: # Compare mode results
-                for pair_info in all_results:
-                    pair, files = pair_info
-                    total_matches += len(files)
-                    header_text = f"Comparing '{Path(pair[0]).name}' vs '{Path(pair[1]).name}' ({len(files)} matches)"
-                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
-                    for file_info in files:
-                        size = file_info.get('size', 'N/A')
-                        relative_path_dir = file_info.get('relative_path', '')
-                        file_name = file_info.get('name', '')
-                        full_path = file_info.get('fullpath', '')
-                        display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
-            else: # Duplicates mode results
-                total_matches = sum(len(group) for group in all_results)
-                for i, group in enumerate(all_results, 1):
-                    header_text = f"Duplicate Set {i} ({len(group)} files)"
-                    parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
-                    for file_info in group:
-                        size = file_info.get('size', 'N/A')
-                        relative_path_dir = file_info.get('relative_path', '')
-                        file_name = file_info.get('name', '') # Get the actual file name
-                        full_path = file_info.get('fullpath', '')
-                        display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
-                        self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
-            messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
+            try:
+                total_matches = 0
+                if num_folders == 1: # Duplicates mode
+                    if not all_results:
+                        message = "No duplicate files found."
+                        self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
+                    else:
+                        total_matches = sum(len(group) for group in all_results)
+                        for i, group in enumerate(all_results, 1):
+                            header_text = f"Duplicate Set {i} ({len(group)} files)"
+                            parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
+                            for file_info in group:
+                                size = file_info.get('size', 'N/A')
+                                relative_path_dir = file_info.get('relative_path', '')
+                                file_name = file_info.get('name', '') # Get the actual file name
+                                folder_index = file_info.get('folder_index')
+                                base_path = folders_in_list[folder_index - 1]
+                                full_path = str(Path(base_path) / relative_path_dir)
+                                display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                                self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
+                else: # Compare mode
+                    # Display duplicates within each folder
+                    if all_results.get("duplicates"):
+                        for dup_result in all_results["duplicates"]:
+                            folder_path = dup_result["folder"]
+                            duplicates = dup_result["duplicates"]
+                            total_matches += sum(len(group) for group in duplicates)
+                            header_text = f"Duplicates in '{Path(folder_path).name}'"
+                            parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
+                            for i, group in enumerate(duplicates, 1):
+                                group_header_text = f"  Duplicate Set {i} ({len(group)} files)"
+                                group_parent = self.view.results_tree.insert(parent, tk.END, values=(group_header_text, "", "", ""), open=True, tags=('header_row',))
+                                for file_info in group:
+                                    size = file_info.get('size', 'N/A')
+                                    relative_path_dir = file_info.get('relative_path', '')
+                                    file_name = file_info.get('name', '')
+                                    folder_index = file_info.get('folder_index')
+                                    base_path = folders_in_list[folder_index - 1]
+                                    full_path = str(Path(base_path) / relative_path_dir)
+                                    display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                                    self.view.results_tree.insert(group_parent, tk.END, values=(f"    {file_name}", size, display_path, full_path), tags=('file_row',))
+
+                    # Display comparisons between folders
+                    if all_results.get("comparisons"):
+                        for pair_info in all_results["comparisons"]:
+                            pair, files = pair_info
+                            total_matches += len(files)
+                            header_text = f"Comparing '{Path(pair[0]).name}' vs '{Path(pair[1]).name}' ({len(files)} matches)"
+                            parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
+                            for file_info in files:
+                                size = file_info.get('size', 'N/A')
+                                relative_path_dir = file_info.get('relative_path', '')
+                                file_name = file_info.get('name', '')
+                                full_path = file_info.get('fullpath', '')
+                                display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                                self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
+
+                if total_matches == 0:
+                    message = "No matching files found."
+                    self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
+
+                messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
+            except Exception as e:
+                logger.error("Error displaying results:", exc_info=True)
+                messagebox.showerror("Error", f"An error occurred while displaying the results:\n{e}")
 
         def on_error(e):
             logger.critical("An unexpected error occurred during the main action.", exc_info=True)
@@ -334,17 +371,35 @@ Error: {e}"""
             all_infos[path] = info
 
         if num_folders > 1: # Compare mode
+            duplicate_results = []
+            if opts.get('options', {}).get('find_duplicates_in_folder'):
+                self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates in each folder...")
+                for i, folder_path in enumerate(folders_in_list, 1):
+                    duplicates = find_duplicates_strategy.run(conn, opts, folder_index=i)
+                    if duplicates:
+                        duplicate_results.append({
+                            "folder": folder_path,
+                            "duplicates": duplicates
+                        })
+
+            comparison_results = []
             for pair in itertools.combinations(folders_in_list, 2):
                 path1, path2 = pair
                 info1, info2 = all_infos[path1], all_infos[path2]
                 self.task_runner.post_to_main_thread(self.view.update_status, f"Comparing {Path(path1).name} vs {Path(path2).name}...")
                 matches = find_common_strategy.run(info1, info2, opts)
-                all_results.append((pair, matches))
+                comparison_results.append((pair, matches))
+            
+            all_results = {
+                "duplicates": duplicate_results,
+                "comparisons": comparison_results
+            }
+            logger.info(f"Duplicate results: {duplicate_results}")
+            logger.info(f"Comparison results: {comparison_results}")
         else: # Duplicates mode
             self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
-            single_folder_path = folders_in_list[0]
-            info = all_infos[single_folder_path]
-            all_results = find_duplicates_strategy.run(info, opts, single_folder_path)
+            # The new strategy runs directly on the database
+            all_results = find_duplicates_strategy.run(conn, opts)
 
         conn.close()
         return all_results

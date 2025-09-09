@@ -26,7 +26,8 @@ class ProjectManager:
                 "compare_llm": self.controller.compare_llm.get(),
                 "histogram_method": self.controller.histogram_method.get(),
                 "histogram_threshold": self.controller.histogram_threshold.get(),
-                "llm_similarity_threshold": self.controller.llm_similarity_threshold.get()
+                "llm_similarity_threshold": self.controller.llm_similarity_threshold.get(),
+                "find_duplicates_in_folder": self.controller.find_duplicates_in_folder.get()
             }
         }
         if hasattr(self.controller.view, 'folder_list_box') and self.controller.view.folder_list_box:

@@ -136,6 +136,8 @@ class FolderComparisonApp:
         md5_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.content_md5', "Content (MD5 Hash)"), variable=self.compare_content_md5); md5_cb.pack(side=tk.LEFT, padx=5)
         ToolTip(md5_cb, "Compare files by their content using MD5 hash. Slower, but very accurate.")
 
+        
+
         self.image_match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.image_match_options', "Image Match Options"), padx=5, pady=5)
         self.image_match_frame.pack(fill=tk.X, pady=(5,0))
 
@@ -262,6 +264,10 @@ class FolderComparisonApp:
 
         subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
         ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
+
+        if is_immutable:
+            self.find_duplicates_in_folder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.find_duplicates_in_folder', "Find duplicates within each folder"), variable=self.find_duplicates_in_folder); self.find_duplicates_in_folder_cb.pack(anchor=tk.W, pady=(5,0))
+            ToolTip(self.find_duplicates_in_folder_cb, "When comparing multiple folders, also find duplicates within each folder.")
 
         return frame, folder_list_box
 
