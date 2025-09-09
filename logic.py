@@ -34,32 +34,63 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                     relative_dir = ''
                 nodes_to_sync.append({
                     'folder_index': folder_index,
-                    'relative_path': relative_dir,
+                    'path': relative_dir,
                     'name': item.name,
                     'ext': item.suffix,
                     'size': item.stat().st_size,
                     'modified_date': item.stat().st_mtime,
-                    'last_seen': scan_start_time
+                    'last_seen': scan_start_time,
+                    'md5': None,
+                    'histogram': None,
+                    'llm_embedding': None
                 })
         except OSError as e:
             logger.error(f"Cannot access item {item}: {e}")
             inaccessible_paths.append(str(item))
 
     with conn:
-        if nodes_to_sync:
-            conn.executemany("""
-                INSERT INTO files (folder_index, relative_path, name, ext, size, modified_date, last_seen)
-                VALUES (:folder_index, :relative_path, :name, :ext, :size, :modified_date, :last_seen)
-                ON CONFLICT(folder_index, relative_path) DO UPDATE SET
-                    name=excluded.name,
-                    ext=excluded.ext,
-                    size=excluded.size,
-                    modified_date=excluded.modified_date,
-                    last_seen=excluded.last_seen,
-                    md5=CASE WHEN md5 IS NOT NULL THEN NULL ELSE md5 END,
-                    histogram=CASE WHEN histogram IS NOT NULL THEN NULL ELSE histogram END,
-                    llm_embedding=CASE WHEN llm_embedding IS NOT NULL THEN NULL ELSE llm_embedding END
-            """, nodes_to_sync)
+        for node_data in nodes_to_sync:
+            # Check if file already exists
+            cursor = conn.execute(
+                "SELECT id FROM files WHERE folder_index = ? AND path = ? AND name = ?",
+                (node_data['folder_index'], node_data['path'], node_data['name'])
+            )
+            existing_file = cursor.fetchone()
+
+            if existing_file:
+                file_id = existing_file[0]
+                # Update existing file's last_seen and metadata
+                conn.execute(
+                    "UPDATE files SET name = ?, ext = ?, last_seen = ? WHERE id = ?",
+                    (node_data['name'], node_data['ext'], node_data['last_seen'], file_id)
+                )
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO file_metadata (file_id, size, modified_date, md5, histogram, llm_embedding)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (file_id, node_data['size'], node_data['modified_date'],
+                     node_data.get('md5'), node_data.get('histogram'), node_data.get('llm_embedding'))
+                )
+            else:
+                # Insert new file
+                cursor = conn.execute(
+                    """
+                    INSERT INTO files (folder_index, path, name, ext, last_seen)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (node_data['folder_index'], node_data['path'], node_data['name'],
+                     node_data['ext'], node_data['last_seen'])
+                )
+                file_id = cursor.lastrowid
+                conn.execute(
+                    """
+                    INSERT INTO file_metadata (file_id, size, modified_date, md5, histogram, llm_embedding)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (file_id, node_data['size'], node_data['modified_date'],
+                     node_data.get('md5'), node_data.get('histogram'), node_data.get('llm_embedding'))
+                )
 
         # Remove files that were not seen in this scan
         delete_cursor = conn.execute(

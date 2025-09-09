@@ -30,8 +30,8 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(setting, {"foo": "bar"})
 
     def test_clear_folder_data(self):
-        folder1_node = FileNode(Path("/tmp/test/file1.txt"))
-        insert_file_node(self.conn, folder1_node, 1)
+        file_node = FileNode(Path("/tmp/test/file1.txt"))
+        insert_file_node(self.conn, file_node, 1)
         clear_folder_data(self.conn, 1)
         files = get_all_files(self.conn, 1)
         self.assertEqual(len(files), 0)

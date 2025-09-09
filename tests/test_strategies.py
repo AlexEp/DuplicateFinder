@@ -18,13 +18,13 @@ class TestComparisonStrategies(unittest.TestCase):
 
     def test_compare_by_date(self):
         # Test case: Dates are equal
-        self.assertTrue(compare_by_date.compare({'date': 12345.67}, {'date': 12345.67}))
+        self.assertTrue(compare_by_date.compare({'modified_date': 12345.67}, {'modified_date': 12345.67}))
 
         # Test case: Dates are not equal
-        self.assertFalse(compare_by_date.compare({'date': 12345.67}, {'date': 76543.21}))
+        self.assertFalse(compare_by_date.compare({'modified_date': 12345.67}, {'modified_date': 76543.21}))
 
         # Test case: Key missing in one dictionary
-        self.assertFalse(compare_by_date.compare({'date': 12345.67}, {}))
+        self.assertFalse(compare_by_date.compare({'modified_date': 12345.67}, {}))
 
         # Test case: Key missing in both dictionaries
         self.assertFalse(compare_by_date.compare({}, {}))

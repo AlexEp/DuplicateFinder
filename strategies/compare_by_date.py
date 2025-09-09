@@ -10,7 +10,7 @@ class CompareByDate(BaseComparisonStrategy):
         Compares two files based on their modification time.
         Returns False if date information is missing from either file.
         """
-        key = 'date'
+        key = 'modified_date'
         if key not in file1_info or key not in file2_info:
             return False
         return file1_info[key] == file2_info[key]

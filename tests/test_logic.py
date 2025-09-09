@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, ANY
 from pathlib import Path
 import logic
 from models import FileNode, FolderNode
@@ -64,6 +64,9 @@ class TestLogic(unittest.TestCase):
         """Test building a folder structure for SQLite projects."""
         # Mock connection and cursor
         mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.execute.return_value = mock_cursor
+        mock_cursor.fetchone.return_value = None
 
         # Create a mock file system structure
         mock_file1 = MagicMock(spec=Path)
@@ -72,25 +75,19 @@ class TestLogic(unittest.TestCase):
         mock_file1.is_file.return_value = True
         mock_file1.stat.return_value.st_size = 100
         mock_file1.stat.return_value.st_mtime = 12345.0
+        mock_file1.parent.relative_to.return_value.as_posix.return_value = "."
 
         mock_root = MagicMock(spec=Path)
         mock_root.is_dir.return_value = True
         mock_root.rglob.return_value = [mock_file1]
 
-        # Mock relative_to to return a mock object with an as_posix method
-        relative_path_mock = MagicMock()
-        relative_path_mock.as_posix.return_value = "file1.txt"
-        mock_file1.relative_to.return_value = relative_path_mock
-
         with patch('logic.Path', return_value=mock_root):
             logic.build_folder_structure_db(mock_conn, 1, "dummy_path")
 
         # Assertions
-        mock_conn.executemany.assert_called_once()
-        args, _ = mock_conn.executemany.call_args
-        self.assertIn("INSERT INTO files", args[0])
-        self.assertEqual(len(args[1]), 1)
-        self.assertEqual(args[1][0]['name'], 'file1.txt')
+        self.assertIn(call('SELECT id FROM files WHERE folder_index = ? AND path = ? AND name = ?', ANY), mock_conn.execute.call_args_list)
+        self.assertIn(call('\n                    INSERT INTO files (folder_index, path, name, ext, last_seen)\n                    VALUES (?, ?, ?, ?, ?)\n                    ', ANY), mock_conn.execute.call_args_list)
 
 if __name__ == '__main__':
     unittest.main()
+

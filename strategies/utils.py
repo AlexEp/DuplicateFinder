@@ -33,7 +33,16 @@ def calculate_metadata_db(conn, folder_index, base_path, opts=None, file_type_fi
     image_extensions = config.get("file_extensions.image", [])
 
     cursor = conn.cursor()
-    cursor.execute("SELECT id, relative_path, md5, histogram, llm_embedding FROM files WHERE folder_index = ?", (folder_index,))
+    cursor.execute("""
+        SELECT
+            f.id, f.path, fm.md5, fm.histogram, fm.llm_embedding
+        FROM
+            files f
+        JOIN
+            file_metadata fm ON f.id = fm.file_id
+        WHERE
+            f.folder_index = ?
+    """, (folder_index,))
     all_files = cursor.fetchall()
 
     files_for_llm = []
@@ -79,16 +88,26 @@ def calculate_metadata_db(conn, folder_index, base_path, opts=None, file_type_fi
             for data in files_to_update:
                 set_clause = ", ".join([f"{key} = ?" for key in data if key != 'id'])
                 values = [data[key] for key in data if key != 'id'] + [data['id']]
-                conn.execute(f"UPDATE files SET {set_clause} WHERE id = ?", values)
+                conn.execute(f"UPDATE file_metadata SET {set_clause} WHERE file_id = ?", values)
         logger.info(f"Updated metadata for {len(files_to_update)} files in folder {folder_index}.")
 
     # Now, fetch the data again to return it
     file_info = {}
-    cursor.execute("SELECT * FROM files WHERE folder_index = ?", (folder_index,))
+    cursor.execute("""
+        SELECT
+            f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
+            fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
+        FROM
+            files f
+        JOIN
+            file_metadata fm ON f.id = fm.file_id
+        WHERE
+            f.folder_index = ?
+    """, (folder_index,))
     columns = [description[0] for description in cursor.description]
     for row in cursor.fetchall():
         file_data = dict(zip(columns, row))
-        file_info[file_data['relative_path']] = file_data
+        file_info[file_data['path']] = file_data
 
     return file_info, total_llm_files
 

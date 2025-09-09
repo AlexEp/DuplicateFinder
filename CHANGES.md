@@ -1,5 +1,13 @@
 # Changelog
 
+## 2025-09-08
+- **Refactor**: Normalized database schema by extracting `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
+  - `database.py`: Modified `create_tables` to define `file_metadata` and remove these columns from `files`. Updated `insert_file_node` to insert into both tables. Updated `get_all_files` to `JOIN` `files` and `file_metadata`.
+  - `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata`.
+  - `strategies/utils.py`: Modified `calculate_metadata_db` to `JOIN` `files` and `file_metadata` for data retrieval and to update `file_metadata` directly.
+  - `strategies/compare_by_date.py`: Corrected the key used for date comparison from `'date'` to `'modified_date'` to align with the database column name.
+- **Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
+
 ## 2025-09-07
 - **Feature**: Modified database schema and logic to store only the directory path in `relative_path` column, improving data consistency. The UI now correctly reconstructs and displays the full relative path.
 - **Fix**: Resolved `sqlite3.IntegrityError: UNIQUE constraint failed: sources.path` when creating a new project with an existing file name by clearing existing sources before adding new ones.
