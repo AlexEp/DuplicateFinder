@@ -24,3 +24,18 @@ class BaseComparisonStrategy(ABC):
             bool: True if the files are considered a match, False otherwise.
         """
         pass
+
+    @abstractmethod
+    def get_duplications_ids(self, conn, folder_index=None):
+        """
+        Finds duplicate files based on the strategy's criterion.
+
+        Args:
+            conn: The database connection.
+            folder_index (int, optional): The index of the folder to search in.
+                                        If None, search in all folders. Defaults to None.
+
+        Returns:
+            list[list[int]]: A list of lists, where each inner list contains the file IDs of a group of duplicate files.
+        """
+        pass

@@ -17,3 +17,24 @@ class CompareByContentMD5(BaseComparisonStrategy):
         if md5_1 is not None and md5_2 is not None:
             return md5_1 == md5_2
         return False
+
+    def get_duplications_ids(self, conn, folder_index=None):
+        """
+        Finds duplicate files based on their MD5 hash.
+        """
+        cursor = conn.cursor()
+        query = """
+            SELECT GROUP_CONCAT(f.id)
+            FROM files f
+            JOIN file_metadata fm ON f.id = fm.file_id
+            WHERE (? IS NULL OR f.folder_index = ?)
+            GROUP BY fm.md5
+            HAVING COUNT(f.id) > 1
+        """
+        cursor.execute(query, (folder_index, folder_index))
+
+        duplicates = []
+        for row in cursor.fetchall():
+            duplicates.append([int(id) for id in row[0].split(',')])
+
+        return duplicates
