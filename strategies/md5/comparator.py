@@ -1,4 +1,4 @@
-from .base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy
 
 class CompareByContentMD5(BaseComparisonStrategy):
     @property
@@ -17,6 +17,3 @@ class CompareByContentMD5(BaseComparisonStrategy):
         if md5_1 is not None and md5_2 is not None:
             return md5_1 == md5_2
         return False
-
-_strategy = CompareByContentMD5()
-compare = _strategy.compare

@@ -39,14 +39,14 @@ class TestAppController(unittest.TestCase):
 
     @patch('controller.messagebox')
     @patch('controller.utils')
-    @patch('controller.find_common_strategy')
-    def test_run_action_compare_mode(self, mock_find_common, mock_utils, mock_messagebox):
+    @patch('logic.run_comparison')
+    def test_run_action_compare_mode(self, mock_run_comparison, mock_utils, mock_messagebox):
         """Test the main action in 'compare' mode."""
         self.controller.project_manager.current_project_path = "test.cfp-db"
         self.mock_view.folder_list_box.get.return_value = ["/folder1", "/folder2"]
         self.controller.project_manager._gather_settings.return_value = {'options': {'compare_llm': False}}
         mock_utils.calculate_metadata_db.return_value = ({}, 0)
-        mock_find_common.run.return_value = [{'name': 'file1.txt', 'size': 100, 'relative_path': 'file1.txt'}]
+        mock_run_comparison.return_value = [{'name': 'file1.txt', 'size': 100, 'relative_path': 'file1.txt'}]
 
         self.controller.run_action()
 
@@ -58,7 +58,7 @@ class TestAppController(unittest.TestCase):
         results = action_task()
         on_success(results)
 
-        self.assertEqual(mock_find_common.run.call_count, 1)
+        self.assertEqual(mock_run_comparison.call_count, 1)
         self.mock_view.results_tree.insert.assert_any_call('', tk.END, values=("Comparing 'folder1' vs 'folder2' (1 matches)", '', '', ''), open=True, tags=('header_row',))
 
 if __name__ == '__main__':

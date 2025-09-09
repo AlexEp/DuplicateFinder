@@ -2,6 +2,8 @@ import logging
 from pathlib import Path
 from models import FileNode, FolderNode
 import database
+from strategies.strategy_registry import get_strategy
+import itertools
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,26 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
         logger.info(f"Removed {delete_cursor.rowcount} obsolete file entries for folder_index {folder_index}.")
 
     return inaccessible_paths
+
+def run_comparison(info1, info2, opts):
+    """
+    Runs the comparison between two sets of file information based on the selected options.
+    """
+    matches = []
+
+    for file1_info in info1:
+        for file2_info in info2:
+            is_match = True
+            for option, value in opts.items():
+                if value:
+                    strategy = get_strategy(option)
+                    if strategy and not strategy.compare(file1_info, file2_info, opts):
+                        is_match = False
+                        break
+            if is_match:
+                matches.append(file1_info)
+
+    return matches
 
 def build_folder_structure(root_path):
     """

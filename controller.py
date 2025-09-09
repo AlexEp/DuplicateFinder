@@ -8,7 +8,7 @@ from project_manager import ProjectManager
 from config import config
 import logic
 import database
-from strategies import utils, find_common_strategy, find_duplicates_strategy
+from strategies import utils, find_duplicates_strategy
 from threading_utils import TaskRunner
 import threading
 
@@ -389,7 +389,7 @@ Error: {e}"""
                 path1, path2 = pair
                 info1, info2 = all_infos[path1], all_infos[path2]
                 self.task_runner.post_to_main_thread(self.view.update_status, f"Comparing {Path(path1).name} vs {Path(path2).name}...")
-                matches = find_common_strategy.run(info1, info2, opts)
+                matches = logic.run_comparison(info1, info2, opts)
                 comparison_results.append((pair, matches))
             
             all_results = {
