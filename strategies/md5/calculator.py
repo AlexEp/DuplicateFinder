@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class MD5Calculator(BaseCalculator):
+    @property
+    def db_key(self):
+        return 'md5'
+
     def calculate(self, file_node, opts):
         """
         Calculates the MD5 hash of a file.

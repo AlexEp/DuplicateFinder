@@ -61,5 +61,71 @@ class TestAppController(unittest.TestCase):
         self.assertEqual(mock_run_comparison.call_count, 1)
         self.mock_view.results_tree.insert.assert_any_call('', tk.END, values=("Comparing 'folder1' vs 'folder2' (1 matches)", '', '', ''), open=True, tags=('header_row',))
 
+    @patch('controller.messagebox')
+    def test_calculator_integration(self, mock_messagebox):
+        """
+        Integration test for the calculator logic.
+        This test does not mock utils.calculate_metadata_db.
+        """
+        import tempfile
+        import os
+        import sqlite3
+        from controller import AppController
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create some test files
+            with open(os.path.join(tmpdir, "file1.txt"), "w") as f:
+                f.write("hello")
+            with open(os.path.join(tmpdir, "file2.txt"), "w") as f:
+                f.write("world")
+
+            # Set up the controller
+            self.controller.project_manager.current_project_path = os.path.join(tmpdir, "test.cfp-db")
+            self.mock_view.folder_list_box.get.return_value = [tmpdir]
+            opts = {
+                'compare_size': True,
+                'compare_date': True,
+                'compare_content_md5': True
+            }
+            self.controller.project_manager._gather_settings.return_value = opts
+
+            # Run the build process to populate the database
+            conn = sqlite3.connect(self.controller.project_manager.current_project_path)
+            from database import create_tables
+            create_tables(conn)
+            from logic import build_folder_structure_db
+            build_folder_structure_db(conn, 1, tmpdir)
+
+            # Run the action to trigger the calculators
+            self.controller._run_action_db(opts, [tmpdir])
+
+            # Check the database to see if the metadata was calculated
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM file_metadata")
+            metadata_rows = cursor.fetchall()
+            cursor.execute("SELECT * FROM files")
+            files_rows = cursor.fetchall()
+            conn.close()
+
+            self.assertEqual(len(metadata_rows), 2, f"files: {files_rows}, metadata: {metadata_rows}")
+
+            self.assertEqual(len(metadata_rows), 2, f"files: {files_rows}, metadata: {metadata_rows}")
+
+            # Find the rows for file1.txt and file2.txt
+            file1_id = [r[0] for r in files_rows if r[3] == 'file1.txt'][0]
+            file2_id = [r[0] for r in files_rows if r[3] == 'file2.txt'][0]
+
+            file1_meta = [r for r in metadata_rows if r[1] == file1_id][0]
+            file2_meta = [r for r in metadata_rows if r[1] == file2_id][0]
+
+            # Check file1.txt
+            self.assertEqual(file1_meta[2], 5) # size
+            self.assertIsNotNone(file1_meta[3]) # date
+            self.assertEqual(file1_meta[4], '5d41402abc4b2a76b9719d911017c592') # md5
+            # Check file2.txt
+            self.assertEqual(file2_meta[2], 5) # size
+            self.assertIsNotNone(file2_meta[3]) # date
+            self.assertEqual(file2_meta[4], '7d793037a0760186574b0282f2f435e7') # md5
+
 if __name__ == '__main__':
     unittest.main()

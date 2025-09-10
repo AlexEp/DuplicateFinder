@@ -29,7 +29,7 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
 
     for item in iterator:
         try:
-            if item.is_file():
+            if item.is_file() and not item.name.endswith('.cfp-db'):
                 relative_dir = item.parent.relative_to(root_path).as_posix()
                 # Ensure relative_dir is empty string if it's the root itself
                 if relative_dir == '.':

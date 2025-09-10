@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SizeCalculator(BaseCalculator):
+    @property
+    def db_key(self):
+        return 'size'
+
     def calculate(self, file_node, opts):
         """
         Calculates the size of a file.

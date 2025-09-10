@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DateCalculator(BaseCalculator):
+    @property
+    def db_key(self):
+        return 'modified_date'
+
     def calculate(self, file_node, opts):
         """
         Calculates the modification date of a file.
