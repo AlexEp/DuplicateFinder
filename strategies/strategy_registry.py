@@ -4,6 +4,12 @@ from .base_comparison_strategy import BaseComparisonStrategy
 
 _STRATEGIES = {}
 
+def clear_strategies():
+    """
+    Clears the strategy registry.
+    """
+    _STRATEGIES.clear()
+
 def register_strategy(strategy_class):
     """
     Registers a new comparison strategy.

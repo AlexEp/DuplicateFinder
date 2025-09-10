@@ -26,6 +26,10 @@ class CompareByNameStrategy(BaseComparisonStrategy):
         path2 = Path(file2_info.get('relative_path'))
         return path1.name == path2.name
 
+    @property
+    def db_key(self):
+        return 'name'
+
     def get_duplications_ids(self, conn, folder_index=None):
         """
         Finds duplicate files based on their name.
@@ -36,6 +40,7 @@ class CompareByNameStrategy(BaseComparisonStrategy):
         subquery = """
             SELECT name
             FROM files
+            WHERE name IS NOT NULL
             GROUP BY name
             HAVING COUNT(*) > 1
         """

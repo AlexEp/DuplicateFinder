@@ -18,6 +18,10 @@ class CompareByContentMD5(BaseComparisonStrategy):
             return md5_1 == md5_2
         return False
 
+    @property
+    def db_key(self):
+        return 'md5'
+
     def get_duplications_ids(self, conn, folder_index=None):
         """
         Finds duplicate files based on their MD5 hash.
@@ -28,6 +32,7 @@ class CompareByContentMD5(BaseComparisonStrategy):
         subquery = """
             SELECT md5
             FROM file_metadata
+            WHERE md5 IS NOT NULL
             GROUP BY md5
             HAVING COUNT(*) > 1
         """

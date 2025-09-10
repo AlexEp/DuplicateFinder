@@ -15,6 +15,10 @@ class CompareBySize(BaseComparisonStrategy):
             return False
         return file1_info[key] == file2_info[key]
 
+    @property
+    def db_key(self):
+        return 'size'
+
     def get_duplications_ids(self, conn, folder_index=None):
         """
         Finds duplicate files based on their size.
@@ -25,6 +29,7 @@ class CompareBySize(BaseComparisonStrategy):
         subquery = """
             SELECT size
             FROM file_metadata
+            WHERE size IS NOT NULL
             GROUP BY size
             HAVING COUNT(*) > 1
         """

@@ -15,6 +15,10 @@ class CompareByDate(BaseComparisonStrategy):
             return False
         return file1_info[key] == file2_info[key]
 
+    @property
+    def db_key(self):
+        return 'modified_date'
+
     def get_duplications_ids(self, conn, folder_index=None):
         """
         Finds duplicate files based on their modification date.
@@ -25,6 +29,7 @@ class CompareByDate(BaseComparisonStrategy):
         subquery = """
             SELECT modified_date
             FROM file_metadata
+            WHERE modified_date IS NOT NULL
             GROUP BY modified_date
             HAVING COUNT(*) > 1
         """

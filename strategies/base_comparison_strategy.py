@@ -25,6 +25,12 @@ class BaseComparisonStrategy(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def db_key(self):
+        """The key for the database column."""
+        pass
+
     @abstractmethod
     def get_duplications_ids(self, conn, folder_index=None):
         """
