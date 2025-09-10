@@ -24,7 +24,7 @@ class CompareBySize(BaseComparisonStrategy):
             SELECT GROUP_CONCAT(f.id)
             FROM files f
             JOIN file_metadata fm ON f.id = fm.file_id
-            WHERE (? IS NULL OR f.folder_index = ?)
+            WHERE fm.size IS NOT NULL AND (? IS NULL OR f.folder_index = ?)
             GROUP BY fm.size
             HAVING COUNT(f.id) > 1
         """

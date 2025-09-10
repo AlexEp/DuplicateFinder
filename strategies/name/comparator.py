@@ -34,7 +34,7 @@ class CompareByNameStrategy(BaseComparisonStrategy):
         query = """
             SELECT GROUP_CONCAT(id)
             FROM files
-            WHERE (? IS NULL OR folder_index = ?)
+            WHERE name IS NOT NULL AND (? IS NULL OR folder_index = ?)
             GROUP BY name
             HAVING COUNT(id) > 1
         """
