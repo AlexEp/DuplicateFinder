@@ -20,18 +20,32 @@ class CompareByDate(BaseComparisonStrategy):
         Finds duplicate files based on their modification date.
         """
         cursor = conn.cursor()
-        query = """
-            SELECT GROUP_CONCAT(f.id)
-            FROM files f
-            JOIN file_metadata fm ON f.id = fm.file_id
-            WHERE fm.modified_date IS NOT NULL AND (? IS NULL OR f.folder_index = ?)
-            GROUP BY fm.modified_date
-            HAVING COUNT(f.id) > 1
-        """
-        cursor.execute(query, (folder_index, folder_index))
 
+        # Step 1: Find dates that are duplicates
+        subquery = """
+            SELECT modified_date
+            FROM file_metadata
+            GROUP BY modified_date
+            HAVING COUNT(*) > 1
+        """
+        cursor.execute(subquery)
+        duplicate_dates = [row[0] for row in cursor.fetchall()]
+
+        if not duplicate_dates:
+            return []
+
+        # Step 2: For each duplicate date, get the file IDs
         duplicates = []
-        for row in cursor.fetchall():
-            duplicates.append([int(id) for id in row[0].split(',')])
+        for date in duplicate_dates:
+            query = """
+                SELECT f.id
+                FROM files f
+                JOIN file_metadata fm ON f.id = fm.file_id
+                WHERE fm.modified_date = ? AND (? IS NULL OR f.folder_index = ?)
+            """
+            cursor.execute(query, (date, folder_index, folder_index))
+            group = [row[0] for row in cursor.fetchall()]
+            if group:
+                duplicates.append(group)
 
         return duplicates

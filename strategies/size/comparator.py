@@ -20,18 +20,32 @@ class CompareBySize(BaseComparisonStrategy):
         Finds duplicate files based on their size.
         """
         cursor = conn.cursor()
-        query = """
-            SELECT GROUP_CONCAT(f.id)
-            FROM files f
-            JOIN file_metadata fm ON f.id = fm.file_id
-            WHERE fm.size IS NOT NULL AND (? IS NULL OR f.folder_index = ?)
-            GROUP BY fm.size
-            HAVING COUNT(f.id) > 1
-        """
-        cursor.execute(query, (folder_index, folder_index))
 
+        # Step 1: Find sizes that are duplicates
+        subquery = """
+            SELECT size
+            FROM file_metadata
+            GROUP BY size
+            HAVING COUNT(*) > 1
+        """
+        cursor.execute(subquery)
+        duplicate_sizes = [row[0] for row in cursor.fetchall()]
+
+        if not duplicate_sizes:
+            return []
+
+        # Step 2: For each duplicate size, get the file IDs
         duplicates = []
-        for row in cursor.fetchall():
-            duplicates.append([int(id) for id in row[0].split(',')])
+        for size in duplicate_sizes:
+            query = """
+                SELECT f.id
+                FROM files f
+                JOIN file_metadata fm ON f.id = fm.file_id
+                WHERE fm.size = ? AND (? IS NULL OR f.folder_index = ?)
+            """
+            cursor.execute(query, (size, folder_index, folder_index))
+            group = [row[0] for row in cursor.fetchall()]
+            if group:
+                duplicates.append(group)
 
         return duplicates

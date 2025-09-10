@@ -23,18 +23,32 @@ class CompareByContentMD5(BaseComparisonStrategy):
         Finds duplicate files based on their MD5 hash.
         """
         cursor = conn.cursor()
-        query = """
-            SELECT GROUP_CONCAT(f.id)
-            FROM files f
-            JOIN file_metadata fm ON f.id = fm.file_id
-            WHERE fm.md5 IS NOT NULL AND (? IS NULL OR f.folder_index = ?)
-            GROUP BY fm.md5
-            HAVING COUNT(f.id) > 1
-        """
-        cursor.execute(query, (folder_index, folder_index))
 
+        # Step 1: Find MD5 hashes that are duplicates
+        subquery = """
+            SELECT md5
+            FROM file_metadata
+            GROUP BY md5
+            HAVING COUNT(*) > 1
+        """
+        cursor.execute(subquery)
+        duplicate_md5s = [row[0] for row in cursor.fetchall()]
+
+        if not duplicate_md5s:
+            return []
+
+        # Step 2: For each duplicate hash, get the file IDs
         duplicates = []
-        for row in cursor.fetchall():
-            duplicates.append([int(id) for id in row[0].split(',')])
+        for md5 in duplicate_md5s:
+            query = """
+                SELECT f.id
+                FROM files f
+                JOIN file_metadata fm ON f.id = fm.file_id
+                WHERE fm.md5 = ? AND (? IS NULL OR f.folder_index = ?)
+            """
+            cursor.execute(query, (md5, folder_index, folder_index))
+            group = [row[0] for row in cursor.fetchall()]
+            if group:
+                duplicates.append(group)
 
         return duplicates
