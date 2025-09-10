@@ -97,6 +97,23 @@ def get_all_files(conn, folder_index):
     """, (folder_index,))
     return cursor.fetchall()
 
+def get_files_by_ids(conn, ids):
+    cursor = conn.cursor()
+    placeholders = ','.join('?' for _ in ids)
+    query = f"""
+        SELECT
+            f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
+            fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
+        FROM
+            files f
+        LEFT JOIN
+            file_metadata fm ON f.id = fm.file_id
+        WHERE
+            f.id IN ({placeholders})
+    """
+    cursor.execute(query, ids)
+    return cursor.fetchall()
+
 def add_source(conn, path):
     with conn:
         cursor = conn.cursor()
