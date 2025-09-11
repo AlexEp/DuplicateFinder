@@ -52,9 +52,7 @@ The application follows a separation of concerns between the UI, business logic,
         - `flatten_structure` traverses the `FileNode` tree for JSON projects, using the modular calculators to gather metadata. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
         - `calculate_metadata_db` reads from and updates the SQLite database for `.cfp-db` projects.
     -   **`find_common_strategy.py`**: Orchestrates the logic for the "Compare Folders" mode. It uses the `StrategyRegistry` to dynamically dispatch to the appropriate comparison strategies based on user options.
-    -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It uses a more complex, two-phase approach:
-        1.  **Grouping**: Uses `key_by_*.py` modules to group files into buckets based on shared properties (e.g., all files with the same size).
-        2.  **Pairwise Comparison**: If necessary (e.g., for histograms), it performs detailed comparisons *within* the groups.
+    -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It takes a list of file information and employs a powerful multi-stage filtering approach, progressively grouping files by all selected criteria (e.g., size, then MD5) to find true duplicates. This strategy operates purely on in-memory data provided by the controller.
     -   **`compare_by_*.py`**: These modules contain the concrete implementations of the `BaseComparisonStrategy`.
     -   **`strategy_registry.py`**: This module automatically discovers and registers all available comparison strategies, making the system easily extensible.
 
@@ -116,9 +114,10 @@ This application is designed to be run from the source code. There is no separat
 
 ## 11. Improvements
 
+-   **Duplicate Finding Query Optimization**: Optimized the database query for finding duplicates by size in `strategies/size/comparator.py`. The query now uses a single, more efficient `GROUP BY` and `GROUP_CONCAT` operation and ignores files of size 0, improving performance and relevance of results for database-backed projects.
 -   **Database Schema Alignment**: Modified `logic.py` to correctly store the file's directory path in the `path` column of the `files` table, aligning with the database schema and separating it from the filename stored in the `name` column. This resolves a previous mismatch where `logic.py` was attempting to insert into a non-existent `relative_path` column.
 -   **Database Normalization**: Extracted `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
     -   `database.py`: Modified `create_tables` to define the new `file_metadata` table and remove these columns from `files`. Updated `insert_file_node` to insert into both `files` and `file_metadata`.
     -   `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata` due to the inability of `executemany` to return `lastrowid` for linking.
 -   **Database Query Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
--   **Duplicate Finding Fix**: Corrected a bug in `find_duplicates_strategy.py` where file paths from the database (strings) were not being converted to `pathlib.Path` objects, causing the duplicate detection to fail.
+-   **Duplicate Finding Fix**: Corrected a bug in `find_duplicates_strategy.py` where file paths from the database (strings) were not being converted to `pathlib.Path` objects, causing the duplicate detection to fail.ed to `pathlib.Path` objects, causing the duplicate detection to fail.

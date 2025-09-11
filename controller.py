@@ -400,8 +400,9 @@ Error: {e}"""
             logger.info(f"Comparison results: {comparison_results}")
         else: # Duplicates mode
             self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
-            # The new strategy runs directly on the database
-            all_results = find_duplicates_strategy.run(conn, opts)
+            # The new strategy can now run on the in-memory data we just calculated
+            infos_list = list(all_infos.values())[0]
+            all_results = find_duplicates_strategy.run(conn, opts, file_infos=infos_list)
 
         conn.close()
         return all_results

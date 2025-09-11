@@ -19,38 +19,4 @@ class CompareBySize(BaseComparisonStrategy):
     def db_key(self):
         return 'size'
 
-    def get_duplications_ids(self, conn, folder_index=None):
-        """
-        Finds duplicate files based on their size.
-        """
-        cursor = conn.cursor()
-
-        # Step 1: Find sizes that are duplicates
-        subquery = """
-            SELECT size
-            FROM file_metadata
-            WHERE size IS NOT NULL
-            GROUP BY size
-            HAVING COUNT(*) > 1
-        """
-        cursor.execute(subquery)
-        duplicate_sizes = [row[0] for row in cursor.fetchall()]
-
-        if not duplicate_sizes:
-            return []
-
-        # Step 2: For each duplicate size, get the file IDs
-        duplicates = []
-        for size in duplicate_sizes:
-            query = """
-                SELECT f.id
-                FROM files f
-                JOIN file_metadata fm ON f.id = fm.file_id
-                WHERE fm.size = ? AND (? IS NULL OR f.folder_index = ?)
-            """
-            cursor.execute(query, (size, folder_index, folder_index))
-            group = [row[0] for row in cursor.fetchall()]
-            if group:
-                duplicates.append(group)
-
-        return duplicates
+    

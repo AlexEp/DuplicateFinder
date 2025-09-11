@@ -105,22 +105,43 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
 
 def run_comparison(info1, info2, opts):
     """
-    Runs the comparison between two sets of file information based on the selected options.
+    Finds common files between two lists of file information using an efficient,
+    hash-based approach based on the selected comparison criteria.
     """
+    selected_strategies = []
+    # Gather selected strategies from options
+    for option, value in opts.get('options', {}).items():
+        if value and option.startswith('compare_'):
+            strategy = get_strategy(option)
+            if strategy:
+                selected_strategies.append(strategy)
+
+    if not selected_strategies:
+        return []
+
+    # A function to create a hashable key from a file's metadata
+    def get_key(file_info):
+        key = tuple(file_info.get(s.db_key) for s in selected_strategies)
+        # If any part of the key is None, the file cannot be matched.
+        return None if any(k is None for k in key) else key
+
+    # Build a hash map of files from the first list.
+    # Key: tuple of metadata (e.g., (size, md5)), Value: list of file_info dicts
+    info1_map = {}
+    for file_info in info1:
+        key = get_key(file_info)
+        if key is not None:
+            info1_map.setdefault(key, []).append(file_info)
+
+    # Iterate through the second list and find all files from info1 that have a match.
     matches = []
-
-    for file1_info in info1:
-        for file2_info in info2:
-            is_match = True
-            for option, value in opts.items():
-                if value:
-                    strategy = get_strategy(option)
-                    if strategy and not strategy.compare(file1_info, file2_info, opts):
-                        is_match = False
-                        break
-            if is_match:
-                matches.append(file1_info)
-
+    processed_keys = set() # To avoid adding the same group of files from info1 multiple times
+    for file_info in info2:
+        key = get_key(file_info)
+        if key is not None and key in info1_map and key not in processed_keys:
+            matches.extend(info1_map[key])
+            processed_keys.add(key)
+            
     return matches
 
 def build_folder_structure(root_path):

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-09-11
+- **Refactor**: Overhauled the comparison logic. The inefficient pairwise comparison in `logic.py` has been replaced with a high-performance hash-based algorithm. The redundant `get_duplications_ids` method has been removed from all comparison strategies, simplifying the design.
+- **Fix**: Corrected a data flow issue where freshly calculated metadata (like MD5 hashes) was not used during the duplicate finding process. The controller now passes the in-memory metadata directly to the comparison strategy, ensuring accurate results.
+- **Refactor**: Implemented multi-stage duplicate finding. The system now chains multiple comparison strategies (e.g., size, then MD5) to progressively refine results, providing much more accurate duplicate detection instead of relying on a single criterion.
+- **Fix**: The "Find Duplicates by Size" query now ignores files with a size of 0, preventing large, irrelevant groups of empty files from cluttering the results.
+- **Fix**: Optimized the database query for finding duplicates by size. The query now uses a single, more efficient `GROUP BY` and `GROUP_CONCAT` operation, preventing potential performance issues with large datasets and directly addressing the user's feedback.
+
 ## 2025-09-08
 - **Refactor**: Normalized database schema by extracting `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
   - `database.py`: Modified `create_tables` to define `file_metadata` and remove these columns from `files`. Updated `insert_file_node` to insert into both tables. Updated `get_all_files` to `JOIN` `files` and `file_metadata`.

@@ -17,7 +17,8 @@ def setup_logging():
 
     log_file = os.path.join(log_dir, f"{datetime.now().strftime('%Y%m%d')}.log")
 
-    log_level = config.get("log_level", "INFO").upper()
+    # Get log level from environment variable first, then from config file.
+    log_level = os.environ.get("LOG_LEVEL", config.get("log_level", "INFO")).upper()
 
     # Get the numeric value for the log level
     numeric_level = getattr(logging, log_level, logging.INFO)

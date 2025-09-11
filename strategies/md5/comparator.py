@@ -22,38 +22,4 @@ class CompareByContentMD5(BaseComparisonStrategy):
     def db_key(self):
         return 'md5'
 
-    def get_duplications_ids(self, conn, folder_index=None):
-        """
-        Finds duplicate files based on their MD5 hash.
-        """
-        cursor = conn.cursor()
-
-        # Step 1: Find MD5 hashes that are duplicates
-        subquery = """
-            SELECT md5
-            FROM file_metadata
-            WHERE md5 IS NOT NULL
-            GROUP BY md5
-            HAVING COUNT(*) > 1
-        """
-        cursor.execute(subquery)
-        duplicate_md5s = [row[0] for row in cursor.fetchall()]
-
-        if not duplicate_md5s:
-            return []
-
-        # Step 2: For each duplicate hash, get the file IDs
-        duplicates = []
-        for md5 in duplicate_md5s:
-            query = """
-                SELECT f.id
-                FROM files f
-                JOIN file_metadata fm ON f.id = fm.file_id
-                WHERE fm.md5 = ? AND (? IS NULL OR f.folder_index = ?)
-            """
-            cursor.execute(query, (md5, folder_index, folder_index))
-            group = [row[0] for row in cursor.fetchall()]
-            if group:
-                duplicates.append(group)
-
-        return duplicates
+    
