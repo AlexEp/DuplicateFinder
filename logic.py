@@ -38,7 +38,7 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                     'folder_index': folder_index,
                     'path': relative_dir,
                     'name': item.name,
-                    'ext': item.suffix,
+                    'ext': item.suffix.lower(),
                     'size': item.stat().st_size,
                     'modified_date': item.stat().st_mtime,
                     'last_seen': scan_start_time,

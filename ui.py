@@ -423,8 +423,9 @@ class FolderComparisonApp:
 
         return None, None
 
-    def _move_file(self):
-        iid, full_path_str = self._get_selected_file_info()
+    def _move_file(self, iid=None, full_path_str=None, preview_window=None):
+        if iid is None or full_path_str is None:
+            iid, full_path_str = self._get_selected_file_info()
         if not iid: return
 
         dest_path = self.move_to_path.get()
@@ -438,9 +439,11 @@ class FolderComparisonApp:
         relative_path = full_path.name
 
         file_operations.move_file(self.controller, str(base_path), relative_path, dest_path, self.results_tree, iid, self.update_status)
+        if preview_window: preview_window.destroy()
 
-    def _delete_file(self):
-        iid, full_path_str = self._get_selected_file_info()
+    def _delete_file(self, iid=None, full_path_str=None, preview_window=None):
+        if iid is None or full_path_str is None:
+            iid, full_path_str = self._get_selected_file_info()
         if not iid: return
 
         full_path = Path(full_path_str)
@@ -448,6 +451,13 @@ class FolderComparisonApp:
         relative_path = full_path.name
 
         file_operations.delete_file(self.controller, str(base_path), relative_path, self.results_tree, iid, self.update_status)
+        if preview_window: preview_window.destroy()
+
+    def _delete_file_from_preview(self, iid, full_path_str, preview_window):
+        self._delete_file(iid, full_path_str, preview_window)
+
+    def _move_file_from_preview(self, iid, full_path_str, preview_window):
+        self._move_file(iid, full_path_str, preview_window)
 
     def _open_containing_folder(self):
         _, full_path_str = self._get_selected_file_info()
@@ -527,6 +537,16 @@ class FolderComparisonApp:
                 label = tk.Label(win, image=photo)
                 label.image = photo # Keep a reference!
                 label.pack()
+
+                # Add buttons for delete and move
+                button_frame = tk.Frame(win)
+                button_frame.pack(pady=5)
+
+                delete_btn = tk.Button(button_frame, text="Delete File", command=lambda: self._delete_file_from_preview(iid, full_path_str, win))
+                delete_btn.pack(side=tk.LEFT, padx=5)
+
+                move_btn = tk.Button(button_frame, text="Move File", command=lambda: self._move_file_from_preview(iid, full_path_str, win))
+                move_btn.pack(side=tk.LEFT, padx=5)
             elif file_ext in config.get("file_extensions.video", []) or file_ext in config.get("file_extensions.audio", []):
                 logger.debug(f"Opening media file with default player: {full_path}")
                 if sys.platform == "win32":

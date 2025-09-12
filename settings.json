@@ -7,7 +7,7 @@
   },
   "file_extensions": {
     "image": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp", ".avif"],
-    "video": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"],
+    "video": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv", ".mts"],
     "audio": [".mp3", ".wav", ".ogg", ".flac", ".m4a"],
     "document": [".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf"]
   },

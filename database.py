@@ -1,6 +1,7 @@
 import sqlite3
 import json
 from models import FileNode, FolderNode
+from config import config
 
 def get_db_connection(project_file):
     return sqlite3.connect(project_file)
@@ -12,7 +13,8 @@ def create_tables(conn):
                 key TEXT PRIMARY KEY,
                 value TEXT
             )
-        """)
+        """
+        )
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sources (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +65,15 @@ def clear_folder_data(conn, folder_index):
 
 def delete_file_by_path(conn, path, name):
     with conn:
-        conn.execute("DELETE FROM files WHERE path = ? AND name = ?", (path, name))
+        # Get the file_id from the files table
+        cursor = conn.execute("SELECT id FROM files WHERE path = ? AND name = ?", (path, name))
+        file_id = cursor.fetchone()
+        if file_id:
+            file_id = file_id[0]
+            # Delete from file_metadata table first
+            conn.execute("DELETE FROM file_metadata WHERE file_id = ?", (file_id,))
+            # Then delete from files table
+            conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
 def insert_file_node(conn, node, folder_index, current_folder_path=''):
     if isinstance(node, FileNode):
@@ -82,9 +92,9 @@ def insert_file_node(conn, node, folder_index, current_folder_path=''):
         for child in node.content:
             insert_file_node(conn, child, folder_index, new_folder_path)
 
-def get_all_files(conn, folder_index):
+def get_all_files(conn, folder_index, file_type_filter="all"):
     cursor = conn.cursor()
-    cursor.execute("""
+    query = """
         SELECT
             f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
             fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
@@ -94,7 +104,17 @@ def get_all_files(conn, folder_index):
             file_metadata fm ON f.id = fm.file_id
         WHERE
             f.folder_index = ?
-    """, (folder_index,))
+    """
+    params = [folder_index]
+
+    if file_type_filter != "all":
+        extensions = config.get(f"file_extensions.{file_type_filter}", [])
+        if extensions:
+            placeholders = ','.join(['?' for _ in extensions])
+            query += f" AND f.ext IN ({placeholders})"
+            params.extend(extensions)
+
+    cursor.execute(query, tuple(params))
     return cursor.fetchall()
 
 def get_files_by_ids(conn, ids):
