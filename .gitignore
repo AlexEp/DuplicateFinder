@@ -11,3 +11,4 @@ ai-llm-plan.md
 
 # Log files
 logs/
+*.log
