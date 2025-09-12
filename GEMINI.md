@@ -111,6 +111,7 @@ This application is designed to be run from the source code. There is no separat
 ## 10. UI Modifications
 
 - Increased the default size of the 'New Project' window for better usability.
+- **Full Path Display**: The results view now displays the full path of each file instead of the relative path, providing clearer context for file locations.
 
 ## 11. Improvements
 
@@ -121,3 +122,8 @@ This application is designed to be run from the source code. There is no separat
     -   `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata` due to the inability of `executemany` to return `lastrowid` for linking.
 -   **Database Query Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
 -   **Duplicate Finding Fix**: Corrected a bug in `find_duplicates_strategy.py` where file paths from the database (strings) were not being converted to `pathlib.Path` objects, causing the duplicate detection to fail.ed to `pathlib.Path` objects, causing the duplicate detection to fail.
+-   **Database Schema Migration**: Fixed a bug where loading a project with an older database schema would cause a crash. The application now automatically creates missing tables when loading a project, ensuring backward compatibility.
+-   **Duplicate Finding Logic**: Refactored the duplicate finding strategy to unify the database and in-memory logic. This resolves a critical bug where duplicate finding in "Compare Mode" would fail due to a call to a removed function, ensuring that duplicate results are now accurate and consistently grouped in the UI.
+-   **Preview Feature Fix**: Corrected a bug that prevented the "Preview" feature from working. The full file path is now correctly passed to the UI, enabling the context menu option for supported file types.
+-   **Comparison Logic**: Corrected the comparison logic to ensure that when comparing folders, groups of all matching files from all involved folders are displayed, rather than just showing one side of the match.
+-   **UI/UX**: Comparison results for a pair of folders will no longer be shown if there are no matches between them.

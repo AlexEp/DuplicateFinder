@@ -166,9 +166,7 @@ class AppController:
             self.view.update_status("LLM engine failed to load. LLM features disabled.")
             logger.error("LLM engine failed to load.", exc_info=True)
             messagebox.showwarning("LLM Engine Error",
-                                   f"""Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.
-
-Error: {e}"""
+                                   f"""Could not initialize the LLaVA model. Please ensure model files exist in the /models directory.\n\nError: {e}"""
                                    )
         finally:
             # Re-enable UI elements and reset loading flag
@@ -294,9 +292,9 @@ Error: {e}"""
                                 file_name = file_info.get('name', '') # Get the actual file name
                                 folder_index = file_info.get('folder_index')
                                 base_path = folders_in_list[folder_index - 1]
-                                full_path = str(Path(base_path) / relative_path_dir)
                                 display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
-                                self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
+                                full_path = str(Path(base_path) / display_path)
+                                self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, full_path, display_path), tags=('file_row',))
                 else: # Compare mode
                     # Display duplicates within each folder
                     if all_results.get("duplicates"):
@@ -315,26 +313,30 @@ Error: {e}"""
                                     file_name = file_info.get('name', '')
                                     folder_index = file_info.get('folder_index')
                                     base_path = folders_in_list[folder_index - 1]
-                                    full_path = str(Path(base_path) / relative_path_dir)
                                     display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
-                                    self.view.results_tree.insert(group_parent, tk.END, values=(f"    {file_name}", size, display_path, full_path), tags=('file_row',))
+                                    full_path = str(Path(base_path) / display_path)
+                                    self.view.results_tree.insert(group_parent, tk.END, values=(f"    {file_name}", size, full_path, display_path), tags=('file_row',))
 
                     # Display comparisons between folders
                     if all_results.get("comparisons"):
                         for pair_info in all_results["comparisons"]:
-                            pair, files = pair_info
-                            total_matches += len(files)
-                            header_text = f"Comparing '{Path(pair[0]).name}' vs '{Path(pair[1]).name}' ({len(files)} matches)"
-                            parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
-                            for file_info in files:
-                                size = file_info.get('size', 'N/A')
-                                relative_path_dir = file_info.get('relative_path', '')
-                                file_name = file_info.get('name', '')
-                                folder_index = file_info.get('folder_index')
-                                base_path = folders_in_list[folder_index - 1]
-                                full_path = str(Path(base_path) / relative_path_dir)
-                                display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
-                                self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, display_path, full_path), tags=('file_row',))
+                            pair, groups = pair_info
+                            if groups:
+                                total_matches += sum(len(g) for g in groups)
+                                header_text = f"Comparing '{Path(pair[0]).name}' vs '{Path(pair[1]).name}' ({len(groups)} match groups)"
+                                parent = self.view.results_tree.insert('', tk.END, values=(header_text, "", "", ""), open=True, tags=('header_row',))
+                                for i, group in enumerate(groups, 1):
+                                    group_header_text = f"  Match Set {i} ({len(group)} files)"
+                                    group_parent = self.view.results_tree.insert(parent, tk.END, values=(group_header_text, "", "", ""), open=True, tags=('header_row',))
+                                    for file_info in group:
+                                        size = file_info.get('size', 'N/A')
+                                        relative_path_dir = file_info.get('relative_path', '')
+                                        file_name = file_info.get('name', '')
+                                        folder_index = file_info.get('folder_index')
+                                        base_path = folders_in_list[folder_index - 1]
+                                        display_path = str(Path(relative_path_dir) / file_name) if relative_path_dir else file_name
+                                        full_path = str(Path(base_path) / display_path)
+                                        self.view.results_tree.insert(group_parent, tk.END, values=(f"    {file_name}", size, full_path, display_path), tags=('file_row',))
 
                 if total_matches == 0:
                     message = "No matching files found."

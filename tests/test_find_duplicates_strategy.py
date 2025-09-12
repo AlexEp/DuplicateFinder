@@ -65,9 +65,29 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
             self.conn.executemany("INSERT INTO files VALUES (?,?,?,?,?,?)", files_data)
             self.conn.executemany("INSERT INTO file_metadata VALUES (?,?,?,?,?,?,?)", metadata_data)
 
+    def _get_all_file_infos_from_db(self):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT
+                f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
+                fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
+            FROM
+                files f
+            LEFT JOIN
+                file_metadata fm ON f.id = fm.file_id
+        """)
+        rows = cursor.fetchall()
+        columns = [
+            'id', 'folder_index', 'path', 'name', 'ext', 'last_seen',
+            'size', 'modified_date', 'md5', 'histogram', 'llm_embedding'
+        ]
+        file_infos = [dict(zip(columns, row)) for row in rows]
+        return file_infos
+
     def test_run_with_single_criterion_size(self):
-        opts = {'compare_size': True}
-        duplicates = find_duplicates_strategy.run(self.conn, opts)
+        opts = {'options': {'compare_size': True}}
+        all_file_infos = self._get_all_file_infos_from_db()
+        duplicates = find_duplicates_strategy.run(self.conn, opts, file_infos=all_file_infos)
 
         self.assertEqual(len(duplicates), 2)
         # Find the group with [1, 3, 4]
@@ -78,8 +98,9 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
         self.assertIsNotNone(group2)
 
     def test_run_with_single_criterion_date(self):
-        opts = {'compare_date': True}
-        duplicates = find_duplicates_strategy.run(self.conn, opts)
+        opts = {'options': {'compare_date': True}}
+        all_file_infos = self._get_all_file_infos_from_db()
+        duplicates = find_duplicates_strategy.run(self.conn, opts, file_infos=all_file_infos)
 
         self.assertEqual(len(duplicates), 2)
         # Find the group with [1, 2, 4]

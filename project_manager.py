@@ -93,6 +93,7 @@ class ProjectManager:
         logger.info(f"Loading project from: {path} (DB)")
         try:
             conn = database.get_db_connection(path)
+            database.create_tables(conn)
             settings = database.load_setting(conn, 'project_settings')
             sources = database.get_sources(conn)
             conn.close()

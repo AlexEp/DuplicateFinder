@@ -199,8 +199,8 @@ class FolderComparisonApp:
         self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path', 'FullPath'), show='headings')
         self.results_tree.heading('File', text=config.get('ui.labels.results_tree_file', 'File Name'))
         self.results_tree.heading('Size', text=config.get('ui.labels.results_tree_size', 'Size (Bytes)'))
-        self.results_tree.heading('Path', text=config.get('ui.labels.results_tree_path', 'Relative Path'))
-        self.results_tree.heading('FullPath', text='Full Path')
+        self.results_tree.heading('Path', text='Full Path')
+        self.results_tree.heading('FullPath', text=config.get('ui.labels.results_tree_path', 'Relative Path'))
         self.results_tree.column('File', width=250, anchor=tk.W)
         self.results_tree.column('Size', width=100, anchor=tk.E)
         self.results_tree.column('Path', width=400, anchor=tk.W)
@@ -277,9 +277,12 @@ class FolderComparisonApp:
 
         new_path = Path(path)
 
-        if str(new_path) in listbox.get(0, tk.END):
-            messagebox.showwarning("Duplicate", "This folder is already in the list.")
-            return
+        new_path_resolved_lower = str(new_path.resolve()).lower()
+        for item in listbox.get(0, tk.END):
+            existing_path_resolved_lower = str(Path(item).resolve()).lower()
+            if new_path_resolved_lower == existing_path_resolved_lower:
+                messagebox.showwarning("Duplicate", "This folder is already in the list.")
+                return
 
         for item in listbox.get(0, tk.END):
             existing_path = Path(item)
@@ -413,10 +416,10 @@ class FolderComparisonApp:
 
         is_file_row = 'file_row' in item.get('tags', [])
         has_values = item.get('values')
-        has_full_path = has_values and len(has_values) > 3 and has_values[3]
+        has_full_path = has_values and len(has_values) > 2 and has_values[2]
 
         if is_file_row and has_full_path:
-            return iid, has_values[3].strip()
+            return iid, has_values[2].strip()
 
         return None, None
 
@@ -494,10 +497,10 @@ class FolderComparisonApp:
         # Perform robust checks to ensure it's a valid file row with a path
         is_file_row = 'file_row' in item.get('tags', [])
         has_values = item.get('values')
-        has_path = has_values and len(has_values) > 2 and has_values[2]
+        has_path = has_values and len(has_values) > 3 and has_values[3]
 
         if is_file_row and has_path:
-            return iid, has_values[2].strip()
+            return iid, has_values[3].strip()
 
         return None, None
 

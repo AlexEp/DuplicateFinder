@@ -107,6 +107,7 @@ def run_comparison(info1, info2, opts):
     """
     Finds common files between two lists of file information using an efficient,
     hash-based approach based on the selected comparison criteria.
+    Returns a list of groups, where each group contains matching files from both lists.
     """
     selected_strategies = []
     # Gather selected strategies from options
@@ -125,22 +126,27 @@ def run_comparison(info1, info2, opts):
         # If any part of the key is None, the file cannot be matched.
         return None if any(k is None for k in key) else key
 
-    # Build a hash map of files from the first list.
+    # Build a hash map of all files from both lists.
     # Key: tuple of metadata (e.g., (size, md5)), Value: list of file_info dicts
-    info1_map = {}
-    for file_info in info1:
+    all_files_map = {}
+    for file_info in info1 + info2:
         key = get_key(file_info)
         if key is not None:
-            info1_map.setdefault(key, []).append(file_info)
+            all_files_map.setdefault(key, []).append(file_info)
 
-    # Iterate through the second list and find all files from info1 that have a match.
+    # Filter out groups that don't have files from both sources
     matches = []
-    processed_keys = set() # To avoid adding the same group of files from info1 multiple times
-    for file_info in info2:
-        key = get_key(file_info)
-        if key is not None and key in info1_map and key not in processed_keys:
-            matches.extend(info1_map[key])
-            processed_keys.add(key)
+    for key, group in all_files_map.items():
+        if len(group) > 1:
+            # Check if the group contains files from at least two different sources
+            folder_indices = {info.get('folder_index') for info in group}
+            if len(folder_indices) > 1:
+                # Also check if there are multiple unique file IDs in the group
+                # This handles the case where the same file is compared with itself
+                # if the same folder is added twice.
+                file_ids = {info.get('id') for info in group}
+                if len(file_ids) > 1:
+                    matches.append(group)
             
     return matches
 

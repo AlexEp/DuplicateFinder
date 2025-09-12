@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2025-09-11
+- **UX**: Comparison results for a pair of folders will no longer be shown if there are no matches between them.
+- **Fix**: Corrected the comparison logic to ensure that when comparing folders, groups of all matching files from all involved folders are displayed, rather than just showing one side of the match.
+- **UX**: The results view now displays the full path of each file instead of the relative path, providing clearer context for file locations.
+- **Fix**: Corrected a bug that prevented the "Preview" feature from working. The full file path is now correctly passed to the UI, enabling the context menu option for supported file types.
+- **Fix**: Refactored the duplicate finding strategy to unify the database and in-memory logic. This resolves a critical bug where duplicate finding in "Compare Mode" would fail due to a call to a removed function, ensuring that duplicate results are now accurate and consistently grouped in the UI.
+- **Fix**: Fixed a bug where loading a project with an older database schema would cause a crash. The application now automatically creates missing tables when loading a project, ensuring backward compatibility.
 - **Refactor**: Overhauled the comparison logic. The inefficient pairwise comparison in `logic.py` has been replaced with a high-performance hash-based algorithm. The redundant `get_duplications_ids` method has been removed from all comparison strategies, simplifying the design.
 - **Fix**: Corrected a data flow issue where freshly calculated metadata (like MD5 hashes) was not used during the duplicate finding process. The controller now passes the in-memory metadata directly to the comparison strategy, ensuring accurate results.
 - **Refactor**: Implemented multi-stage duplicate finding. The system now chains multiple comparison strategies (e.g., size, then MD5) to progressively refine results, providing much more accurate duplicate detection instead of relying on a single criterion.
