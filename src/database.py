@@ -41,8 +41,43 @@ def create_tables(conn):
                 size INTEGER,
                 modified_date REAL,
                 md5 TEXT,
-                histogram TEXT,
                 llm_embedding BLOB,
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            )
+        """
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS histogram_intersection (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id INTEGER UNIQUE,
+                histogram_values BLOB,
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            )
+        """
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS histogram_correlation (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id INTEGER UNIQUE,
+                histogram_values BLOB,
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            )
+        """
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS histogram_chisqr (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id INTEGER UNIQUE,
+                histogram_values BLOB,
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            )
+        """
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS histogram_bhattacharyya (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id INTEGER UNIQUE,
+                histogram_values BLOB,
                 FOREIGN KEY (file_id) REFERENCES files(id)
             )
         """
@@ -84,9 +119,9 @@ def insert_file_node(conn, node, folder_index, current_folder_path=''):
             """, (folder_index, current_folder_path, node.name, node.ext, node.metadata.get('last_seen')))
             file_id = cursor.lastrowid
             conn.execute("""
-                INSERT INTO file_metadata (file_id, size, modified_date, md5, histogram, llm_embedding)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (file_id, node.metadata.get('size'), node.metadata.get('date'), node.metadata.get('md5'), node.metadata.get('histogram'), node.metadata.get('llm_embedding')))
+                INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
+                VALUES (?, ?, ?, ?, ?)
+            """, (file_id, node.metadata.get('size'), node.metadata.get('date'), node.metadata.get('md5'), node.metadata.get('llm_embedding')))
     elif isinstance(node, FolderNode):
         new_folder_path = f"{current_folder_path}/{node.name}" if current_folder_path else node.name
         for child in node.content:
@@ -97,7 +132,7 @@ def get_all_files(conn, folder_index, file_type_filter="all"):
     query = """
         SELECT
             f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
-            fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
+            fm.size, fm.modified_date, fm.md5, fm.llm_embedding
         FROM
             files f
         LEFT JOIN
@@ -123,7 +158,7 @@ def get_files_by_ids(conn, ids):
     query = f"""
         SELECT
             f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
-            fm.size, fm.modified_date, fm.md5, fm.histogram, fm.llm_embedding
+            fm.size, fm.modified_date, fm.md5, fm.llm_embedding
         FROM
             files f
         LEFT JOIN
@@ -131,7 +166,7 @@ def get_files_by_ids(conn, ids):
         WHERE
             f.id IN ({placeholders})
     """
-    cursor.execute(query, ids)
+    cursor.execute(query, tuple(ids))
     return cursor.fetchall()
 
 def add_source(conn, path):
