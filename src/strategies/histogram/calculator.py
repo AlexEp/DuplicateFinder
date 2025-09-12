@@ -25,6 +25,7 @@ class HistogramCalculator(BaseCalculator):
         Returns:
             str: The histogram of the image, or None if an error occurs.
         """
+        logger.info(f"Calculator called for {file_node.fullpath} with opts {opts}")
         if not opts.get('compare_histogram'):
             return None
 

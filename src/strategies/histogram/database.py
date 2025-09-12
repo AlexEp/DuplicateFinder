@@ -18,6 +18,7 @@ class HistogramDatabase(BaseDatabase):
         Saves the histogram of a file to the database.
         """
         table_name = self.get_table_name(method)
+        logger.info(f"Saving histogram for file_id {file_id} to table {table_name}")
         with conn:
             conn.execute(
                 f"INSERT OR REPLACE INTO {table_name} (file_id, histogram_values) VALUES (?, ?)",

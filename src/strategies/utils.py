@@ -21,6 +21,7 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
     """
     Calculates and stores metadata for all files in a given folder.
     """
+    logger.info(f"Calculating metadata for folder {folder_index} with opts: {opts}")
     calculators = get_calculators()
     files = database.get_all_files(conn, folder_index, file_type_filter=file_type_filter)
 

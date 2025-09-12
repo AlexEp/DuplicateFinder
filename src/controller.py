@@ -252,6 +252,7 @@ class AppController:
 
     def run_action(self, event=None):
         opts = self.project_manager._gather_settings()
+        logger.info(f"Running action with options: {opts}")
 
         if opts.get('compare_llm') and not self._ensure_llm_engine_loaded():
             return
@@ -318,7 +319,7 @@ class AppController:
         self.task_runner.run_task(action_task, on_success, on_error, on_finally)
 
     def _run_action_db(self, opts, folders_in_list):
-        logger.info(f"Running DB action.")
+        logger.info(f"Running DB action with opts: {opts}")
         conn = database.get_db_connection(self.project_manager.current_project_path)
         file_filter = self.file_type_filter.get()
 
