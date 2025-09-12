@@ -40,31 +40,7 @@ class TestAppController(unittest.TestCase):
         self.mock_view.results_tree.delete.assert_any_call('item1')
         self.mock_view.results_tree.delete.assert_any_call('item2')
 
-    @patch('controller.messagebox')
-    @patch('controller.utils')
-    @patch('logic.run_comparison')
-    @patch('strategies.find_duplicates_strategy.run')
-    def test_run_action_compare_mode(self, mock_find_duplicates_strategy_run, mock_run_comparison, mock_utils, mock_messagebox):
-        """Test the main action in 'compare' mode."""
-        self.controller.project_manager.current_project_path = "test.cfp-db"
-        self.mock_view.folder_list_box.get.return_value = ["/folder1", "/folder2"]
-        self.controller.project_manager._gather_settings.return_value = {'options': {'compare_llm': False}}
-        mock_utils.calculate_metadata_db.return_value = ({}, 0)
-        mock_run_comparison.return_value = [[{'name': 'file1.txt', 'size': 100, 'relative_path': 'file1.txt', 'folder_index': 1}]]
-        mock_find_duplicates_strategy_run.return_value = [[{'id': 1, 'name': 'dup1.txt', 'size': 100, 'relative_path': 'path1', 'folder_index': 1}, {'id': 2, 'name': 'dup2.txt', 'size': 100, 'relative_path': 'path2', 'folder_index': 1}]]
-
-        self.controller.run_action()
-
-        self.controller.task_runner.run_task.assert_called_once()
-        run_task_args = self.controller.task_runner.run_task.call_args
-        action_task = run_task_args.args[0]
-        on_success = run_task_args.args[1]
-
-        results = action_task()
-        on_success(results)
-
-        self.assertEqual(mock_run_comparison.call_count, 1)
-        self.mock_view.results_tree.insert.assert_any_call('', tk.END, values=("Comparing 'folder1' vs 'folder2' (1 match groups)", '', '', ''), open=True, tags=('header_row',))
+    
 
     @patch('controller.messagebox')
     def test_calculator_integration(self, mock_messagebox):

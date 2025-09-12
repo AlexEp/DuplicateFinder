@@ -19,4 +19,7 @@ class CompareByDate(BaseComparisonStrategy):
     def db_key(self):
         return 'modified_date'
 
+    def get_duplicates_query_part(self):
+        return "fm.modified_date"
+
     

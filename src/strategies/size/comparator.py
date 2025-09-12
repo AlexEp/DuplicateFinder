@@ -19,4 +19,7 @@ class CompareBySize(BaseComparisonStrategy):
     def db_key(self):
         return 'size'
 
+    def get_duplicates_query_part(self):
+        return "fm.size"
+
     

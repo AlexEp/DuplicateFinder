@@ -22,4 +22,7 @@ class CompareByContentMD5(BaseComparisonStrategy):
     def db_key(self):
         return 'md5'
 
+    def get_duplicates_query_part(self):
+        return "fm.md5"
+
     

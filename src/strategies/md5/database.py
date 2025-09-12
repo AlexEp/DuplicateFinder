@@ -19,3 +19,5 @@ class MD5Database(BaseDatabase):
         cursor.execute("SELECT md5 FROM file_metadata WHERE file_id = ?", (file_id,))
         row = cursor.fetchone()
         return row[0] if row else None
+
+    

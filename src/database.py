@@ -132,9 +132,7 @@ def get_files_by_ids(conn, ids):
             f.id IN ({placeholders})
     """
     cursor.execute(query, ids)
-
-    columns = [description[0] for description in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return cursor.fetchall()
 
 def add_source(conn, path):
     with conn:

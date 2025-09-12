@@ -30,4 +30,7 @@ class CompareByNameStrategy(BaseComparisonStrategy):
     def db_key(self):
         return 'name'
 
+    def get_duplicates_query_part(self):
+        return "f.name"
+
     

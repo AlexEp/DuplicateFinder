@@ -19,3 +19,5 @@ class SizeDatabase(BaseDatabase):
         cursor.execute("SELECT size FROM file_metadata WHERE file_id = ?", (file_id,))
         row = cursor.fetchone()
         return row[0] if row else None
+
+    

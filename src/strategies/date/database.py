@@ -19,3 +19,5 @@ class DateDatabase(BaseDatabase):
         cursor.execute("SELECT modified_date FROM file_metadata WHERE file_id = ?", (file_id,))
         row = cursor.fetchone()
         return row[0] if row else None
+
+    

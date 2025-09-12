@@ -1,5 +1,6 @@
 # Comparison Project Files
 *.cfp
+*.cfp-db
 
 # Temporary plan files
 ai-llm-plan.md
