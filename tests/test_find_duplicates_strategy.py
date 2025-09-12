@@ -54,6 +54,10 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
             (5, 2, 'file4.txt', 'd', '.txt', 0),
             (6, 1, 'file5.txt', 'e', '.txt', 0), # Dup size and date with 7
             (7, 2, 'file6.txt', 'f', '.txt', 0), # Dup size and date with 6
+            (8, 1, 'image1.jpg', 'g', '.jpg', 0), # Dup size with 9
+            (9, 2, 'image2.jpg', 'h', '.jpg', 0), # Dup size with 8
+            (10, 1, 'video1.mp4', 'i', '.mp4', 0), # Dup size with 11
+            (11, 2, 'video2.mp4', 'j', '.mp4', 0), # Dup size with 10
         ]
         metadata_data = [
             (1, 1, 100, 12345.0, 'aaa', None, None),
@@ -63,22 +67,46 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
             (5, 5, 300, 67890.0, 'ddd', None, None),
             (6, 6, 500, 77777.0, 'eee', None, None),
             (7, 7, 500, 77777.0, 'fff', None, None),
+            (8, 8, 1024, 88888.0, 'ggg', None, None),
+            (9, 9, 1024, 99999.0, 'hhh', None, None),
+            (10, 10, 2048, 11111.0, 'iii', None, None),
+            (11, 11, 2048, 22222.0, 'jjj', None, None),
         ]
         with self.conn:
             self.conn.executemany("INSERT INTO files VALUES (?,?,?,?,?,?)", files_data)
             self.conn.executemany("INSERT INTO file_metadata VALUES (?,?,?,?,?,?,?)", metadata_data)
 
+    def test_run_with_file_extension_filter(self):
+        # NOTE: This test relies on the mock config in settings.json.
+        # It assumes .jpg is in the "image" category.
+        opts = {
+            'options': {'compare_size': True},
+            'file_type_filter': 'image'
+        }
+        duplicates = find_duplicates_strategy.run(self.conn, opts)
+
+        self.assertEqual(len(duplicates), 1)
+        group = duplicates[0]
+        self.assertEqual(len(group), 2)
+        self.assertEqual({d['id'] for d in group}, {8, 9})
+
     def test_run_with_single_criterion_size(self):
         opts = {'options': {'compare_size': True}}
         duplicates = find_duplicates_strategy.run(self.conn, opts)
 
-        self.assertEqual(len(duplicates), 2)
+        self.assertEqual(len(duplicates), 4)
         # Find the group with [1, 3, 4]
         group1 = next((g for g in duplicates if {d['id'] for d in g} == {1, 3, 4}), None)
         self.assertIsNotNone(group1)
         # Find the group with [6, 7]
         group2 = next((g for g in duplicates if {d['id'] for d in g} == {6, 7}), None)
         self.assertIsNotNone(group2)
+        # Find the group with [8, 9]
+        group3 = next((g for g in duplicates if {d['id'] for d in g} == {8, 9}), None)
+        self.assertIsNotNone(group3)
+        # Find the group with [10, 11]
+        group4 = next((g for g in duplicates if {d['id'] for d in g} == {10, 11}), None)
+        self.assertIsNotNone(group4)
 
     def test_run_with_single_criterion_date(self):
         opts = {'options': {'compare_date': True}}
