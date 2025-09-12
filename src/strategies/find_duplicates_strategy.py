@@ -1,6 +1,7 @@
 from .strategy_registry import get_strategy
 import database
 from pathlib import Path
+from config import config
 
 def run(conn, opts, folder_index=None, file_infos=None):
     """
@@ -26,31 +27,39 @@ def run(conn, opts, folder_index=None, file_infos=None):
 
     group_by_clause = ", ".join(group_by_parts)
 
-    # Base query
-    query = f"""
-        SELECT GROUP_CONCAT(f.id)
-        FROM files f
-        JOIN file_metadata fm ON f.id = fm.file_id
-        GROUP BY {group_by_clause}
-        HAVING COUNT(f.id) > 1
-    """
-
-    # WHERE clause for folder_index
     params = []
+    where_clauses = []
+
+    # Handle folder_index filter
     if folder_index is not None:
         if isinstance(folder_index, int):
             folder_index = [folder_index]
         placeholders = ','.join('?' for _ in folder_index)
-        query = f"""
-            SELECT GROUP_CONCAT(f.id)
-            FROM files f
-            JOIN file_metadata fm ON f.id = fm.file_id
-            WHERE f.folder_index IN ({placeholders})
-            GROUP BY {group_by_clause}
-            HAVING COUNT(f.id) > 1
-        """
+        where_clauses.append(f"f.folder_index IN ({placeholders})")
         params.extend(folder_index)
 
+    # Handle file extension filter
+    file_type_filter = opts.get("file_type_filter", "all")
+    if file_type_filter != "all":
+        extensions = config.get(f"file_extensions.{file_type_filter}", [])
+        if extensions:
+            ext_placeholders = ','.join('?' for _ in extensions)
+            where_clauses.append(f"f.ext IN ({ext_placeholders})")
+            params.extend(extensions)
+
+    # Construct the final query
+    query = f"""
+        SELECT GROUP_CONCAT(f.id)
+        FROM files f
+        JOIN file_metadata fm ON f.id = fm.file_id
+    """
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+
+    query += f"""
+        GROUP BY {group_by_clause}
+        HAVING COUNT(f.id) > 1
+    """
 
     # Execute the query to get groups of duplicate file IDs
     cursor = conn.cursor()
