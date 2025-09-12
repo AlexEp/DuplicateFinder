@@ -1,35 +1,44 @@
-import inspect
+import importlib
 import pkgutil
 from .base_comparison_strategy import BaseComparisonStrategy
 
-class StrategyRegistry:
-    def __init__(self):
-        self.strategies = {}
-        self._discover_strategies()
+_STRATEGIES = {}
 
-    def _discover_strategies(self):
-        """Automatically discovers and registers all comparison strategies."""
-        import strategies.compare_by_size
-        import strategies.compare_by_date
-        import strategies.compare_by_content_md5
-        import strategies.compare_by_llm
-        import strategies.compare_by_name
+def clear_strategies():
+    """
+    Clears the strategy registry.
+    """
+    _STRATEGIES.clear()
 
-        for importer, modname, ispkg in pkgutil.iter_modules(strategies.__path__):
-            if modname.startswith('compare_by_'):
-                module = __import__(f"strategies.{modname}", fromlist=["*"])
-                for name, obj in inspect.getmembers(module):
-                    if inspect.isclass(obj) and issubclass(obj, BaseComparisonStrategy) and obj is not BaseComparisonStrategy:
-                        instance = obj()
-                        self.strategies[instance.option_key] = instance
+def register_strategy(strategy_class):
+    """
+    Registers a new comparison strategy.
+    """
+    if not issubclass(strategy_class, BaseComparisonStrategy):
+        raise ValueError("Strategy must be a subclass of BaseComparisonStrategy")
 
-    def get_active_strategies(self, opts):
-        """Returns a list of active strategies based on the options."""
-        active_strategies = []
-        for key, strategy in self.strategies.items():
-            if opts.get(key):
-                active_strategies.append(strategy)
-        return active_strategies
+    instance = strategy_class()
+    _STRATEGIES[instance.option_key] = instance
 
-# Create a single instance of the registry to be used by the application
-strategy_registry = StrategyRegistry()
+def get_strategy(option_key):
+    """
+    Returns a strategy instance for the given option key.
+    """
+    return _STRATEGIES.get(option_key)
+
+def discover_strategies():
+    """
+    Discovers and registers all strategies in the 'strategies' directory.
+    """
+    import strategies
+
+    for _, name, _ in pkgutil.walk_packages(strategies.__path__, strategies.__name__ + '.'):
+        if 'comparator' in name:
+            module = importlib.import_module(name)
+            for item in dir(module):
+                obj = getattr(module, item)
+                if isinstance(obj, type) and issubclass(obj, BaseComparisonStrategy) and obj is not BaseComparisonStrategy:
+                    register_strategy(obj)
+
+# Discover strategies on import
+discover_strategies()

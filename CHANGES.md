@@ -1,5 +1,33 @@
 # Changelog
 
+## 2025-09-11
+- **UX**: Comparison results for a pair of folders will no longer be shown if there are no matches between them.
+- **Fix**: Corrected the comparison logic to ensure that when comparing folders, groups of all matching files from all involved folders are displayed, rather than just showing one side of the match.
+- **UX**: The results view now displays the full path of each file instead of the relative path, providing clearer context for file locations.
+- **Fix**: Corrected a bug that prevented the "Preview" feature from working. The full file path is now correctly passed to the UI, enabling the context menu option for supported file types.
+- **Fix**: Refactored the duplicate finding strategy to unify the database and in-memory logic. This resolves a critical bug where duplicate finding in "Compare Mode" would fail due to a call to a removed function, ensuring that duplicate results are now accurate and consistently grouped in the UI.
+- **Fix**: Fixed a bug where loading a project with an older database schema would cause a crash. The application now automatically creates missing tables when loading a project, ensuring backward compatibility.
+- **Refactor**: Overhauled the comparison logic. The inefficient pairwise comparison in `logic.py` has been replaced with a high-performance hash-based algorithm. The redundant `get_duplications_ids` method has been removed from all comparison strategies, simplifying the design.
+- **Fix**: Corrected a data flow issue where freshly calculated metadata (like MD5 hashes) was not used during the duplicate finding process. The controller now passes the in-memory metadata directly to the comparison strategy, ensuring accurate results.
+- **Refactor**: Implemented multi-stage duplicate finding. The system now chains multiple comparison strategies (e.g., size, then MD5) to progressively refine results, providing much more accurate duplicate detection instead of relying on a single criterion.
+- **Fix**: The "Find Duplicates by Size" query now ignores files with a size of 0, preventing large, irrelevant groups of empty files from cluttering the results.
+- **Fix**: Optimized the database query for finding duplicates by size. The query now uses a single, more efficient `GROUP BY` and `GROUP_CONCAT` operation, preventing potential performance issues with large datasets and directly addressing the user's feedback.
+
+## 2025-09-08
+- **Refactor**: Normalized database schema by extracting `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
+  - `database.py`: Modified `create_tables` to define `file_metadata` and remove these columns from `files`. Updated `insert_file_node` to insert into both tables. Updated `get_all_files` to `JOIN` `files` and `file_metadata`.
+  - `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata`.
+  - `strategies/utils.py`: Modified `calculate_metadata_db` to `JOIN` `files` and `file_metadata` for data retrieval and to update `file_metadata` directly.
+  - `strategies/compare_by_date.py`: Corrected the key used for date comparison from `'date'` to `'modified_date'` to align with the database column name.
+- **Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
+
+## 2025-09-07
+- **Feature**: Modified database schema and logic to store only the directory path in `relative_path` column, improving data consistency. The UI now correctly reconstructs and displays the full relative path.
+- **Fix**: Resolved `sqlite3.IntegrityError: UNIQUE constraint failed: sources.path` when creating a new project with an existing file name by clearing existing sources before adding new ones.
+- **UX**: Removed the 'Add/Remove Folder' buttons from the main window to simplify the UI.
+- **Fix**: The "X" button on the 'New Project' window now correctly closes the window.
+- **UX**: Increased the default size of the 'New Project' window for better usability.
+
 ## 2025-09-05
 - **Fix**: Fixed the "Compare by Name" functionality in the "Compare Folders" mode. A dedicated comparison strategy for names was created and registered, ensuring that the feature works as intended.
 - **Fix**: Corrected the file type filtering logic. The application now correctly filters files based on the selected file type (Image, Video, Document, All) in both JSON and SQLite-based projects.

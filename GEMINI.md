@@ -52,9 +52,7 @@ The application follows a separation of concerns between the UI, business logic,
         - `flatten_structure` traverses the `FileNode` tree for JSON projects, using the modular calculators to gather metadata. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
         - `calculate_metadata_db` reads from and updates the SQLite database for `.cfp-db` projects.
     -   **`find_common_strategy.py`**: Orchestrates the logic for the "Compare Folders" mode. It uses the `StrategyRegistry` to dynamically dispatch to the appropriate comparison strategies based on user options.
-    -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It uses a more complex, two-phase approach:
-        1.  **Grouping**: Uses `key_by_*.py` modules to group files into buckets based on shared properties (e.g., all files with the same size).
-        2.  **Pairwise Comparison**: If necessary (e.g., for histograms), it performs detailed comparisons *within* the groups.
+    -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It takes a list of file information and employs a powerful multi-stage filtering approach, progressively grouping files by all selected criteria (e.g., size, then MD5) to find true duplicates. This strategy operates purely on in-memory data provided by the controller.
     -   **`compare_by_*.py`**: These modules contain the concrete implementations of the `BaseComparisonStrategy`.
     -   **`strategy_registry.py`**: This module automatically discovers and registers all available comparison strategies, making the system easily extensible.
 
@@ -110,4 +108,22 @@ This application is designed to be run from the source code. There is no separat
 
 ## 9. License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+## 10. UI Modifications
+
+- Increased the default size of the 'New Project' window for better usability.
+- **Full Path Display**: The results view now displays the full path of each file instead of the relative path, providing clearer context for file locations.
+
+## 11. Improvements
+
+-   **Duplicate Finding Query Optimization**: Optimized the database query for finding duplicates by size in `strategies/size/comparator.py`. The query now uses a single, more efficient `GROUP BY` and `GROUP_CONCAT` operation and ignores files of size 0, improving performance and relevance of results for database-backed projects.
+-   **Database Schema Alignment**: Modified `logic.py` to correctly store the file's directory path in the `path` column of the `files` table, aligning with the database schema and separating it from the filename stored in the `name` column. This resolves a previous mismatch where `logic.py` was attempting to insert into a non-existent `relative_path` column.
+-   **Database Normalization**: Extracted `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
+    -   `database.py`: Modified `create_tables` to define the new `file_metadata` table and remove these columns from `files`. Updated `insert_file_node` to insert into both `files` and `file_metadata`.
+    -   `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata` due to the inability of `executemany` to return `lastrowid` for linking.
+-   **Database Query Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
+-   **Duplicate Finding Fix**: Corrected a bug in `find_duplicates_strategy.py` where file paths from the database (strings) were not being converted to `pathlib.Path` objects, causing the duplicate detection to fail.ed to `pathlib.Path` objects, causing the duplicate detection to fail.
+-   **Database Schema Migration**: Fixed a bug where loading a project with an older database schema would cause a crash. The application now automatically creates missing tables when loading a project, ensuring backward compatibility.
+-   **Duplicate Finding Logic**: Refactored the duplicate finding strategy to unify the database and in-memory logic. This resolves a critical bug where duplicate finding in "Compare Mode" would fail due to a call to a removed function, ensuring that duplicate results are now accurate and consistently grouped in the UI.
+-   **Preview Feature Fix**: Corrected a bug that prevented the "Preview" feature from working. The full file path is now correctly passed to the UI, enabling the context menu option for supported file types.
+-   **Comparison Logic**: Corrected the comparison logic to ensure that when comparing folders, groups of all matching files from all involved folders are displayed, rather than just showing one side of the match.
+-   **UI/UX**: Comparison results for a pair of folders will no longer be shown if there are no matches between them.

@@ -17,11 +17,18 @@ class TestFileOperations(unittest.TestCase):
         self.dest_dir = os.path.join(self.test_dir, "dest")
         os.makedirs(self.dest_dir)
         self.db_path = os.path.join(self.test_dir, "test.cfp-db")
+        self.conn = sqlite3.connect(self.db_path)
+        from database import create_tables
+        create_tables(self.conn)
 
     def tearDown(self):
-        shutil.rmtree(self.test_dir)
+        self.conn.close()
+        try:
+            shutil.rmtree(self.test_dir)
+        except PermissionError:
+            pass
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_delete_file_json(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = "test.cfp"
@@ -44,16 +51,13 @@ class TestFileOperations(unittest.TestCase):
 
         self.assertEqual(len(mock_controller.folder1_structure), 0)
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_delete_file_db(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = self.db_path
 
-        conn = sqlite3.connect(self.db_path)
-        from database import create_tables, delete_file_by_path
-        create_tables(conn)
-        conn.execute("INSERT INTO files (relative_path) VALUES (?)", ("file1.txt",))
-        conn.commit()
+        self.conn.execute("INSERT INTO files (path, name) VALUES (?, ?)", ("", "file1.txt"))
+        self.conn.commit()
 
         file_to_delete = Path(self.test_dir) / "file1.txt"
         file_to_delete.touch()
@@ -65,12 +69,11 @@ class TestFileOperations(unittest.TestCase):
 
         delete_file(mock_controller, self.test_dir, "file1.txt", mock_results_tree, "iid1", mock_update_status)
 
-        cursor = conn.cursor()
+        cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM files")
         self.assertEqual(len(cursor.fetchall()), 0)
-        conn.close()
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_move_file_json(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = "test.cfp"
@@ -94,16 +97,13 @@ class TestFileOperations(unittest.TestCase):
         self.assertEqual(len(mock_controller.folder1_structure), 0)
         self.assertTrue((Path(self.dest_dir) / "file1.txt").exists())
 
-    @patch('tkinter.messagebox')
+    @patch('file_operations.messagebox')
     def test_move_file_db(self, mock_messagebox):
         mock_controller = MagicMock()
         mock_controller.project_manager.current_project_path = self.db_path
 
-        conn = sqlite3.connect(self.db_path)
-        from database import create_tables, delete_file_by_path
-        create_tables(conn)
-        conn.execute("INSERT INTO files (relative_path) VALUES (?)", ("file1.txt",))
-        conn.commit()
+        self.conn.execute("INSERT INTO files (path, name) VALUES (?, ?)", ("", "file1.txt"))
+        self.conn.commit()
 
         file_to_move = Path(self.test_dir) / "file1.txt"
         file_to_move.touch()
@@ -115,10 +115,9 @@ class TestFileOperations(unittest.TestCase):
 
         move_file(mock_controller, self.test_dir, "file1.txt", self.dest_dir, mock_results_tree, "iid1", mock_update_status)
 
-        cursor = conn.cursor()
+        cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM files")
         self.assertEqual(len(cursor.fetchall()), 0)
-        conn.close()
         self.assertTrue((Path(self.dest_dir) / "file1.txt").exists())
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-from .base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy
 
 class CompareByContentMD5(BaseComparisonStrategy):
     @property
@@ -18,5 +18,8 @@ class CompareByContentMD5(BaseComparisonStrategy):
             return md5_1 == md5_2
         return False
 
-_strategy = CompareByContentMD5()
-compare = _strategy.compare
+    @property
+    def db_key(self):
+        return 'md5'
+
+    

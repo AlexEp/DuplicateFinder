@@ -57,7 +57,8 @@ def move_file(controller, base_path_str, relative_path_str, dest_path_str, resul
         # Update data
         if controller.project_manager.current_project_path.endswith(".cfp-db"):
             conn = database.get_db_connection(controller.project_manager.current_project_path)
-            database.delete_file_by_path(conn, relative_path_str)
+            path, name = os.path.split(relative_path_str)
+            database.delete_file_by_path(conn, path, name)
             conn.close()
         else:
             if controller.folder1_path.get() == base_path_str:
@@ -100,7 +101,8 @@ def delete_file(controller, base_path_str, relative_path_str, results_tree, iid,
         # Update data
         if controller.project_manager.current_project_path.endswith(".cfp-db"):
             conn = database.get_db_connection(controller.project_manager.current_project_path)
-            database.delete_file_by_path(conn, relative_path_str)
+            path, name = os.path.split(relative_path_str)
+            database.delete_file_by_path(conn, path, name)
             conn.close()
         else:
             if controller.folder1_path.get() == base_path_str:

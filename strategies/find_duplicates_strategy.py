@@ -1,129 +1,61 @@
-from collections import defaultdict
+from .strategy_registry import get_strategy
+import database
 import itertools
-import json
 from pathlib import Path
-from . import utils
-from . import key_by_name
-from . import key_by_date
-from . import key_by_size
-from . import key_by_content_md5
-from . import compare_by_histogram
-from . import compare_by_llm
-from utils.graph_utils import find_connected_components
 
-def run(all_files_info, opts, base_path=None):
+
+def run(conn, opts, folder_index=None, file_infos=None):
     """
-    Finds duplicate files within a single metadata dictionary.
-    This function orchestrates calls to individual key-building strategies
-    and can optionally apply a secondary, pairwise comparison.
+    Finds duplicate files by chaining selected comparison strategies.
+    If file_infos is provided, it performs grouping in-memory.
+    Otherwise, it fetches data from the database for the given folder_index.
     """
-    if not all_files_info:
+    selected_strategies = []
+    for option, value in opts.get('options', {}).items():
+        if value and option.startswith('compare_'):
+            strategy = get_strategy(option)
+            if strategy:
+                selected_strategies.append(strategy)
+
+    if not selected_strategies:
         return []
 
-    base_path_obj = Path(base_path) if base_path else None
+    # If file_infos are not provided, fetch them from the database.
+    if file_infos is None:
+        if folder_index is None:
+            return []
+        rows = database.get_all_files(conn, folder_index)
+        columns = [
+            'id', 'folder_index', 'path', 'name', 'ext', 'last_seen',
+            'size', 'modified_date', 'md5', 'histogram', 'llm_embedding'
+        ]
+        file_infos = [dict(zip(columns, row)) for row in rows]
+        # Convert path to Path object for consistency
+        for info in file_infos:
+            if isinstance(info.get('path'), str):
+                info['path'] = Path(info['path'])
 
-    # Create a lookup from fullpath to info dict for later, and add relative_path
-    fullpath_to_info = {}
-    for path, info in all_files_info.items():
-        info['relative_path'] = str(path)
-        if base_path_obj:
-            info['fullpath'] = str(base_path_obj / path)
-        else:
-            info['fullpath'] = str(path)
-        fullpath_to_info[info['fullpath']] = info
 
-    # --- Phase 1: Grouping by Keys ---
+    current_groups = [file_infos]
 
-    active_key_strategies = []
-    if opts.get('compare_name'):
-        active_key_strategies.append(key_by_name.get_key)
-    if opts.get('compare_date'):
-        active_key_strategies.append(key_by_date.get_key)
-    if opts.get('compare_size'):
-        active_key_strategies.append(key_by_size.get_key)
-    if opts.get('compare_content_md5'):
-        active_key_strategies.append(key_by_content_md5.get_key)
+    for strategy in selected_strategies:
+        next_groups = []
+        for group in current_groups:
+            if len(group) <= 1:
+                continue
 
-    # If no strategies are selected, we can't find duplicates.
-    if not active_key_strategies and not opts.get('compare_histogram'):
-        return []
+            key_func = lambda info: info.get(strategy.db_key)
+            group.sort(key=key_func)
 
-    groups = defaultdict(list)
-    # If we are only doing histogram, group all files together.
-    # Otherwise, group by the selected keying strategies.
-    if not active_key_strategies and opts.get('compare_histogram'):
-         # Note: This will be very slow for large numbers of files.
-         # It's better to use histogram with a keying strategy (like size).
-        groups['all_files'] = list(all_files_info.values())
-    else:
-        for path, info in all_files_info.items():
-            path_obj = Path(path)
-            key_parts = [strategy(path_obj, info) for strategy in active_key_strategies]
-            if key_parts and None not in key_parts:
-                groups[tuple(key_parts)].append(info)
-
-    potential_duplicate_groups = [infos for infos in groups.values() if len(infos) > 1]
-
-    # --- Phase 2: Pairwise Comparisons (Histogram, LLM, etc.) ---
-    comparison_strategies = []
-    if opts.get('compare_histogram'):
-        def histogram_comparator(f1, f2):
-            SIMILARITY_METRICS = ['Correlation', 'Intersection']
-            comparison_result = compare_by_histogram.compare(f1, f2, opts)
-            if not comparison_result or 'histogram_method' not in comparison_result:
-                return False
-            
-            method_name, score = list(comparison_result['histogram_method'].items())[0]
-            try:
-                threshold = float(opts.get('histogram_threshold', '0.9'))
-            except (ValueError, TypeError):
-                threshold = 0.9 if method_name in SIMILARITY_METRICS else 0.1
-            
-            if method_name in SIMILARITY_METRICS:
-                return score >= threshold
-            else: # distance metric
-                return score <= threshold
-        comparison_strategies.append(histogram_comparator)
-
-    if opts.get('compare_llm'):
-        try:
-            llm_threshold = float(opts.get('llm_similarity_threshold', 0.8))
-        except (ValueError, TypeError):
-            llm_threshold = 0.8
-        comparison_strategies.append(
-            lambda f1, f2: compare_by_llm.compare(f1, f2, llm_threshold)[0]
-        )
-
-    if not comparison_strategies:
-        return [group for group in potential_duplicate_groups]
-
-    final_duplicates = []
-    for group in potential_duplicate_groups:
-        adj_list = defaultdict(list)
-        nodes_in_group = [info['fullpath'] for info in group]
-
-        for info1, info2 in itertools.combinations(group, 2):
-            # A pair is a match if it passes ALL pairwise comparison strategies
-            is_match = all(strategy(info1, info2) for strategy in comparison_strategies)
-            
-            if is_match:
-                path1 = info1['fullpath']
-                path2 = info2['fullpath']
-                adj_list[path1].append(path2)
-                adj_list[path2].append(path1)
-
-        # For these comparisons, we build a graph where nodes are file paths
-        # and an edge exists if two files are similar enough. After building the graph,
-        # find all connected components. Each component is a set of files that are
-        # all duplicates of each other.
-        components = find_connected_components(nodes_in_group, adj_list)
-
-        # Only keep components with more than one file (actual duplicates)
-        for component in components:
-            if len(component) > 1:
-                # The component is a list of full file paths.
-                # We use the fullpath_to_info map created at the start of the function
-                # to convert these paths back into the info dictionaries the UI expects.
-                final_duplicates.append([fullpath_to_info[path] for path in component])
-
-    return final_duplicates
+            for key, sub_group_iter in itertools.groupby(group, key=key_func):
+                if key is None:
+                    continue
+                
+                sub_group = list(sub_group_iter)
+                
+                if len(sub_group) > 1:
+                    next_groups.append(sub_group)
+        
+        current_groups = next_groups
+        
+    return current_groups

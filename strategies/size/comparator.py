@@ -1,4 +1,4 @@
-from .base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy
 
 class CompareBySize(BaseComparisonStrategy):
     @property
@@ -15,5 +15,8 @@ class CompareBySize(BaseComparisonStrategy):
             return False
         return file1_info[key] == file2_info[key]
 
-_strategy = CompareBySize()
-compare = _strategy.compare
+    @property
+    def db_key(self):
+        return 'size'
+
+    

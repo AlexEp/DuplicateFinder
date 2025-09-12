@@ -24,3 +24,11 @@ class BaseComparisonStrategy(ABC):
             bool: True if the files are considered a match, False otherwise.
         """
         pass
+
+    @property
+    @abstractmethod
+    def db_key(self):
+        """The key for the database column."""
+        pass
+
+    

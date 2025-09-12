@@ -14,3 +14,9 @@ class BaseCalculator(ABC):
             opts (dict): The options dictionary.
         """
         pass
+
+    @property
+    @abstractmethod
+    def db_key(self):
+        """The key for the database column."""
+        pass

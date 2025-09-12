@@ -11,6 +11,8 @@ if __name__ == "__main__":
         view = FolderComparisonApp(root)
         controller = AppController(view)
         root.mainloop()
+    except tk.TclError as e:
+        logging.error("Could not start GUI. Is a display available?", exc_info=True)
     except Exception as e:
         logging.critical("Application crashed with an unhandled exception.", exc_info=True)
         # Optionally, show a simple error message to the user before exiting

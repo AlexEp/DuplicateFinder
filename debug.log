@@ -1,0 +1,12 @@
+DEBUG:strategies.find_duplicates_strategy:Starting duplicate finding with opts: {'compare_size': True, 'compare_md5': True}
+DEBUG:strategies.find_duplicates_strategy:Selected strategies: []
+DEBUG:strategies.find_duplicates_strategy:Starting duplicate finding with opts: {'compare_size': True, 'compare_md5': True, 'compare_date': True}
+DEBUG:strategies.find_duplicates_strategy:Selected strategies: []
+DEBUG:strategies.find_duplicates_strategy:Starting duplicate finding with opts: {'compare_date': True}
+DEBUG:strategies.find_duplicates_strategy:Selected strategies: []
+DEBUG:strategies.find_duplicates_strategy:Starting duplicate finding with opts: {'compare_size': True}
+DEBUG:strategies.find_duplicates_strategy:Selected strategies: []
+DEBUG:logic:Syncing structure for directory: <MagicMock spec='Path' id='140178427179424'> into DB. Subfolders: True
+INFO:logic:Removed <MagicMock name='mock.execute().rowcount' id='140178427239728'> obsolete file entries for folder_index 1.
+DEBUG:logic:Building structure for directory: <MagicMock spec='Path' id='140178427326016'>
+DEBUG:logic:Building structure for directory: <MagicMock spec='Path' id='140178427292432'>
