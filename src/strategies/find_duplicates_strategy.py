@@ -9,11 +9,12 @@ def run(conn, opts, folder_index=None, file_infos=None):
     and then optionally refines the results with histogram comparison.
     """
     selected_strategies = []
-    for option, value in opts.get('options', {}).items():
-        if value and option.startswith('compare_'):
-            strategy = get_strategy(option)
-            if strategy:
-                selected_strategies.append(strategy)
+    if 'options' in opts:
+        for option, value in opts['options'].items():
+            if value and option.startswith('compare_'):
+                strategy = get_strategy(option)
+                if strategy:
+                    selected_strategies.append(strategy)
 
     if not selected_strategies:
         return []

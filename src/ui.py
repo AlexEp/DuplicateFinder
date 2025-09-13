@@ -229,7 +229,7 @@ class FolderComparisonApp:
         self.root.bind('<Control-b>', self.controller.build_active_folders)
         self.root.bind('<Control-r>', self.controller.run_action)
 
-    def _create_folder_selection_frame(self, parent, frame_text, is_immutable=False):
+    def _create_folder_selection_frame(self, parent, frame_text, is_immutable=False, show_subfolders_option=True):
         frame = tk.LabelFrame(parent, text=frame_text, padx=10, pady=10)
 
         list_frame = tk.Frame(frame)
@@ -262,8 +262,10 @@ class FolderComparisonApp:
             ToolTip(build_button, "Build metadata for all folders in the list.")
             self.build_buttons.append(build_button)
 
-        subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders); subfolder_cb.pack(anchor=tk.W, pady=(5,0))
-        ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
+        if show_subfolders_option:
+            subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders)
+            subfolder_cb.pack(anchor=tk.W, pady=(5,0))
+            ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
 
         return frame, folder_list_box
 
@@ -582,7 +584,7 @@ class FolderComparisonApp:
 
         self._set_main_ui_state('disabled')
 
-        folder_frame, listbox = self._create_folder_selection_frame(dialog, "Step 1: Add Folders for the Project")
+        folder_frame, listbox = self._create_folder_selection_frame(dialog, "Step 1: Add Folders for the Project", show_subfolders_option=False)
         folder_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         button_frame = tk.Frame(dialog)
