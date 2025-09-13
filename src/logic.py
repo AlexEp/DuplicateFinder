@@ -43,7 +43,6 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                     'modified_date': item.stat().st_mtime,
                     'last_seen': scan_start_time,
                     'md5': None,
-                    'histogram': None,
                     'llm_embedding': None
                 })
         except OSError as e:
