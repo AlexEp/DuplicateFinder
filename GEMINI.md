@@ -145,6 +145,7 @@ This application is designed to be run from the source code. There is no separat
 -   **File Type Filtering (Database)**: Modified `database.py` to correctly filter files by extension based on the selected file type (e.g., "image", "video") when querying the database.
 -   **File Type Filtering (Logic)**: Ensured file extensions are stored in lowercase in the database by modifying `logic.py` (`item.suffix.lower()`). This resolves issues with case-sensitive matching during file type filtering. **Note**: Users will need to re-scan their folders or rebuild their projects for this fix to fully apply to existing database entries.
 -   **Database Deletion (File Operations)**: Modified `database.py` to ensure that when a file is deleted via `delete_file_by_path`, its corresponding entry in the `file_metadata` table is also removed, preventing orphaned records.
+-   **Database Insertion**: Corrected a bug in `logic.py` where the initial folder scan (`build_folder_structure_db`) would erroneously attempt to insert a `histogram` value into the `file_metadata` table, causing a `sqlite3.OperationalError`. The `histogram` column does not exist in that table; histogram data is handled by separate, specialized tables. The incorrect column has been removed from the `INSERT` statement.
 
 ## 15. Improvements
 

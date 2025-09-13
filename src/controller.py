@@ -15,7 +15,8 @@ import threading
 logger = logging.getLogger(__name__)
 
 class AppController:
-    def __init__(self, view):
+    def __init__(self, view, is_test=False):
+        self.is_test = is_test
         self.view = view
         self.project_manager = ProjectManager(self)
         self.task_runner = TaskRunner(self.view)
@@ -178,6 +179,9 @@ class AppController:
 
     def build_folders(self):
         """Builds metadata for all folders in the list."""
+        if not hasattr(self.view, 'folder_list_box') or self.view.folder_list_box is None:
+            logger.warning("build_folders called before folder_list_box is initialized.")
+            return
         folders_to_build = self.view.folder_list_box.get(0, tk.END)
         if not folders_to_build:
             messagebox.showwarning("Build Warning", "No folders to build. Please add folders to the list.")
@@ -245,13 +249,15 @@ class AppController:
 
         def on_error(e):
             logger.error(f"Failed to build metadata for folder {folder_index} into DB.", exc_info=e)
-            messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
+            if not self.is_test:
+                messagebox.showerror("Build Error", f"An error occurred during metadata build:\n{e}")
 
         final_callback = on_finally_callback if on_finally_callback else lambda: None
         self.task_runner.run_task(build_task, on_success, on_error, final_callback)
 
-    def run_action(self, event=None):
+    def run_action(self, event=None, file_infos=None):
         opts = self.project_manager._gather_settings()
+        logger.info(f"Running action with options: {opts}")
 
         if opts.get('compare_llm') and not self._ensure_llm_engine_loaded():
             return
@@ -271,7 +277,7 @@ class AppController:
 
         def action_task():
             logger.info("Background task starting: metadata calculation and strategy execution.")
-            return self._run_action_db(opts, folders_in_list)
+            return self._run_action_db(opts, folders_in_list, file_infos=file_infos)
 
         def on_success(all_results):
             logger.info(f"Action finished successfully.")
@@ -299,14 +305,17 @@ class AppController:
                     message = "No matching files found."
                     self.view.results_tree.insert('', tk.END, values=(message, "", ""), tags=('info_row',))
 
-                messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
+                if not self.is_test:
+                    messagebox.showinfo("Success", f"Operation completed successfully. Found {total_matches} total matches.")
             except Exception as e:
                 logger.error("Error displaying results:", exc_info=True)
-                messagebox.showerror("Error", f"An error occurred while displaying the results:\n{e}")
+                if not self.is_test:
+                    messagebox.showerror("Error", f"An error occurred while displaying the results:\n{e}")
 
         def on_error(e):
             logger.critical("An unexpected error occurred during the main action.", exc_info=True)
-            messagebox.showerror("Error", f"An unexpected error occurred:\n{e}")
+            if not self.is_test:
+                messagebox.showerror("Error", f"An unexpected error occurred:\n{e}")
 
         def on_finally():
             self.view.update_status("Ready.")
@@ -317,18 +326,20 @@ class AppController:
 
         self.task_runner.run_task(action_task, on_success, on_error, on_finally)
 
-    def _run_action_db(self, opts, folders_in_list):
-        logger.info(f"Running DB action.")
+    def _run_action_db(self, opts, folders_in_list, file_infos=None):
+        logger.info(f"Running DB action with opts: {opts}")
         conn = database.get_db_connection(self.project_manager.current_project_path)
         file_filter = self.file_type_filter.get()
 
+        all_file_infos = []
         for path in folders_in_list:
             folder_index = folders_in_list.index(path) + 1
             self.task_runner.post_to_main_thread(self.view.update_status, f"Calculating metadata for {Path(path).name}...")
-            utils.calculate_metadata_db(conn, folder_index, path, opts, file_type_filter=file_filter, llm_engine=self.llm_engine)
+            infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts, file_type_filter=file_filter, llm_engine=self.llm_engine)
+            all_file_infos.extend(infos)
 
         self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
-        all_results = find_duplicates_strategy.run(conn, opts)
+        all_results = find_duplicates_strategy.run(conn, opts, file_infos=all_file_infos, folder_index=[i+1 for i in range(len(folders_in_list))])
 
         conn.close()
         return all_results

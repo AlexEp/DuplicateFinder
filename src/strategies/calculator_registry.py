@@ -26,8 +26,10 @@ def discover_calculators():
     """
     Discovers and registers all calculators in the 'strategies' directory.
     """
-    import strategies
+    if _CALCULATORS:
+        return
 
+    import strategies
     for _, name, _ in pkgutil.walk_packages(strategies.__path__, strategies.__name__ + '.'):
         if 'calculator' in name and 'base' not in name and 'registry' not in name:
             module = importlib.import_module(name)
@@ -35,6 +37,3 @@ def discover_calculators():
                 obj = getattr(module, item)
                 if isinstance(obj, type) and issubclass(obj, BaseCalculator) and obj is not BaseCalculator:
                     register_calculator(obj)
-
-# Discover calculators on import
-discover_calculators()
