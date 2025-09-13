@@ -68,11 +68,11 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                 )
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO file_metadata (file_id, size, modified_date, md5, histogram, llm_embedding)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
                     (file_id, node_data['size'], node_data['modified_date'],
-                     node_data.get('md5'), node_data.get('histogram'), node_data.get('llm_embedding'))
+                     node_data.get('md5'), node_data.get('llm_embedding'))
                 )
             else:
                 # Insert new file
@@ -87,11 +87,11 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                 file_id = cursor.lastrowid
                 conn.execute(
                     """
-                    INSERT INTO file_metadata (file_id, size, modified_date, md5, histogram, llm_embedding)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
                     (file_id, node_data['size'], node_data['modified_date'],
-                     node_data.get('md5'), node_data.get('histogram'), node_data.get('llm_embedding'))
+                     node_data.get('md5'), node_data.get('llm_embedding'))
                 )
 
         # Remove files that were not seen in this scan
