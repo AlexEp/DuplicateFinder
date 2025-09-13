@@ -62,8 +62,10 @@ class AppController:
             self.compare_date = tk.BooleanVar(value=False)
             self.compare_size = tk.BooleanVar(value=True)
             self.compare_content_md5 = tk.BooleanVar(value=False)
-            self.compare_histogram = tk.BooleanVar(value=False)
-            self.histogram_method = tk.StringVar(value='Correlation')
+            self.compare_histogram_correlation = tk.BooleanVar(value=False)
+            self.compare_histogram_intersection = tk.BooleanVar(value=False)
+            self.compare_histogram_chi_square = tk.BooleanVar(value=False)
+            self.compare_histogram_bhattacharyya = tk.BooleanVar(value=False)
             self.histogram_threshold = tk.StringVar(value='0.9')
             self.compare_llm = tk.BooleanVar(value=False)
             self.llm_similarity_threshold = tk.StringVar(value='0.8')
@@ -116,8 +118,10 @@ class AppController:
         self.view.compare_date = self.compare_date
         self.view.compare_size = self.compare_size
         self.view.compare_content_md5 = self.compare_content_md5
-        self.view.compare_histogram = self.compare_histogram
-        self.view.histogram_method = self.histogram_method
+        self.view.compare_histogram_correlation = self.compare_histogram_correlation
+        self.view.compare_histogram_intersection = self.compare_histogram_intersection
+        self.view.compare_histogram_chi_square = self.compare_histogram_chi_square
+        self.view.compare_histogram_bhattacharyya = self.compare_histogram_bhattacharyya
         self.view.histogram_threshold = self.histogram_threshold
         self.view.compare_llm = self.compare_llm
         self.view.llm_similarity_threshold = self.llm_similarity_threshold
@@ -133,10 +137,12 @@ class AppController:
         self.compare_date.set(False)
         self.compare_size.set(False)
         self.compare_content_md5.set(False)
-        self.compare_histogram.set(False)
+        self.compare_histogram_correlation.set(False)
+        self.compare_histogram_intersection.set(False)
+        self.compare_histogram_chi_square.set(False)
+        self.compare_histogram_bhattacharyya.set(False)
         self.compare_llm.set(False)
         self.llm_similarity_threshold.set('0.8')
-        self.histogram_method.set('Correlation')
         self.histogram_threshold.set('0.9')
         self.folder_structures = {}
         if hasattr(self.view, 'results_tree'):
