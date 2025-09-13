@@ -1,23 +1,20 @@
 from ..base_database import BaseDatabase
+import logging
 
-class HistogramDatabase(BaseDatabase):
-    def get_table_name(self, method):
-        """
-        Returns the table name for the given histogram method.
-        """
-        method_map = {
-            'Correlation': 'histogram_correlation',
-            'Chi-Square': 'histogram_chisqr',
-            'Intersection': 'histogram_intersection',
-            'Bhattacharyya': 'histogram_bhattacharyya'
-        }
-        return method_map.get(method)
+logger = logging.getLogger(__name__)
 
-    def save(self, conn, file_id, data, method):
+class ChiSquareHistogramDatabase(BaseDatabase):
+    def get_table_name(self):
+        """
+        Returns the table name for the chi-square histogram.
+        """
+        return 'histogram_chisqr'
+
+    def save(self, conn, file_id, data):
         """
         Saves the histogram of a file to the database.
         """
-        table_name = self.get_table_name(method)
+        table_name = self.get_table_name()
         logger.info(f"Saving histogram for file_id {file_id} to table {table_name}")
         with conn:
             conn.execute(
@@ -25,11 +22,11 @@ class HistogramDatabase(BaseDatabase):
                 (file_id, data)
             )
 
-    def load(self, conn, file_id, method):
+    def load(self, conn, file_id):
         """
         Loads the histogram of a file from the database.
         """
-        table_name = self.get_table_name(method)
+        table_name = self.get_table_name()
         cursor = conn.cursor()
         cursor.execute(f"SELECT histogram_values FROM {table_name} WHERE file_id = ?", (file_id,))
         row = cursor.fetchone()
