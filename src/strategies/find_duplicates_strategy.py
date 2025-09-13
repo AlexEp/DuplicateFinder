@@ -86,9 +86,12 @@ def run(conn, opts, folder_index=None, file_infos=None):
 
             if group_infos:
                 duplicate_groups.append(group_infos)
+    elif file_infos:
+        duplicate_groups = [file_infos]
+
 
     if histogram_strategy:
-        if not group_by_parts:
+        if not group_by_parts and not file_infos:
             # If only histogram is selected, get all files as a single group
             rows = database.get_all_files(conn, folder_index, file_type_filter=opts.get("file_type_filter", "all"))
             columns = [
@@ -102,8 +105,10 @@ def run(conn, opts, folder_index=None, file_infos=None):
             duplicate_groups = [file_infos]
 
         # Further refine the groups based on histogram similarity
+        print("Performing histogram comparison")
         final_groups = []
         for group in duplicate_groups:
+            print(f"Processing group: {group}")
             while len(group) > 1:
                 file1 = group.pop(0)
                 new_group = [file1]
@@ -113,6 +118,7 @@ def run(conn, opts, folder_index=None, file_infos=None):
                     hist2 = file2.get('histogram')
                     if hist1 and hist2:
                         similarity = histogram_strategy.compare(hist1, hist2, opts.get('histogram_method'))
+                        print(f"Similarity between {file1['name']} and {file2['name']}: {similarity}")
                         if similarity >= float(opts.get('histogram_threshold')):
                             new_group.append(file2)
                         else:
