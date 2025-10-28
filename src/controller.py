@@ -14,6 +14,8 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+import unittest.mock
+
 class AppController:
     def __init__(self, view, is_test=False):
         self.is_test = is_test
@@ -21,21 +23,52 @@ class AppController:
         self.project_manager = ProjectManager(self)
         self.task_runner = TaskRunner(self.view)
 
-        # --- UI variables ---
-        self.move_to_path = tk.StringVar()
-        self.file_type_filter = tk.StringVar(value="all")
+        if is_test:
+            # For testing, use mock objects for Tkinter variables
+            def create_mock_var(value):
+                mock = unittest.mock.MagicMock()
+                mock.get.return_value = value
+                def set_val(new_val):
+                    mock.get.return_value = new_val
+                mock.set = set_val
+                return mock
 
-        # --- Comparison options ---
-        self.include_subfolders = tk.BooleanVar()
-        self.compare_name = tk.BooleanVar(value=False)
-        self.compare_date = tk.BooleanVar(value=False)
-        self.compare_size = tk.BooleanVar(value=True)
-        self.compare_content_md5 = tk.BooleanVar(value=False)
-        self.compare_histogram = tk.BooleanVar(value=False)
-        self.histogram_method = tk.StringVar(value='Correlation')
-        self.histogram_threshold = tk.StringVar(value='0.9')
-        self.compare_llm = tk.BooleanVar(value=False)
-        self.llm_similarity_threshold = tk.StringVar(value='0.8')
+            self.move_to_path = create_mock_var("")
+            self.file_type_filter = create_mock_var("all")
+            self.include_subfolders = create_mock_var(False)
+            self.compare_name = create_mock_var(False)
+            self.compare_date = create_mock_var(False)
+            self.compare_size = create_mock_var(True)
+            self.compare_content_md5 = create_mock_var(False)
+
+            # These will be replaced by the test, so we just need placeholders
+            self.compare_histogram_correlation = create_mock_var(False)
+            self.compare_histogram_intersection = create_mock_var(False)
+            self.compare_histogram_chi_square = create_mock_var(False)
+            self.compare_histogram_bhattacharyya = create_mock_var(False)
+
+            self.histogram_method = create_mock_var('Correlation')
+            self.histogram_threshold = create_mock_var('0.9')
+            self.compare_llm = create_mock_var(False)
+            self.llm_similarity_threshold = create_mock_var('0.8')
+        else:
+            # --- UI variables ---
+            self.move_to_path = tk.StringVar()
+            self.file_type_filter = tk.StringVar(value="all")
+
+            # --- Comparison options ---
+            self.include_subfolders = tk.BooleanVar()
+            self.compare_name = tk.BooleanVar(value=False)
+            self.compare_date = tk.BooleanVar(value=False)
+            self.compare_size = tk.BooleanVar(value=True)
+            self.compare_content_md5 = tk.BooleanVar(value=False)
+            self.compare_histogram_correlation = tk.BooleanVar(value=False)
+            self.compare_histogram_intersection = tk.BooleanVar(value=False)
+            self.compare_histogram_chi_square = tk.BooleanVar(value=False)
+            self.compare_histogram_bhattacharyya = tk.BooleanVar(value=False)
+            self.histogram_threshold = tk.StringVar(value='0.9')
+            self.compare_llm = tk.BooleanVar(value=False)
+            self.llm_similarity_threshold = tk.StringVar(value='0.8')
         
 
         # --- Folder Structures ---
@@ -46,7 +79,8 @@ class AppController:
         self.llm_engine_loading = False
 
         self._bind_variables_to_view()
-        self.view.setup_ui()
+        if not is_test:
+            self.view.setup_ui()
 
     def build_active_folders(self, event=None):
         """Builds metadata for all folders in the list."""
@@ -84,8 +118,10 @@ class AppController:
         self.view.compare_date = self.compare_date
         self.view.compare_size = self.compare_size
         self.view.compare_content_md5 = self.compare_content_md5
-        self.view.compare_histogram = self.compare_histogram
-        self.view.histogram_method = self.histogram_method
+        self.view.compare_histogram_correlation = self.compare_histogram_correlation
+        self.view.compare_histogram_intersection = self.compare_histogram_intersection
+        self.view.compare_histogram_chi_square = self.compare_histogram_chi_square
+        self.view.compare_histogram_bhattacharyya = self.compare_histogram_bhattacharyya
         self.view.histogram_threshold = self.histogram_threshold
         self.view.compare_llm = self.compare_llm
         self.view.llm_similarity_threshold = self.llm_similarity_threshold
@@ -101,10 +137,12 @@ class AppController:
         self.compare_date.set(False)
         self.compare_size.set(False)
         self.compare_content_md5.set(False)
-        self.compare_histogram.set(False)
+        self.compare_histogram_correlation.set(False)
+        self.compare_histogram_intersection.set(False)
+        self.compare_histogram_chi_square.set(False)
+        self.compare_histogram_bhattacharyya.set(False)
         self.compare_llm.set(False)
         self.llm_similarity_threshold.set('0.8')
-        self.histogram_method.set('Correlation')
         self.histogram_threshold.set('0.9')
         self.folder_structures = {}
         if hasattr(self.view, 'results_tree'):

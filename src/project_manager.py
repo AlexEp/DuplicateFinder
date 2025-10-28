@@ -22,15 +22,17 @@ class ProjectManager:
                 "compare_date": self.controller.compare_date.get(),
                 "compare_size": self.controller.compare_size.get(),
                 "compare_content_md5": self.controller.compare_content_md5.get(),
-                "compare_histogram": self.controller.compare_histogram.get(),
+                "compare_histogram_correlation": self.controller.compare_histogram_correlation.get(),
+                "compare_histogram_intersection": self.controller.compare_histogram_intersection.get(),
+                "compare_histogram_chi_square": self.controller.compare_histogram_chi_square.get(),
+                "compare_histogram_bhattacharyya": self.controller.compare_histogram_bhattacharyya.get(),
                 "compare_llm": self.controller.compare_llm.get(),
-                "histogram_method": self.controller.histogram_method.get(),
                 "histogram_threshold": self.controller.histogram_threshold.get(),
                 "llm_similarity_threshold": self.controller.llm_similarity_threshold.get(),
                 
             }
         }
-        if hasattr(self.controller.view, 'folder_list_box') and self.controller.view.folder_list_box:
+        if not self.controller.is_test and hasattr(self.controller.view, 'folder_list_box') and self.controller.view.folder_list_box:
             settings["compare_folder_list"] = self.controller.view.folder_list_box.get(0, "end")
 
         return settings

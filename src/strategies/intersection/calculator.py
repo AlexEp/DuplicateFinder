@@ -6,13 +6,13 @@ from ..base_calculator import BaseCalculator
 
 logger = logging.getLogger(__name__)
 
-class HistogramCalculator(BaseCalculator):
+class IntersectionHistogramCalculator(BaseCalculator):
     """
-    Calculates image histograms using different methods.
+    Calculates image histograms for intersection comparison.
     """
     @property
     def db_key(self):
-        return 'histogram'
+        return 'histogram_intersection'
 
     def calculate(self, file_node, opts):
         """
@@ -26,7 +26,7 @@ class HistogramCalculator(BaseCalculator):
             str: The histogram of the image, or None if an error occurs.
         """
         logger.info(f"Calculator called for {file_node.fullpath} with opts {opts}")
-        if not opts.get('compare_histogram'):
+        if not opts.get('compare_histogram_intersection'):
             return None
 
         try:
