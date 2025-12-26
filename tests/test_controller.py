@@ -63,12 +63,13 @@ class TestAppController(unittest.TestCase):
             # Set up the controller
             self.controller.project_manager.current_project_path = os.path.join(tmpdir, "test.cfp-db")
             self.mock_view.folder_list_box.get.return_value = [tmpdir]
-            opts = {
-                'compare_size': True,
-                'compare_date': True,
-                'compare_content_md5': True
-            }
-            self.controller.project_manager._gather_settings.return_value = opts
+            from domain.comparison_options import ComparisonOptions
+            options = ComparisonOptions(
+                compare_size=True,
+                compare_date=True,
+                compare_content_md5=True
+            )
+            self.controller.project_manager.get_options.return_value = options
 
             # Run the build process to populate the database
             conn = sqlite3.connect(self.controller.project_manager.current_project_path)
@@ -78,7 +79,7 @@ class TestAppController(unittest.TestCase):
             build_folder_structure_db(conn, 1, tmpdir)
 
             # Run the action to trigger the calculators
-            self.controller._run_action_db(opts, [tmpdir])
+            self.controller._run_action_db(options, [tmpdir])
 
             # Check the database to see if the metadata was calculated
             cursor = conn.cursor()

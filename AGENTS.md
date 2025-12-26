@@ -30,33 +30,16 @@ The application has two primary modes:
 
 ## 3. Architecture
 
-The application follows a separation of concerns between the UI, business logic, data models, and comparison strategies.
+The application is currently transitioning to a SOLID-compliant architecture based on Clean Architecture principles.
 
--   **`ui.py` (UI & Orchestration)**: This is the core of the application. The `FolderComparisonApp` class manages the Tkinter GUI, application state (folder paths, selected options), and orchestrates the calls to the business logic. It handles all user interactions, project saving/loading, and displaying results. **Most changes to application flow will likely involve this file.**
-
--   **`database.py` (Database Logic)**: This module handles all SQLite-related operations, including creating the database schema, inserting and updating file information, and retrieving data for comparison.
-
--   **`logic.py` (Initial Structure Building)**: This module is responsible for the initial scan of a folder. 
-    - For JSON-based projects, `build_folder_structure` recursively walks a directory path and creates a tree of `FileNode` and `FolderNode` objects.
-    - For SQLite-based projects, `build_folder_structure_db` scans a directory and inserts file information directly into the database.
-
--   **`models.py` (Data Models)**: Defines the core data structures for JSON-based projects:
-    -   `FileSystemNode`: A base class for files and folders.
-    -   `FileNode`: Represents a single file and contains a `metadata` dictionary.
-    -   `FolderNode`: Represents a folder and contains a list of other nodes (`content`).
-    -   These objects have a `to_dict()` method for JSON serialization into the `.cfp` project file.
-
--   **`strategies/` (Comparison & Duplicate Logic)**: This directory contains the "brains" of the comparison and duplicate-finding operations. **This is where the core algorithms are implemented.**
-        -   **`strategies/calculators/`**: This sub-package contains modular "calculators" for metadata. Each calculator is responsible for a single piece of metadata (e.g., `MD5Calculator`, `HistogramCalculator`). This makes the system more extensible.
-    -   **`utils.py`**: A crucial file containing functions to calculate metadata. 
-        - `flatten_structure` traverses the `FileNode` tree for JSON projects, using the modular calculators to gather metadata. It returns a flat dictionary of file information, similar to `calculate_metadata_db`.
-        - `calculate_metadata_db` reads from and updates the SQLite database for `.cfp-db` projects.
-    -   **`find_common_strategy.py`**: Orchestrates the logic for the "Compare Folders" mode. It uses the `StrategyRegistry` to dynamically dispatch to the appropriate comparison strategies based on user options.
-    -   **`find_duplicates_strategy.py`**: Orchestrates the logic for the "Find Duplicates" mode. It uses a more complex, two-phase approach:
-        1.  **Grouping**: Uses `key_by_*.py` modules to group files into buckets based on shared properties (e.g., all files with the same size).
-        2.  **Pairwise Comparison**: If necessary (e.g., for histograms), it performs detailed comparisons *within* the groups.
-    -   **`compare_by_*.py`**: These modules contain the concrete implementations of the `BaseComparisonStrategy`.
-    -   **`strategy_registry.py`**: This module automatically discovers and registers all available comparison strategies, making the system easily extensible.
+-   **`interfaces/` (Abstractions)**: Defines contracts (`IView`, `IFileRepository`, etc.) to decouple high-level logic from low-level implementations.
+-   **`domain/` (Value Objects)**: Contains immutable data models like `FileInfo` and `ComparisonOptions` used for system-wide data flow.
+-   **`repositories/` (Data Access)**: Concrete implementations of data interfaces, such as `SQLiteRepository`, which encapsulates database operations.
+-   **`ui.py` (View Layer)**: Implements `IView`. Responsible for Tkinter GUI. It is now decoupled from the controller through dependency injection.
+-   **`controller.py` (Orchestration)**: The central business logic layer. It depends on `IView` and `IFileRepository` interfaces rather than concrete classes.
+-   **`database.py` (Legacy Database Logic)**: Low-level SQLite operations, now primarily accessed via the Repository layer.
+-   **`logic.py` (Business Logic)**: Core algorithms for filesystem scanning and comparison.
+-   **`strategies/`**: Plugins for metadata calculation and file comparison, being migrated to the new `IComparisonStrategy` interface.
 
 ## 4.5. LLM Similarity Engine
 

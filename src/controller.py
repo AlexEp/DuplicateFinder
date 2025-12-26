@@ -11,15 +11,19 @@ import database
 from strategies import utils, find_duplicates_strategy
 from threading_utils import TaskRunner
 import threading
+from interfaces.view_interface import IView
+from domain.comparison_options import ComparisonOptions
+from repositories.sqlite_repository import SQLiteRepository
 
 logger = logging.getLogger(__name__)
 
 class AppController:
-    def __init__(self, view, is_test=False):
+    def __init__(self, view: IView, is_test=False):
         self.is_test = is_test
         self.view = view
         self.project_manager = ProjectManager(self)
         self.task_runner = TaskRunner(self.view)
+        self.repository = None # Initialized when project is active
 
         # --- UI variables ---
         self.move_to_path = tk.StringVar()
@@ -256,10 +260,11 @@ class AppController:
         self.task_runner.run_task(build_task, on_success, on_error, final_callback)
 
     def run_action(self, event=None, file_infos=None):
-        opts = self.project_manager._gather_settings()
-        logger.info(f"Running action with options: {opts}")
+        options = self.project_manager.get_options()
+        opts_dict = options.to_legacy_dict()
+        logger.info(f"Running action with options: {options}")
 
-        if opts.get('compare_llm') and not self._ensure_llm_engine_loaded():
+        if options.compare_llm and not self._ensure_llm_engine_loaded():
             return
 
         folders_in_list = self.view.folder_list_box.get(0, tk.END)
@@ -273,11 +278,11 @@ class AppController:
         for btn in self.view.build_buttons: btn.config(state='disabled')
         for i in self.view.results_tree.get_children(): self.view.results_tree.delete(i)
         self.view.progress_bar['value'] = 0
-        logger.info(f"Queueing action with options: {opts}")
+        logger.info(f"Queueing action with options: {options}")
 
         def action_task():
             logger.info("Background task starting: metadata calculation and strategy execution.")
-            return self._run_action_db(opts, folders_in_list, file_infos=file_infos)
+            return self._run_action_db(options, folders_in_list, file_infos=file_infos)
 
         def on_success(all_results):
             logger.info(f"Action finished successfully.")
@@ -326,20 +331,21 @@ class AppController:
 
         self.task_runner.run_task(action_task, on_success, on_error, on_finally)
 
-    def _run_action_db(self, opts, folders_in_list, file_infos=None):
-        logger.info(f"Running DB action with opts: {opts}")
+    def _run_action_db(self, options: ComparisonOptions, folders_in_list, file_infos=None):
+        logger.info(f"Running DB action with options: {options}")
         conn = database.get_db_connection(self.project_manager.current_project_path)
-        file_filter = self.file_type_filter.get()
+        file_filter = options.file_type_filter
+        opts_dict = options.to_legacy_dict()
 
         all_file_infos = []
         for path in folders_in_list:
             folder_index = folders_in_list.index(path) + 1
             self.task_runner.post_to_main_thread(self.view.update_status, f"Calculating metadata for {Path(path).name}...")
-            infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts, file_type_filter=file_filter, llm_engine=self.llm_engine)
+            infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts_dict, file_type_filter=file_filter, llm_engine=self.llm_engine)
             all_file_infos.extend(infos)
 
         self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
-        all_results = find_duplicates_strategy.run(conn, opts, file_infos=all_file_infos, folder_index=[i+1 for i in range(len(folders_in_list))])
+        all_results = find_duplicates_strategy.run(conn, opts_dict, file_infos=all_file_infos, folder_index=[i+1 for i in range(len(folders_in_list))])
 
         conn.close()
         return all_results

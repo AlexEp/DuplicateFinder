@@ -1,5 +1,14 @@
 # Changelog
 
+## 2025-12-26
+- **Refactor (Phase 1: Foundation & Abstractions)**: 
+  - **Interfaces**: Introduced `IView`, `IFileRepository`, `IComparisonStrategy`, and `IMetadataCalculator` to enable Dependency Inversion.
+  - **Domain Models**: Introduced `FileInfo` and `ComparisonOptions` immutable value objects for cleaner data handling.
+  - **Repository Pattern**: Implemented `SQLiteRepository` to encapsulate database access.
+  - **Decoupling**: Successfully broke the circular dependency between `ui.py` and `controller.py` by using the `IView` interface.
+  - **Project Management**: Refactored `ProjectManager` and `AppController` to use the new domain-driven architecture.
+  - **Maintenance**: Added `opencv-python` and confirmed requirement dependencies for testing.
+
 ## 2025-09-11
 - **UX**: Comparison results for a pair of folders will no longer be shown if there are no matches between them.
 - **Fix**: Corrected the comparison logic to ensure that when comparing folders, groups of all matching files from all involved folders are displayed, rather than just showing one side of the match.
