@@ -14,7 +14,7 @@ from strategies import find_common_strategy, find_duplicates_strategy, utils
 from config import config
 import file_operations
 from project_manager import ProjectManager
-from controller import AppController
+from interfaces.view_interface import IView
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +65,17 @@ class ToolTip:
             self.tip_window.destroy()
         self.tip_window = None
 
-class FolderComparisonApp:
+class FolderComparisonApp(IView):
     def __init__(self, root):
-        self.root = root
+        self._root = root
         self.root.title(config.get('ui.title', "Folder Comparison Tool"))
         self.controller = None # Will be set by the controller
         self.build_buttons = []
         self.folder_list_box = None
+
+    @property
+    def root(self):
+        return self._root
 
     def setup_ui(self):
         # --- Tracers ---

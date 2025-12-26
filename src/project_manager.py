@@ -5,35 +5,55 @@ from tkinter import filedialog, messagebox
 from models import FileNode, FolderNode
 import database
 
+from domain.comparison_options import ComparisonOptions
+
+logger = logging.getLogger(__name__)
+
+from repositories.sqlite_repository import SQLiteRepository
+
 logger = logging.getLogger(__name__)
 
 class ProjectManager:
     def __init__(self, app_controller):
         self.controller = app_controller
-        self.current_project_path = None
+        self._current_project_path = None
+
+    @property
+    def current_project_path(self):
+        return self._current_project_path
+
+    @current_project_path.setter
+    def current_project_path(self, value):
+        self._current_project_path = value
+        if value:
+            self._init_repository(value)
+
+    def _init_repository(self, path: str):
+        if self.controller.repository:
+            self.controller.repository.close()
+        self.controller.repository = SQLiteRepository(path)
+        logger.info(f"Initialized repository for: {path}")
+
+    def get_options(self) -> ComparisonOptions:
+        """Returns a ComparisonOptions value object populated from the current UI state."""
+        return ComparisonOptions(
+            file_type_filter=self.controller.file_type_filter.get(),
+            include_subfolders=self.controller.include_subfolders.get(),
+            compare_name=self.controller.compare_name.get(),
+            compare_date=self.controller.compare_date.get(),
+            compare_size=self.controller.compare_size.get(),
+            compare_content_md5=self.controller.compare_content_md5.get(),
+            compare_histogram=self.controller.compare_histogram.get(),
+            compare_llm=self.controller.compare_llm.get(),
+            histogram_method=self.controller.histogram_method.get(),
+            histogram_threshold=float(self.controller.histogram_threshold.get() or 0.9),
+            llm_similarity_threshold=float(self.controller.llm_similarity_threshold.get() or 0.8),
+            move_to_path=self.controller.move_to_path.get()
+        )
 
     def _gather_settings(self):
-        settings = {
-            "file_type_filter": self.controller.file_type_filter.get(),
-            "move_to_path": self.controller.move_to_path.get(),
-            "options": {
-                "include_subfolders": self.controller.include_subfolders.get(),
-                "compare_name": self.controller.compare_name.get(),
-                "compare_date": self.controller.compare_date.get(),
-                "compare_size": self.controller.compare_size.get(),
-                "compare_content_md5": self.controller.compare_content_md5.get(),
-                "compare_histogram": self.controller.compare_histogram.get(),
-                "compare_llm": self.controller.compare_llm.get(),
-                "histogram_method": self.controller.histogram_method.get(),
-                "histogram_threshold": self.controller.histogram_threshold.get(),
-                "llm_similarity_threshold": self.controller.llm_similarity_threshold.get(),
-                
-            }
-        }
-        if hasattr(self.controller.view, 'folder_list_box') and self.controller.view.folder_list_box:
-            settings["compare_folder_list"] = self.controller.view.folder_list_box.get(0, "end")
-
-        return settings
+        """Maintains legacy dictionary format for database persistence."""
+        return self.get_options().to_save_dict()
 
     def save_project(self):
         if not self.current_project_path:
