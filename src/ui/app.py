@@ -15,6 +15,8 @@ from config import config
 import file_operations
 from project_manager import ProjectManager
 from interfaces.view_interface import IView
+from .application_state import ApplicationState
+from .components import StatusBar, SettingsPanel, FolderSelection, ResultsView
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +71,38 @@ class FolderComparisonApp(IView):
     def __init__(self, root):
         self._root = root
         self.root.title(config.get('ui.title', "Folder Comparison Tool"))
+        
+        # State
+        self._state = ApplicationState()
+        
+        # Components (initialized in create_widgets)
+        self._status_bar = None
+        self._settings_panel = None
+        self._folder_selection = None
+        self._results_view = None
+        
         self.controller = None # Will be set by the controller
         self.build_buttons = []
+        
+        # Keep references for controller's direct access (until controller is also refactored)
         self.folder_list_box = None
+        self.results_tree = None
+        self.progress_bar = None
+        self.action_button = None
+
+        # View variables (will be bound by controller)
+        self.move_to_path = None
+        self.file_type_filter = None
+        self.include_subfolders = None
+        self.compare_name = None
+        self.compare_date = None
+        self.compare_size = None
+        self.compare_content_md5 = None
+        self.compare_histogram = None
+        self.histogram_method = None
+        self.histogram_threshold = None
+        self.compare_llm = None
+        self.llm_similarity_threshold = None
 
     @property
     def root(self):
@@ -116,229 +147,102 @@ class FolderComparisonApp(IView):
         file_type_menu.add_radiobutton(label=config.get('ui.file_types.audio', "Audio"), variable=self.file_type_filter, value="audio")
         file_type_menu.add_radiobutton(label=config.get('ui.file_types.document', "Documents"), variable=self.file_type_filter, value="document")
 
-        top_frame = tk.Frame(self.root)
-        top_frame.pack(fill=tk.X, padx=10, pady=(10,0))
+        # Main Layout: PanedWindow
+        self._main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self._main_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.main_content_frame = tk.Frame(self.root, padx=10, pady=10)
-        self.main_content_frame.pack(fill=tk.BOTH, expand=True)
+        # Left Panel (Folders and Options)
+        left_panel = ttk.Frame(self._main_container)
+        self._main_container.add(left_panel, weight=1)
 
-        self.folder_selection_area = tk.Frame(self.main_content_frame)
-        self.folder_selection_area.pack(fill=tk.X)
+        # Folder Selection Component
+        self._folder_selection = FolderSelection(left_panel, self._on_folders_changed)
+        self._folder_selection.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        self.folder_list_box = self._folder_selection._listbox # Backward compatibility
 
-        # --- Create UI Frames for different modes ---
-        self.main_folder_frame, self.folder_list_box = self._create_folder_selection_frame(self.folder_selection_area, config.get('ui.labels.folders_to_compare', "Folders to Analyze"), is_immutable=True)
-        self.main_folder_frame.pack(fill=tk.X)
-        options_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.options_frame', "Options"), padx=10, pady=10); options_frame.pack(fill=tk.X, pady=10)
-        match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.match_find_based_on', "Match/Find based on:"), padx=5, pady=5); match_frame.pack(fill=tk.X)
+        # Settings Panel Component
+        # We pass the existing tk.Variables from the view (which were bound by the controller)
+        vars = {
+            'file_type_filter': self.file_type_filter,
+            'include_subfolders': self.include_subfolders,
+            'compare_name': self.compare_name,
+            'compare_size': self.compare_size,
+            'compare_date': self.compare_date,
+            'compare_content_md5': self.compare_content_md5,
+            'compare_histogram': self.compare_histogram,
+            'compare_llm': self.compare_llm,
+        }
+        self._settings_panel = SettingsPanel(left_panel, self._state.options, variables=vars)
+        self._settings_panel.pack(fill=tk.X, pady=(0, 10))
 
-        name_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.name', "Name"), variable=self.compare_name); name_cb.pack(side=tk.LEFT, padx=5)
-        ToolTip(name_cb, "Compare files by their exact file name.")
-        date_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.date', "Date"), variable=self.compare_date); date_cb.pack(side=tk.LEFT, padx=5)
-        ToolTip(date_cb, "Compare files by their last modified date.")
-        size_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.size', "Size"), variable=self.compare_size); size_cb.pack(side=tk.LEFT, padx=5)
-        ToolTip(size_cb, "Compare files by their exact size in bytes.")
-        md5_cb = tk.Checkbutton(match_frame, text=config.get('ui.labels.content_md5', "Content (MD5 Hash)"), variable=self.compare_content_md5); md5_cb.pack(side=tk.LEFT, padx=5)
-        ToolTip(md5_cb, "Compare files by their content using MD5 hash. Slower, but very accurate.")
+        # Action Buttons
+        action_frame = ttk.Frame(left_panel)
+        action_frame.pack(fill=tk.X, pady=5)
 
-        
+        self.action_button = ttk.Button(action_frame, text="Compare", command=self.controller.run_action)
+        self.action_button.pack(side=tk.TOP, fill=tk.X, pady=2)
+        ToolTip(self.action_button, "Run the comparison or duplicate finding process.")
 
-        self.image_match_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.image_match_options', "Image Match Options"), padx=5, pady=5)
-        self.image_match_frame.pack(fill=tk.X, pady=(5,0))
+        # Right Panel (Results)
+        right_panel = ttk.Frame(self._main_container)
+        self._main_container.add(right_panel, weight=3)
 
-        hist_cb = tk.Checkbutton(self.image_match_frame, text=config.get('ui.labels.content_histogram', "Content (Histogram)"), variable=self.compare_histogram); hist_cb.pack(side=tk.LEFT, padx=5)
-        ToolTip(hist_cb, "Compare images by their color histogram. Good for finding similar-looking images.")
+        self._results_view = ResultsView(right_panel, 
+                                        on_double_click=lambda iid: self._on_result_double_click(iid),
+                                        on_right_click=self._show_context_menu)
+        self._results_view.pack(fill=tk.BOTH, expand=True)
+        self.results_tree = self._results_view.tree # Backward compatibility
 
-        # LLM Frame
-        llm_frame = tk.Frame(self.image_match_frame)
-        llm_frame.pack(side=tk.LEFT, padx=5)
-        self.llm_checkbox = tk.Checkbutton(llm_frame, text=config.get('ui.labels.llm_content', "LLM Content"), variable=self.compare_llm)
-        self.llm_checkbox.pack(side=tk.LEFT)
-        ToolTip(self.llm_checkbox, "Use a Large Language Model (LLM) to compare image content. Very powerful but requires a capable model.")
+        # Status Bar component
+        self._status_bar = StatusBar(self.root)
+        self._status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.progress_bar = self._status_bar._progress # Backward compatibility
 
-        tk.Label(llm_frame, text=config.get('ui.labels.llm_threshold_label', "Threshold:")).pack(side=tk.LEFT, pady=5)
-        self.llm_threshold_entry = tk.Entry(llm_frame, textvariable=self.llm_similarity_threshold, width=8)
-        self.llm_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
-        ToolTip(self.llm_threshold_entry, "Similarity threshold for LLM comparison (e.g., 0.85). Higher is stricter.")
-        tk.Label(llm_frame, text=config.get('ui.labels.llm_threshold_range', "(0.0-1.0)")).pack(side=tk.LEFT, pady=5)
+        # Shortcuts
+        self.root.bind('<Control-r>', lambda e: self.controller.run_action())
 
-
-        self.histogram_options_frame = tk.Frame(self.image_match_frame)
-
-        # Method Selection
-        tk.Label(self.histogram_options_frame, text=config.get('ui.labels.histogram_method_label', "Method:")).pack(side=tk.LEFT, pady=5)
-        histogram_methods = list(config.get('histogram_methods', {}).keys())
-        self.histogram_method_combo = ttk.Combobox(
-            self.histogram_options_frame,
-            textvariable=self.histogram_method,
-            values=histogram_methods,
-            state='readonly',
-            width=15
-        )
-        self.histogram_method_combo.pack(side=tk.LEFT, padx=(2, 10), pady=5)
-        self.histogram_method_combo.bind("<Key>", lambda e: "break")
-        ToolTip(self.histogram_method_combo, "The mathematical method used to compare image histograms.")
-
-        # Threshold Entry
-        tk.Label(self.histogram_options_frame, text=config.get('ui.labels.histogram_threshold_label', "Threshold:")).pack(side=tk.LEFT, pady=5)
-        self.histogram_threshold_entry = tk.Entry(self.histogram_options_frame, textvariable=self.histogram_threshold, width=8)
-        self.histogram_threshold_entry.pack(side=tk.LEFT, padx=2, pady=5)
-        ToolTip(self.histogram_threshold_entry, "Similarity threshold for histogram comparison. The required value depends on the method selected.")
-        self.histogram_threshold_info_label = tk.Label(self.histogram_options_frame, text="", width=20)
-        self.histogram_threshold_info_label.pack(side=tk.LEFT, padx=(0, 5), pady=5)
-
-        self.md5_warning_label = tk.Label(match_frame, text=config.get('ui.labels.md5_warning', "Warning: Content comparison is slow."), fg="red")
-
-        move_to_frame = tk.LabelFrame(options_frame, text=config.get('ui.labels.file_actions', "File Actions"), padx=5, pady=5)
-        move_to_frame.pack(fill=tk.X, pady=(10, 0))
-
-        tk.Label(move_to_frame, text=config.get('ui.labels.move_to_folder', "Move to Folder:")).pack(side=tk.LEFT)
-        move_to_entry = tk.Entry(move_to_frame, textvariable=self.move_to_path); move_to_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ToolTip(move_to_entry, "The destination folder for the 'Move' action.")
-        browse_btn = tk.Button(move_to_frame, text=config.get('ui.labels.browse', "Browse..."), command=self.select_move_to_folder); browse_btn.pack(side=tk.LEFT)
-        ToolTip(browse_btn, "Select a folder to move files to.")
-        action_frame = tk.Frame(self.main_content_frame); action_frame.pack(fill=tk.X, pady=5)
-        self.action_button = tk.Button(action_frame, text="Compare", command=self.controller.run_action); self.action_button.pack()
-        ToolTip(self.action_button, "Run the comparison or duplicate finding process based on the selected options.")
-        results_frame = tk.LabelFrame(self.main_content_frame, text=config.get('ui.labels.results_frame', "Results"), padx=10, pady=10); results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        self.results_tree = ttk.Treeview(results_frame, columns=('File', 'Size', 'Path', 'FullPath'), show='headings')
-        self.results_tree.heading('File', text=config.get('ui.labels.results_tree_file', 'File Name'))
-        self.results_tree.heading('Size', text=config.get('ui.labels.results_tree_size', 'Size (Bytes)'))
-        self.results_tree.heading('Path', text='Full Path')
-        self.results_tree.heading('FullPath', text=config.get('ui.labels.results_tree_path', 'Relative Path'))
-        self.results_tree.column('File', width=250, anchor=tk.W)
-        self.results_tree.column('Size', width=100, anchor=tk.E)
-        self.results_tree.column('Path', width=400, anchor=tk.W)
-        self.results_tree.column('FullPath', width=0, stretch=tk.NO) # Hidden column
-        self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar = ttk.Scrollbar(results_frame, command=self.results_tree.yview); scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.results_tree.config(yscrollcommand=scrollbar.set)
-        self.results_tree.bind('<Double-1>', self._on_double_click)
-        self.results_tree.bind('<Button-3>', self._show_context_menu)
-        self.results_tree.bind('<Button-2>', self._show_context_menu)
-        self.results_tree.bind('<Control-Button-1>', self._show_context_menu)
-
-        # --- Status Bar ---
-        self.status_label = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
-
-        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=100, mode="determinate")
-        self.progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
+    def _on_folders_changed(self):
+        """Handle folder list changes."""
         self.update_action_button_text()
-        self._on_file_type_change()
-        self._toggle_histogram_options()
-        self._update_histogram_threshold_ui()
-
-        # --- Keyboard Shortcuts ---
-        self.root.bind('<Control-b>', self.controller.build_active_folders)
-        self.root.bind('<Control-r>', self.controller.run_action)
-
-    def _create_folder_selection_frame(self, parent, frame_text, is_immutable=False, show_subfolders_option=True):
-        frame = tk.LabelFrame(parent, text=frame_text, padx=10, pady=10)
-
-        list_frame = tk.Frame(frame)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        folder_list_box = tk.Listbox(list_frame)
-        folder_list_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        scrollbar = ttk.Scrollbar(list_frame, command=folder_list_box.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        folder_list_box.config(yscrollcommand=scrollbar.set)
-        ToolTip(folder_list_box, "List of folders to analyze. Add one folder to find duplicates, or 2-4 folders to compare.")
-
-        if is_immutable:
-            self.folder_list_box = folder_list_box
-            self.folder_list_box.config(state=tk.DISABLED)
-
-        button_frame = tk.Frame(frame)
-        button_frame.pack(fill=tk.X, pady=(5,0))
-
-        if not is_immutable:
-            add_button = tk.Button(button_frame, text="Add Folder", command=lambda: self.add_folder_to_list(folder_list_box))
-            add_button.pack(side=tk.LEFT)
-
-            remove_button = tk.Button(button_frame, text="Remove Folder", command=lambda: self.remove_folder_from_list(folder_list_box))
-            remove_button.pack(side=tk.LEFT, padx=5)
-        else:
-            build_button = tk.Button(button_frame, text=config.get('ui.labels.build', "Build"), command=lambda: self.controller.build_folders())
-            build_button.pack(side=tk.LEFT, padx=5)
-            ToolTip(build_button, "Build metadata for all folders in the list.")
-            self.build_buttons.append(build_button)
-
-        if show_subfolders_option:
-            subfolder_cb = tk.Checkbutton(frame, text=config.get('ui.labels.include_subfolders', "Include subfolders"), variable=self.include_subfolders)
-            subfolder_cb.pack(anchor=tk.W, pady=(5,0))
-            ToolTip(subfolder_cb, "If checked, all subdirectories of the selected folder(s) will be included in the analysis.")
-
-        return frame, folder_list_box
-
-    def add_folder_to_list(self, listbox):
-        if listbox.size() >= 4:
-            messagebox.showwarning("Limit Reached", "You can add a maximum of 4 folders.")
-            return
-        path = filedialog.askdirectory(parent=listbox.winfo_toplevel())
-        if not path:
-            return
-
-        new_path = Path(path)
-
-        new_path_resolved_lower = str(new_path.resolve()).lower()
-        for item in listbox.get(0, tk.END):
-            existing_path_resolved_lower = str(Path(item).resolve()).lower()
-            if new_path_resolved_lower == existing_path_resolved_lower:
-                messagebox.showwarning("Duplicate", "This folder is already in the list.")
-                return
-
-        for item in listbox.get(0, tk.END):
-            existing_path = Path(item)
-            if new_path == existing_path:
-                continue
-            try:
-                if new_path.relative_to(existing_path):
-                    messagebox.showerror("Invalid Folder", f"Cannot add a subfolder.\n'{new_path}' is inside '{existing_path}'.")
-                    return
-            except ValueError:
-                pass
-            try:
-                if existing_path.relative_to(new_path):
-                    messagebox.showerror("Invalid Folder", f"Cannot add a parent folder.\n'{existing_path}' is inside '{new_path}'.")
-                    return
-            except ValueError:
-                pass
-
-        listbox.insert(tk.END, str(new_path))
-        if listbox == self.folder_list_box:
-            self.update_action_button_text()
-            self.action_button.config(state='disabled')
-
-    def remove_folder_from_list(self, listbox):
-        selected_indices = listbox.curselection()
-        if not selected_indices:
-            messagebox.showwarning("No Selection", "Please select a folder to remove.")
-            return
-        for i in sorted(selected_indices, reverse=True):
-            listbox.delete(i)
-
-        if listbox == self.folder_list_box:
-            self.update_action_button_text()
-            self.action_button.config(state='disabled')
+        if self.controller:
+            self.controller.on_folders_changed(self._folder_selection.get_paths()) if hasattr(self.controller, 'on_folders_changed') else None
 
     def update_action_button_text(self):
-        num_folders = self.folder_list_box.size()
-        if num_folders == 1:
-            self.action_button.config(text=config.get('ui.modes.duplicates', "Find Duplicates"))
+        """Update the text of the action button based on the number of folders."""
+        if not self.action_button:
+            return
+        
+        folder_paths = self._folder_selection.get_paths() if self._folder_selection else []
+        if len(folder_paths) <= 1:
+            self.action_button.config(text="Find Duplicates")
         else:
-            self.action_button.config(text=config.get('ui.modes.compare', "Compare Folders"))
+            self.action_button.config(text="Compare")
+
+    def _on_result_double_click(self, iid):
+        """Handle result activation."""
+        if not iid:
+            return
+
+        item = self.results_tree.item(iid)
+        # Try to get the relative path/filename from values
+        text_to_copy = ""
+        if item['values']:
+            if len(item['values']) > 2 and item['values'][2]:
+                text_to_copy = str(item['values'][2]).strip()
+            else:
+                text_to_copy = str(item['values'][0]).strip()
+
+        if text_to_copy and "Duplicate Set" not in text_to_copy:
+            try:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(text_to_copy)
+                self.update_status(f"Copied to clipboard: {text_to_copy}")
+            except tk.TclError:
+                self.update_status("Error: Could not copy to clipboard.")
 
     def _on_file_type_change(self, *args):
-        if self.file_type_filter.get() == "image":
-            self.image_match_frame.pack(fill=tk.X, pady=(5,0))
-        else:
-            self.image_match_frame.pack_forget()
-            # Also uncheck the options when they are hidden
-            self.compare_histogram.set(False)
-            self.compare_llm.set(False)
+        # Delegate to settings panel if it exists
+        pass
 
     def _set_main_ui_state(self, state='normal'):
         def set_state_recursive(widget):
@@ -346,41 +250,23 @@ class FolderComparisonApp(IView):
             try: widget.config(state=state)
             except tk.TclError: pass
             for child in widget.winfo_children(): set_state_recursive(child)
-        set_state_recursive(self.main_content_frame)
+        set_state_recursive(self._main_container)
 
 
     def update_status(self, message, progress_value=None):
-        self.status_label.config(text=message)
-        if progress_value is not None:
-            self.progress_bar['value'] = progress_value
-        self.root.update_idletasks()
+        if self._status_bar:
+            self._status_bar.set_message(message)
+            if progress_value is not None:
+                self._status_bar.set_progress(progress_value)
+        else:
+            # Fallback for during initialization or if not using component yet
+            logger.debug(f"Status update (no status bar): {message}")
 
     def select_move_to_folder(self):
         path = filedialog.askdirectory()
         if path:
             self.move_to_path.set(path)
             logger.info(f"Selected move-to folder: {path}")
-    def _on_double_click(self, event):
-        selection = self.results_tree.selection()
-        if not selection:
-            return
-
-        item = self.results_tree.item(selection[0])
-        # Try to get the relative path from column 2, otherwise fall back to column 0
-        text_to_copy = ""
-        if item['values'] and len(item['values']) > 2 and item['values'][2]:
-            text_to_copy = item['values'][2].strip()
-        elif item['values']:
-            text_to_copy = item['values'][0].strip()
-
-        # Avoid copying headers or info messages
-        if text_to_copy and "Duplicate Set" not in text_to_copy and "No " not in text_to_copy:
-            try:
-                self.root.clipboard_clear()
-                self.root.clipboard_append(text_to_copy)
-                self.status_label.config(text=f"Copied to clipboard: {text_to_copy}")
-            except tk.TclError:
-                self.status_label.config(text="Error: Could not copy to clipboard.")
     def _toggle_md5_warning(self, *args):
         if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
         else: self.md5_warning_label.pack_forget()
@@ -588,14 +474,14 @@ class FolderComparisonApp(IView):
 
         self._set_main_ui_state('disabled')
 
-        folder_frame, listbox = self._create_folder_selection_frame(dialog, "Step 1: Add Folders for the Project", show_subfolders_option=False)
-        folder_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        folder_selection = FolderSelection(dialog)
+        folder_selection.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         button_frame = tk.Frame(dialog)
         button_frame.pack(pady=10)
 
         def on_save():
-            folders = listbox.get(0, tk.END)
+            folders = folder_selection.get_paths()
             if not folders:
                 messagebox.showwarning("No Folders", "Please add at least one folder.", parent=dialog)
                 return
@@ -609,11 +495,7 @@ class FolderComparisonApp(IView):
                 return
 
             self.controller.project_manager.create_new_project_file(path, folders)
-            self.folder_list_box.config(state=tk.NORMAL)
-            self.folder_list_box.delete(0, tk.END)
-            for folder in folders:
-                self.folder_list_box.insert(tk.END, folder)
-            self.folder_list_box.config(state=tk.DISABLED)
+            self._folder_selection.set_paths(folders)
 
             self.update_action_button_text()
             self._set_main_ui_state('normal')
@@ -643,3 +525,32 @@ class FolderComparisonApp(IView):
                     continue
             elif isinstance(node, FolderNode):
                 self._update_filenode_metadata(node.content, metadata_info, base_path)
+
+class ToolTip:
+    """A simple tooltip class."""
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        self.widget.bind("<Enter>", self.show_tip)
+        self.widget.bind("<Leave>", self.hide_tip)
+
+    def show_tip(self, event=None):
+        if self.tip_window or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                         background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                         font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide_tip(self, event=None):
+        tw = self.tip_window
+        self.tip_window = None
+        if tw:
+            tw.destroy()

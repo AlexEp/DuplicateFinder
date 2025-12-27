@@ -1,5 +1,17 @@
 # Changelog
 
+## [2025-12-27]
+- **Bug Fix**: Fixed `AttributeError: 'FolderComparisonApp' object has no attribute 'update_action_button_text'`.
+- **Improvement**: Implemented automatic folder synchronization before comparison. The "Compare" button now ensures the analysis is based on current filesystem state (accounting for added/deleted/modified files).
+- **Optimization**: Optimized metadata calculation to skip recalculating unchanged files. MD5 hashes, histograms, and LLM embeddings are now preserved as long as the file's size and modification date remain the same.
+- **Data Integrity**: Improved database cleanup to properly remove stale metadata when files are deleted from the disk.
+
+## [2025-12-26] Phase 2: God Class Elimination
+- **Modular UI Components**: Extracted UI logic into `StatusBar`, `SettingsPanel`, `FolderSelection`, and `ResultsView` in `src/ui/components/`.
+- **State Management**: Introduced `ApplicationState` to separate data state from UI logic.
+- **Complexity Reduction**: Refactored `FolderComparisonApp` to act as a coordinator, significantly reducing its size and improving maintainability.
+- **SRP Implementation**: Improved Separation of Concerns by delegating specific responsibilities to component classes.
+
 ## 2025-12-26
 - **Refactor (Phase 1: Foundation & Abstractions)**: 
   - **Interfaces**: Introduced `IView`, `IFileRepository`, `IComparisonStrategy`, and `IMetadataCalculator` to enable Dependency Inversion.

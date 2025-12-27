@@ -99,6 +99,10 @@ This application is designed to be run from the source code. There is no separat
 
 ## 11. Improvements
 
+-   **Refactor (Phase 2: God Class Elimination)**:
+    -   Extracted modular UI components into `src/ui/components/`: `StatusBar`, `SettingsPanel`, `FolderSelection`, and `ResultsView`.
+    -   Introduced `ApplicationState` to separate data state from UI logic.
+    -   Refactored `FolderComparisonApp` in `src/ui.py` to act as a coordinator for these components, significantly reducing its complexity and improving maintainability.
 -   **Database Schema Alignment**: Modified `logic.py` to correctly store the file's directory path in the `path` column of the `files` table, aligning with the database schema and separating it from the filename stored in the `name` column. This resolves a previous mismatch where `logic.py` was attempting to insert into a non-existent `relative_path` column.
 -   **Database Normalization**: Extracted `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
     -   `database.py`: Modified `create_tables` to define the new `file_metadata` table and remove these columns from `files`. Updated `insert_file_node` to insert into both `files` and `file_metadata`.

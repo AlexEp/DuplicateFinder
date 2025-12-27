@@ -160,8 +160,8 @@ class ProjectManager:
     def create_new_project_file(self, path, folders):
         logger.info(f"Creating new project file at: {path}")
         self.current_project_path = path
+        conn = database.get_db_connection(self.current_project_path)
         try:
-            conn = database.get_db_connection(self.current_project_path)
             database.create_tables(conn)
             database.clear_sources(conn) # Clear existing sources for a new project
             for folder in folders:
@@ -170,13 +170,34 @@ class ProjectManager:
             settings = self._gather_settings()
             database.save_setting(conn, 'project_settings', settings)
 
-            conn.close()
             self.controller.view.root.title(f"{Path(path).name} - Folder Comparison Tool")
             logger.info(f"Successfully created and saved new project: {path}")
         except Exception as e:
             logger.error(f"Failed to create new project file: {path}", exc_info=True)
             messagebox.showerror("Error", f"Could not create project file:\n{e}")
             self.current_project_path = None
+        finally:
+            conn.close()
+
+    def add_folder(self, folder_path):
+        """Add a folder to the current project."""
+        logger.info(f"Adding folder to project: {folder_path}")
+        if not self.current_project_path:
+            if self.controller.view.folder_list_box:
+                self.controller.view.folder_list_box.insert('end', folder_path)
+            return
+
+        conn = database.get_db_connection(self.current_project_path)
+        try:
+            database.add_source(conn, folder_path)
+            # Update view
+            if self.controller.view.folder_list_box:
+                self.controller.view.folder_list_box.config(state='normal')
+                self.controller.view.folder_list_box.insert('end', folder_path)
+                self.controller.view.folder_list_box.config(state='disabled')
+            self.controller.view.update_action_button_text()
+        finally:
+            conn.close()
 
     def new_project(self):
         # This method is now primarily a pass-through.

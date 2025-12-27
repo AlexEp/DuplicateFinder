@@ -60,19 +60,33 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
 
             if existing_file:
                 file_id = existing_file[0]
-                # Update existing file's last_seen and metadata
-                conn.execute(
-                    "UPDATE files SET name = ?, ext = ?, last_seen = ? WHERE id = ?",
-                    (node_data['name'], node_data['ext'], node_data['last_seen'], file_id)
+                # Get current metadata to check if it changed
+                meta_cursor = conn.execute(
+                    "SELECT size, modified_date FROM file_metadata WHERE file_id = ?",
+                    (file_id,)
                 )
+                meta = meta_cursor.fetchone()
+                
+                # Update existing file's last_seen
                 conn.execute(
-                    """
-                    INSERT OR REPLACE INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (file_id, node_data['size'], node_data['modified_date'],
-                     node_data.get('md5'), node_data.get('llm_embedding'))
+                    "UPDATE files SET last_seen = ? WHERE id = ?",
+                    (node_data['last_seen'], file_id)
                 )
+                
+                if not meta or meta[0] != node_data['size'] or meta[1] != node_data['modified_date']:
+                    # File has changed, reset expensive metadata
+                    database.clear_file_metadata(conn, file_id)
+                    conn.execute(
+                        """
+                        INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (file_id, node_data['size'], node_data['modified_date'], None, None)
+                    )
+                    logger.debug(f"File changed: {node_data['name']}. Metadata reset.")
+                else:
+                    # File hasn't changed, just update last_seen (already done)
+                    pass
             else:
                 # Insert new file
                 cursor = conn.execute(
@@ -94,11 +108,21 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                 )
 
         # Remove files that were not seen in this scan
+        # First, clean up all metadata for these files
+        stale_files_query = "SELECT id FROM files WHERE folder_index = ? AND (last_seen < ? OR last_seen IS NULL)"
+        stale_params = (folder_index, scan_start_time)
+        
+        conn.execute(f"DELETE FROM file_metadata WHERE file_id IN ({stale_files_query})", stale_params)
+        conn.execute(f"DELETE FROM histogram_intersection WHERE file_id IN ({stale_files_query})", stale_params)
+        conn.execute(f"DELETE FROM histogram_correlation WHERE file_id IN ({stale_files_query})", stale_params)
+        conn.execute(f"DELETE FROM histogram_chisqr WHERE file_id IN ({stale_files_query})", stale_params)
+        conn.execute(f"DELETE FROM histogram_bhattacharyya WHERE file_id IN ({stale_files_query})", stale_params)
+
         delete_cursor = conn.execute(
             "DELETE FROM files WHERE folder_index = ? AND (last_seen < ? OR last_seen IS NULL)",
-            (folder_index, scan_start_time)
+            stale_params
         )
-        logger.info(f"Removed {delete_cursor.rowcount} obsolete file entries for folder_index {folder_index}.")
+        logger.info(f"Removed {delete_cursor.rowcount} obsolete file entries and their metadata for folder_index {folder_index}.")
 
     return inaccessible_paths
 
