@@ -338,9 +338,12 @@ class AppController:
         opts_dict = options.to_legacy_dict()
 
         all_file_infos = []
-        for path in folders_in_list:
-            folder_index = folders_in_list.index(path) + 1
-            self.task_runner.post_to_main_thread(self.view.update_status, f"Calculating metadata for {Path(path).name}...")
+        for folder_index, path in enumerate(folders_in_list, 1):
+            folder_name = Path(path).name
+            self.task_runner.post_to_main_thread(self.view.update_status, f"Syncing folder: {folder_name}...")
+            logic.build_folder_structure_db(conn, folder_index, path, options.include_subfolders)
+            
+            self.task_runner.post_to_main_thread(self.view.update_status, f"Calculating metadata for {folder_name}...")
             infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts_dict, file_type_filter=file_filter, llm_engine=self.llm_engine)
             all_file_infos.extend(infos)
 

@@ -104,11 +104,18 @@ def delete_file_by_path(conn, path, name):
         cursor = conn.execute("SELECT id FROM files WHERE path = ? AND name = ?", (path, name))
         file_id = cursor.fetchone()
         if file_id:
-            file_id = file_id[0]
-            # Delete from file_metadata table first
-            conn.execute("DELETE FROM file_metadata WHERE file_id = ?", (file_id,))
+            clear_file_metadata(conn, file_id[0])
             # Then delete from files table
-            conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+            conn.execute("DELETE FROM files WHERE id = ?", (file_id[0],))
+
+def clear_file_metadata(conn, file_id):
+    """Resets all cached metadata for a specific file."""
+    with conn:
+        conn.execute("DELETE FROM file_metadata WHERE file_id = ?", (file_id,))
+        conn.execute("DELETE FROM histogram_intersection WHERE file_id = ?", (file_id,))
+        conn.execute("DELETE FROM histogram_correlation WHERE file_id = ?", (file_id,))
+        conn.execute("DELETE FROM histogram_chisqr WHERE file_id = ?", (file_id,))
+        conn.execute("DELETE FROM histogram_bhattacharyya WHERE file_id = ?", (file_id,))
 
 def insert_file_node(conn, node, folder_index, current_folder_path=''):
     if isinstance(node, FileNode):

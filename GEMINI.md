@@ -107,6 +107,12 @@ This application is designed to be run from the source code. There is no separat
     -   Broke circular dependencies between `ui.py` and `controller.py` by having the UI implement `IView`.
     -   Updated `ProjectManager` to manage repository lifecycles and domain-based options.
 
+-   **Refactor (Phase 2: God Class Elimination)**:
+    -   Extracted modular UI components into `src/ui/components/`: `StatusBar`, `SettingsPanel`, `FolderSelection`, and `ResultsView`.
+    -   Introduced `ApplicationState` to separate data state from UI logic.
+    -   Refactored `FolderComparisonApp` in `src/ui.py` to act as a coordinator for these components, significantly reducing its complexity and improving maintainability.
+    -   Improved Separation of Concerns (SoC) by delegating specific UI responsibilities to dedicated component classes.
+
 -   **Duplicate Finding Query Optimization**: Optimized the database query for finding duplicates by size in `strategies/size/comparator.py`. The query now uses a single, more efficient `GROUP BY` and `GROUP_CONCAT` operation and ignores files of size 0, improving performance and relevance of results for database-backed projects.
 -   **Database Schema Alignment**: Modified `logic.py` to correctly store the file's directory path in the `path` column of the `files` table, aligning with the database schema and separating it from the filename stored in the `name` column. This resolves a previous mismatch where `logic.py` was attempting to insert into a non-existent `relative_path` column.
 -   **Database Normalization**: Extracted `size`, `modified_date`, `md5`, `histogram`, and `llm_embedding` from the `files` table into a new `file_metadata` table.
@@ -142,3 +148,7 @@ This application is designed to be run from the source code. There is no separat
 ## 15. Improvements
 
 -   **Video Extension Support**: Added `.mts` to the list of recognized video file extensions in `settings.json`.
+-   **Missing Method Fix**: Restored the `update_action_button_text` method in `FolderComparisonApp` which was accidentally removed during the Phase 2 UI refactor. This resolved an `AttributeError` when loading projects or changing folder selections.
+-   **Data Synchronization**: Implemented automatic folder syncing during the comparison process. The application now re-scans folders to identify added, deleted, or modified files before running comparison strategies, ensuring results are always up-to-date.
+-   **Metadata Caching Optimization**: Refactored the metadata calculation engine to preserve expensive metadata (MD5, LLM embeddings, Histograms) if the file's size and modification date haven't changed. This significantly speeds up subsequent comparisons while maintaining accuracy.
+-   **Orphaned Metadata Cleanup**: Added logic to properly delete stale metadata associated with files that are no longer present in the source folders.

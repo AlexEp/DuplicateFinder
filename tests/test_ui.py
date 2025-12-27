@@ -17,33 +17,38 @@ class TestFolderComparisonApp(unittest.TestCase):
 
         # Mock the variables that are created in the controller
         self.app.file_type_filter = MagicMock()
+        self.app.include_subfolders = MagicMock()
+        self.app.compare_name = MagicMock()
+        self.app.compare_date = MagicMock()
+        self.app.compare_size = MagicMock()
         self.app.compare_content_md5 = MagicMock()
         self.app.compare_histogram = MagicMock()
         self.app.histogram_method = MagicMock()
+        self.app.histogram_threshold = MagicMock()
+        self.app.compare_llm = MagicMock()
+        self.app.llm_similarity_threshold = MagicMock()
+        self.app.move_to_path = MagicMock()
 
     def test_initialization(self):
-        """Test that the UI initializes correctly."""
+        """Test that the UI initializes correctly with components."""
         self.assertEqual(self.app.root, self.root)
         self.assertIsNotNone(self.app.controller)
+        
+        # Check that components are created
+        self.app.create_widgets()
+        self.assertIsNotNone(self.app._status_bar)
+        self.assertIsNotNone(self.app._settings_panel)
+        self.assertIsNotNone(self.app._folder_selection)
+        self.assertIsNotNone(self.app._results_view)
 
-    def test_on_file_type_change(self):
-        """Test the _on_file_type_change method."""
-        # Mock the frame
-        self.app.image_match_frame = MagicMock()
-        self.app.compare_histogram = MagicMock()
-        self.app.compare_llm = MagicMock()
-
-        # Test "image" file type
-        self.app.file_type_filter.get.return_value = "image"
-        self.app._on_file_type_change()
-        self.app.image_match_frame.pack.assert_called_once_with(fill=tk.X, pady=(5,0))
-
-        # Test other file type
-        self.app.file_type_filter.get.return_value = "video"
-        self.app._on_file_type_change()
-        self.app.image_match_frame.pack_forget.assert_called_once()
-        self.app.compare_histogram.set.assert_called_with(False)
-        self.app.compare_llm.set.assert_called_with(False)
+    def test_update_status(self):
+        """Test the update_status method delegates to StatusBar."""
+        self.app.create_widgets()
+        self.app._status_bar = MagicMock()
+        
+        self.app.update_status("Test Message", 50)
+        self.app._status_bar.set_message.assert_called_with("Test Message")
+        self.app._status_bar.set_progress.assert_called_with(50)
 
 if __name__ == '__main__':
     unittest.main()

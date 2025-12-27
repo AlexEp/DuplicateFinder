@@ -59,9 +59,14 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
                 file_info['histogram'] = existing_histogram
 
         for calculator in calculators:
+            key = calculator.db_key
+            
+            # Skip if we already have this metadata in the database
+            if file_info.get(key) is not None:
+                continue
+
             result = calculator.calculate(file_node, opts)
             if result is not None:
-                key = calculator.db_key
                 file_info[key] = result
 
                 if key == 'histogram':
@@ -71,8 +76,6 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
                     hist_db.save(conn, file_id, result, method)
                 else:
                     # Save the metadata to the database.
-                    # This is a simplified approach. A more robust implementation would
-                    # use the database classes in each strategy folder.
                     with conn:
                         conn.execute(
                             f"UPDATE file_metadata SET {key} = ? WHERE file_id = ?",
