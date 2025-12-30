@@ -1,5 +1,13 @@
 # Changelog
 
+## [2025-12-29] Phase 3: Strategy Extensibility
+- **Metadata-Driven Strategy Architecture**: Introduced `StrategyMetadata` to encapsulate UI-related information for each comparison strategy.
+- **Dynamic UI Generation**: Refactored the `SettingsPanel` component to dynamically discover all registered strategies and generate the appropriate UI controls (checkboxes, thresholds, tooltips) automatically.
+- **Improved Extensibility**: New comparison strategies can now be added by simply creating a new strategy class in the `strategies/` directory without modifying existing UI or controller code.
+- **Dynamic Option Management**: Refactored `ComparisonOptions` and `AppController` to handle strategy-specific variables and options dynamically using a dictionary-based approach.
+- **UI Enhancements**: Added tooltips to comparison options to provide more detailed descriptions of each strategy's functionality.
+- **LLM Strategy Integration**: Migrated the LLM content comparison into the new strategy architecture.
+
 ## [2025-12-27]
 - **Bug Fix**: Fixed `AttributeError: 'FolderComparisonApp' object has no attribute 'update_action_button_text'`.
 - **Improvement**: Implemented automatic folder synchronization before comparison. The "Compare" button now ensures the analysis is based on current filesystem state (accounting for added/deleted/modified files).

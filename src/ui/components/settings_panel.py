@@ -2,6 +2,8 @@
 import tkinter as tk
 from tkinter import ttk
 from domain.comparison_options import ComparisonOptions
+from strategies.strategy_registry import get_all_strategies
+from .utils import ToolTip
 import config
 try:
     from unittest.mock import MagicMock
@@ -49,20 +51,54 @@ class SettingsPanel(ttk.Frame):
         strategy_frame = ttk.LabelFrame(self, text="Comparison Strategies", padding="5")
         strategy_frame.pack(fill='x', pady=10)
         
-        self._create_checkbox(strategy_frame, "Compare by Name", 'compare_name', self._app_options.compare_name)
-        self._create_checkbox(strategy_frame, "Compare by Size", 'compare_size', self._app_options.compare_size)
-        self._create_checkbox(strategy_frame, "Compare by Date", 'compare_date', self._app_options.compare_date)
-        self._create_checkbox(strategy_frame, "Compare by Content (MD5)", 'compare_content_md5', self._app_options.compare_content_md5)
-        self._create_checkbox(strategy_frame, "Compare by Histogram", 'compare_histogram', self._app_options.compare_histogram)
-        self._create_checkbox(strategy_frame, "LLM Content (Image)", 'compare_llm', self._app_options.compare_llm)
+        # Discover and create strategy widgets
+        strategies = get_all_strategies()
+        for strategy in strategies:
+            meta = strategy.metadata
+            self._create_strategy_widgets(strategy_frame, meta)
 
-        # Histogram options (simplified for now, can be expanded)
-        self._histogram_options_frame = ttk.Frame(self)
-        self._histogram_options_frame.pack(fill='x')
+    def _create_strategy_widgets(self, parent, meta):
+        """Create widgets for a single strategy."""
+        # Main checkbox
+        default_val = self._app_options.options.get(meta.option_key, False)
+        cb = self._create_checkbox(parent, meta.display_name, meta.option_key, default_val)
+        ToolTip(cb, meta.tooltip)
         
-        # Toggling histogram options based on checkbox
-        self._variables['compare_histogram'].trace_add("write", self._toggle_histogram_ui)
-        self._toggle_histogram_ui()
+        # Optional threshold control
+        if meta.has_threshold:
+            threshold_frame = ttk.Frame(parent)
+            threshold_frame.pack(fill='x', padx=20)
+            
+            label_text = f"{meta.threshold_label or 'Threshold'}:"
+            ttk.Label(threshold_frame, text=label_text).pack(side=tk.LEFT)
+            
+            threshold_key = f"{meta.option_key}_threshold"
+            # Special case for legacy keys if needed, e.g., histogram_threshold
+            if meta.option_key == 'compare_histogram':
+                threshold_key = 'histogram_threshold'
+            elif meta.option_key == 'compare_llm':
+                threshold_key = 'llm_similarity_threshold'
+                
+            default_threshold = self._app_options.options.get(threshold_key, meta.default_threshold or 0.8)
+            
+            if threshold_key not in self._variables:
+                try:
+                    self._variables[threshold_key] = tk.StringVar(value=str(default_threshold))
+                except (tk.TclError, RuntimeError):
+                    self._variables[threshold_key] = MagicMock() if MagicMock else None
+            
+            entry = ttk.Entry(threshold_frame, textvariable=self._variables[threshold_key], width=5)
+            entry.pack(side=tk.LEFT, padx=5)
+            
+            # Simple toggle visibility based on checkbox
+            def toggle_threshold(*args):
+                if self._variables[meta.option_key].get():
+                    threshold_frame.pack(fill='x', padx=20)
+                else:
+                    threshold_frame.pack_forget()
+            
+            self._variables[meta.option_key].trace_add("write", toggle_threshold)
+            toggle_threshold()
 
     def _create_checkbox(self, parent, label: str, key: str, default: bool):
         """Helper to create checkbox."""
@@ -78,12 +114,8 @@ class SettingsPanel(ttk.Frame):
         cb = ttk.Checkbutton(parent, text=label, variable=var, 
                              command=lambda: self._on_option_changed(key))
         cb.pack(anchor='w', padx=5, pady=2)
+        return cb
     
-    def _toggle_histogram_ui(self, *args):
-        """Show/hide histogram options."""
-        # This could be more sophisticated, but for initial refactor we keep it simple
-        pass
-
     def _on_option_changed(self, key: str):
         """Handle option change."""
         if self._on_change:
@@ -94,15 +126,19 @@ class SettingsPanel(ttk.Frame):
     
     def get_options(self) -> ComparisonOptions:
         """Get current options from variables."""
+        # Collect all strategy keys
+        strategy_opts = {}
+        for key, var in self._variables.items():
+            if key not in ['file_type', 'include_subfolders']:
+                try:
+                    strategy_opts[key] = var.get()
+                except (AttributeError, tk.TclError):
+                    pass
+        
         return ComparisonOptions(
             file_type_filter=self._variables['file_type'].get(),
             include_subfolders=self._variables['include_subfolders'].get(),
-            compare_name=self._variables['compare_name'].get(),
-            compare_size=self._variables['compare_size'].get(),
-            compare_date=self._variables['compare_date'].get(),
-            compare_content_md5=self._variables['compare_content_md5'].get(),
-            compare_histogram=self._variables['compare_histogram'].get(),
-            compare_llm=self._variables['compare_llm'].get(),
+            options=strategy_opts
         )
     
     def set_state(self, enabled: bool):

@@ -1,11 +1,24 @@
 import cv2
 import numpy as np
-from ..base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy, StrategyMetadata
 
 class HistogramComparator(BaseComparisonStrategy):
     """
     Compares image histograms using different methods.
     """
+    @property
+    def metadata(self) -> StrategyMetadata:
+        return StrategyMetadata(
+            option_key='compare_histogram',
+            display_name='Histogram (Image)',
+            description='Compare images by color distribution',
+            tooltip='Compares the color distribution of images. Useful for finding visually similar photos even if they are different sizes or formats.',
+            requires_calculation=True,
+            has_threshold=True,
+            threshold_label='Similarity Threshold',
+            default_threshold=0.9
+        )
+
     @property
     def option_key(self):
         return 'compare_histogram'

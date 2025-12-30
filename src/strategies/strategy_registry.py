@@ -40,5 +40,13 @@ def discover_strategies():
                 if isinstance(obj, type) and issubclass(obj, BaseComparisonStrategy) and obj is not BaseComparisonStrategy:
                     register_strategy(obj)
 
+def get_all_strategies():
+    """
+    Returns a list of all registered strategy instances.
+    """
+    if not _STRATEGIES:
+        discover_strategies()
+    return list(_STRATEGIES.values())
+
 # Discover strategies on import
 discover_strategies()

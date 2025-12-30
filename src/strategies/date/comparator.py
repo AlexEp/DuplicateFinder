@@ -1,6 +1,16 @@
-from ..base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy, StrategyMetadata
 
 class CompareByDate(BaseComparisonStrategy):
+    @property
+    def metadata(self) -> StrategyMetadata:
+        return StrategyMetadata(
+            option_key='compare_date',
+            display_name='Date',
+            description='Compare files by modification date',
+            tooltip='Matches files that were last modified at the exact same time.',
+            requires_calculation=False
+        )
+
     @property
     def option_key(self):
         return 'compare_date'

@@ -31,16 +31,26 @@ class AppController:
 
         # --- Comparison options ---
         self.include_subfolders = tk.BooleanVar()
-        self.compare_name = tk.BooleanVar(value=False)
-        self.compare_date = tk.BooleanVar(value=False)
-        self.compare_size = tk.BooleanVar(value=True)
-        self.compare_content_md5 = tk.BooleanVar(value=False)
-        self.compare_histogram = tk.BooleanVar(value=False)
-        self.histogram_method = tk.StringVar(value='Correlation')
-        self.histogram_threshold = tk.StringVar(value='0.9')
-        self.compare_llm = tk.BooleanVar(value=False)
-        self.llm_similarity_threshold = tk.StringVar(value='0.8')
         
+        # Dynamic strategy variables
+        from strategies.strategy_registry import get_all_strategies
+        strategies = get_all_strategies()
+        for strategy in strategies:
+            meta = strategy.metadata
+            # Checkbox variable
+            setattr(self, meta.option_key, tk.BooleanVar(value=meta.option_key == 'compare_size')) # size True by default
+            
+            # Threshold variable if needed
+            if meta.has_threshold:
+                threshold_key = f"{meta.option_key}_threshold"
+                if meta.option_key == 'compare_histogram':
+                    threshold_key = 'histogram_threshold'
+                elif meta.option_key == 'compare_llm':
+                    threshold_key = 'llm_similarity_threshold'
+                
+                setattr(self, threshold_key, tk.StringVar(value=str(meta.default_threshold or 0.8)))
+
+        self.histogram_method = tk.StringVar(value='Correlation')
 
         # --- Folder Structures ---
         self.folder_structures = {}
@@ -84,16 +94,26 @@ class AppController:
         self.view.move_to_path = self.move_to_path
         self.view.file_type_filter = self.file_type_filter
         self.view.include_subfolders = self.include_subfolders
-        self.view.compare_name = self.compare_name
-        self.view.compare_date = self.compare_date
-        self.view.compare_size = self.compare_size
-        self.view.compare_content_md5 = self.compare_content_md5
-        self.view.compare_histogram = self.compare_histogram
-        self.view.histogram_method = self.histogram_method
-        self.view.histogram_threshold = self.histogram_threshold
-        self.view.compare_llm = self.compare_llm
-        self.view.llm_similarity_threshold = self.llm_similarity_threshold
         
+        # Dynamic strategy variables
+        from strategies.strategy_registry import get_all_strategies
+        strategies = get_all_strategies()
+        for strategy in strategies:
+            meta = strategy.metadata
+            if hasattr(self, meta.option_key):
+                setattr(self.view, meta.option_key, getattr(self, meta.option_key))
+            
+            if meta.has_threshold:
+                threshold_key = f"{meta.option_key}_threshold"
+                if meta.option_key == 'compare_histogram':
+                    threshold_key = 'histogram_threshold'
+                elif meta.option_key == 'compare_llm':
+                    threshold_key = 'llm_similarity_threshold'
+                if hasattr(self, threshold_key):
+                    setattr(self.view, threshold_key, getattr(self, threshold_key))
+        
+        if hasattr(self, 'histogram_method'):
+            self.view.histogram_method = self.histogram_method
 
         # Pass the controller instance to the view
         self.view.controller = self
@@ -101,15 +121,26 @@ class AppController:
     def clear_all_settings(self):
         self.move_to_path.set("")
         self.include_subfolders.set(False)
-        self.compare_name.set(True)
-        self.compare_date.set(False)
-        self.compare_size.set(False)
-        self.compare_content_md5.set(False)
-        self.compare_histogram.set(False)
-        self.compare_llm.set(False)
-        self.llm_similarity_threshold.set('0.8')
-        self.histogram_method.set('Correlation')
-        self.histogram_threshold.set('0.9')
+        self.file_type_filter.set("all")
+        
+        from strategies.strategy_registry import get_all_strategies
+        strategies = get_all_strategies()
+        for strategy in strategies:
+            meta = strategy.metadata
+            if hasattr(self, meta.option_key):
+                getattr(self, meta.option_key).set(meta.option_key == 'compare_size')
+            
+            if meta.has_threshold:
+                threshold_key = f"{meta.option_key}_threshold"
+                if meta.option_key == 'compare_histogram': threshold_key = 'histogram_threshold'
+                elif meta.option_key == 'compare_llm': threshold_key = 'llm_similarity_threshold'
+                
+                if hasattr(self, threshold_key):
+                    getattr(self, threshold_key).set(str(meta.default_threshold or 0.8))
+
+        if hasattr(self, 'histogram_method'):
+            self.histogram_method.set('Correlation')
+        
         self.folder_structures = {}
         if hasattr(self.view, 'results_tree'):
             for i in self.view.results_tree.get_children():

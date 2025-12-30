@@ -8,6 +8,9 @@ class SynchronousTaskRunner:
     def __init__(self, view):
         self.view = view
 
+    def post_to_main_thread(self, callback, *args):
+        callback(*args)
+
     def run_task(self, task_func, on_success=None, on_error=None, on_finally=None):
         try:
             result = task_func()

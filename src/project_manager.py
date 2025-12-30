@@ -36,19 +36,39 @@ class ProjectManager:
 
     def get_options(self) -> ComparisonOptions:
         """Returns a ComparisonOptions value object populated from the current UI state."""
+        strategy_opts = {}
+        
+        # Get all registered strategies
+        from strategies.strategy_registry import get_all_strategies
+        strategies = get_all_strategies()
+        for strategy in strategies:
+            meta = strategy.metadata
+            key = meta.option_key
+            if hasattr(self.controller, key):
+                strategy_opts[key] = getattr(self.controller, key).get()
+            
+            if meta.has_threshold:
+                threshold_key = f"{key}_threshold"
+                if key == 'compare_histogram': threshold_key = 'histogram_threshold'
+                elif key == 'compare_llm': threshold_key = 'llm_similarity_threshold'
+                
+                if hasattr(self.controller, threshold_key):
+                    val = getattr(self.controller, threshold_key).get()
+                    try:
+                        strategy_opts[threshold_key] = float(val)
+                    except (ValueError, TypeError):
+                        strategy_opts[threshold_key] = meta.default_threshold or 0.8
+        
+        # Add non-strategy options
+        # We also need to add 'histogram_method' if it's still hardcoded or handled elsewhere
+        if hasattr(self.controller, 'histogram_method'):
+            strategy_opts['histogram_method'] = self.controller.histogram_method.get()
+
         return ComparisonOptions(
             file_type_filter=self.controller.file_type_filter.get(),
             include_subfolders=self.controller.include_subfolders.get(),
-            compare_name=self.controller.compare_name.get(),
-            compare_date=self.controller.compare_date.get(),
-            compare_size=self.controller.compare_size.get(),
-            compare_content_md5=self.controller.compare_content_md5.get(),
-            compare_histogram=self.controller.compare_histogram.get(),
-            compare_llm=self.controller.compare_llm.get(),
-            histogram_method=self.controller.histogram_method.get(),
-            histogram_threshold=float(self.controller.histogram_threshold.get() or 0.9),
-            llm_similarity_threshold=float(self.controller.llm_similarity_threshold.get() or 0.8),
-            move_to_path=self.controller.move_to_path.get()
+            move_to_path=self.controller.move_to_path.get(),
+            options=strategy_opts
         )
 
     def _gather_settings(self):

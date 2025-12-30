@@ -1,6 +1,16 @@
-from ..base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy, StrategyMetadata
 
 class CompareByContentMD5(BaseComparisonStrategy):
+    @property
+    def metadata(self) -> StrategyMetadata:
+        return StrategyMetadata(
+            option_key='compare_content_md5',
+            display_name='Content (MD5)',
+            description='Compare files by MD5 content hash',
+            tooltip='Calculates a unique fingerprint for each file. Slower but ensures exact content matching.',
+            requires_calculation=True
+        )
+
     @property
     def option_key(self):
         return 'compare_content_md5'
