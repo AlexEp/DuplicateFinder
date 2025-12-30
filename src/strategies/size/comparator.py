@@ -1,6 +1,16 @@
-from ..base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy, StrategyMetadata
 
 class CompareBySize(BaseComparisonStrategy):
+    @property
+    def metadata(self) -> StrategyMetadata:
+        return StrategyMetadata(
+            option_key='compare_size',
+            display_name='Size',
+            description='Compare files by size',
+            tooltip='Matches files that have the exact same size in bytes.',
+            requires_calculation=False
+        )
+
     @property
     def option_key(self):
         return 'compare_size'

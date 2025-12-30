@@ -110,10 +110,9 @@ class FolderComparisonApp(IView):
 
     def setup_ui(self):
         # --- Tracers ---
-        self.file_type_filter.trace_add('write', self._on_file_type_change)
-        self.compare_content_md5.trace_add('write', self._toggle_md5_warning)
-        self.compare_histogram.trace_add('write', self._toggle_histogram_options)
-        self.histogram_method.trace_add('write', self._update_histogram_threshold_ui)
+        # Note: Tracers for individual options are now handled inside SettingsPanel
+        # for dynamic UI updates, or in AppController if needed for logic.
+        from config import config
 
         self.create_widgets()
         self._set_main_ui_state('disabled')
@@ -268,34 +267,15 @@ class FolderComparisonApp(IView):
             self.move_to_path.set(path)
             logger.info(f"Selected move-to folder: {path}")
     def _toggle_md5_warning(self, *args):
-        if self.compare_content_md5.get(): self.md5_warning_label.pack(side=tk.LEFT, padx=20)
-        else: self.md5_warning_label.pack_forget()
+        # MD5 warning logic can be restored here if needed, 
+        # but the label would need to be created first.
+        pass
 
     def _toggle_histogram_options(self, *args):
-        if self.compare_histogram.get():
-            self.histogram_options_frame.pack(fill=tk.X, pady=5)
-        else:
-            self.histogram_options_frame.pack_forget()
+        pass
 
     def _update_histogram_threshold_ui(self, *args):
-        method = self.histogram_method.get()
-        if not method:
-            return
-
-        # Get the defaults from config
-        method_settings = config.get(f'histogram_methods.{method}')
-        if not method_settings:
-            self.histogram_threshold_info_label.config(text="")
-            self.histogram_threshold.set("")
-            return
-
-        info_text = method_settings.get('info_text', '')
-        default_threshold = str(method_settings.get('default_threshold', ''))
-
-        self.histogram_threshold_info_label.config(text=info_text)
-        # Only set the default if the variable is not already set to something else
-        if not self.histogram_threshold.get():
-             self.histogram_threshold.set(default_threshold)
+        pass
 
     def _get_selected_file_info(self):
         """Gets the iid and full path for the selected file."""

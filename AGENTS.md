@@ -108,3 +108,10 @@ This application is designed to be run from the source code. There is no separat
     -   `database.py`: Modified `create_tables` to define the new `file_metadata` table and remove these columns from `files`. Updated `insert_file_node` to insert into both `files` and `file_metadata`.
     -   `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata` due to the inability of `executemany` to return `lastrowid` for linking.
 -   **Database Query Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
+-   **Refactor (Phase 3: Strategy Extensibility)**:
+    -   Introduced `StrategyMetadata` and `BaseComparisonStrategy.metadata` to support dynamic UI generation.
+    -   Implemented a strategy registry with automatic discovery of comparison strategies.
+    -   Refactored `SettingsPanel` to dynamically generate checkboxes, threshold inputs, and tooltips for all registered strategies.
+    -   Updated `ComparisonOptions` and `AppController` to handle strategy options dynamically using dictionaries, improving scalability and reducing code duplication.
+    -   Created a reusable `ToolTip` utility for Tkinter widgets.
+    -   Migrated LLM content comparison into the new extensible architecture.

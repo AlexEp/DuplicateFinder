@@ -1,9 +1,29 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional, Any
+
+@dataclass
+class StrategyMetadata:
+    """Metadata for UI generation."""
+    option_key: str
+    display_name: str
+    description: str
+    tooltip: str
+    requires_calculation: bool = True
+    has_threshold: bool = False
+    threshold_label: Optional[str] = None
+    default_threshold: Optional[float] = None
 
 class BaseComparisonStrategy(ABC):
     """
     Abstract base class for all comparison strategies.
     """
+    @property
+    @abstractmethod
+    def metadata(self) -> StrategyMetadata:
+        """Strategy metadata for UI generation."""
+        pass
+
     @property
     @abstractmethod
     def option_key(self):

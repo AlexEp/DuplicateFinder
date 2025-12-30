@@ -1,8 +1,18 @@
-from ..base_comparison_strategy import BaseComparisonStrategy
+from ..base_comparison_strategy import BaseComparisonStrategy, StrategyMetadata
 from pathlib import Path
 
 class CompareByNameStrategy(BaseComparisonStrategy):
     """Compares two files based on their names."""
+    @property
+    def metadata(self) -> StrategyMetadata:
+        return StrategyMetadata(
+            option_key='compare_name',
+            display_name='Name',
+            description='Compare files by filename',
+            tooltip='Matches files that have the same filename, regardless of their location.',
+            requires_calculation=False
+        )
+
     @property
     def option_key(self):
         return 'compare_name'

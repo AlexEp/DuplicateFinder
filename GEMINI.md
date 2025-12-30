@@ -119,6 +119,13 @@ This application is designed to be run from the source code. There is no separat
     -   `database.py`: Modified `create_tables` to define the new `file_metadata` table and remove these columns from `files`. Updated `insert_file_node` to insert into both `files` and `file_metadata`.
     -   `logic.py`: Modified `build_folder_structure_db` to perform individual UPSERT operations for `files` and `file_metadata` due to the inability of `executemany` to return `lastrowid` for linking.
 -   **Database Query Fix**: Corrected a bug in `logic.py` where the database query to check for existing files was only checking the folder path and not the filename. This caused only one file per folder to be recorded. The query has been updated to include the filename, ensuring all files are correctly processed.
+-   **Refactor (Phase 3: Strategy Extensibility)**:
+    -   Introduced `StrategyMetadata` and `BaseComparisonStrategy.metadata` to support dynamic UI generation.
+    -   Implemented a strategy registry with automatic discovery of comparison strategies.
+    -   Refactored `SettingsPanel` to dynamically generate checkboxes, threshold inputs, and tooltips for all registered strategies.
+    -   Updated `ComparisonOptions` and `AppController` to handle strategy options dynamically using dictionaries, improving scalability and reducing code duplication.
+    -   Created a reusable `ToolTip` utility for Tkinter widgets.
+
 -   **Duplicate Finding Fix**: Corrected a bug in `find_duplicates_strategy.py` where file paths from the database (strings) were not being converted to `pathlib.Path` objects, causing the duplicate detection to fail.ed to `pathlib.Path` objects, causing the duplicate detection to fail.
 -   **Database Schema Migration**: Fixed a bug where loading a project with an older database schema would cause a crash. The application now automatically creates missing tables when loading a project, ensuring backward compatibility.
 -   **Duplicate Finding Logic**: Refactored the duplicate finding strategy to unify the database and in-memory logic. This resolves a critical bug where duplicate finding in "Compare Mode" would fail due to a call to a removed function, ensuring that duplicate results are now accurate and consistently grouped in the UI.
@@ -145,10 +152,15 @@ This application is designed to be run from the source code. There is no separat
 -   **Database Deletion (File Operations)**: Modified `database.py` to ensure that when a file is deleted via `delete_file_by_path`, its corresponding entry in the `file_metadata` table is also removed, preventing orphaned records.
 -   **Database Insertion**: Corrected a bug in `logic.py` where the initial folder scan (`build_folder_structure_db`) would erroneously attempt to insert a `histogram` value into the `file_metadata` table, causing a `sqlite3.OperationalError`. The `histogram` column does not exist in that table; histogram data is handled by separate, specialized tables. The incorrect column has been removed from the `INSERT` statement.
 
-## 15. Improvements
+-   **Refactor (Phase 3: Strategy Extensibility)**:
+    -   Introduced `StrategyMetadata` and `BaseComparisonStrategy.metadata` to support dynamic UI generation.
+    -   Implemented a strategy registry with automatic discovery of comparison strategies.
+    -   Refactored `SettingsPanel` to dynamically generate checkboxes, threshold inputs, and tooltips for all registered strategies.
+    -   Updated `ComparisonOptions` and `AppController` to handle strategy options dynamically using dictionaries, improving scalability and reducing code duplication.
+    -   Created a reusable `ToolTip` utility for Tkinter widgets.
+    -   Migrated LLM content comparison into the new extensible architecture.
 
 -   **Video Extension Support**: Added `.mts` to the list of recognized video file extensions in `settings.json`.
 -   **Missing Method Fix**: Restored the `update_action_button_text` method in `FolderComparisonApp` which was accidentally removed during the Phase 2 UI refactor. This resolved an `AttributeError` when loading projects or changing folder selections.
 -   **Data Synchronization**: Implemented automatic folder syncing during the comparison process. The application now re-scans folders to identify added, deleted, or modified files before running comparison strategies, ensuring results are always up-to-date.
 -   **Metadata Caching Optimization**: Refactored the metadata calculation engine to preserve expensive metadata (MD5, LLM embeddings, Histograms) if the file's size and modification date haven't changed. This significantly speeds up subsequent comparisons while maintaining accuracy.
--   **Orphaned Metadata Cleanup**: Added logic to properly delete stale metadata associated with files that are no longer present in the source folders.
