@@ -1,5 +1,8 @@
 # Changelog
 
+## [2026-01-01]
+- **Documentation**: Updated `IMPROVEMENT_PLAN.md` to reflect completion of Phase 3 and implementation of metadata caching in Phase 4.
+
 ## [2025-12-29] Phase 3: Strategy Extensibility
 - **Metadata-Driven Strategy Architecture**: Introduced `StrategyMetadata` to encapsulate UI-related information for each comparison strategy.
 - **Dynamic UI Generation**: Refactored the `SettingsPanel` component to dynamically discover all registered strategies and generate the appropriate UI controls (checkboxes, thresholds, tooltips) automatically.
