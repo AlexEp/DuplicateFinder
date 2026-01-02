@@ -12,7 +12,6 @@ import database
 from models import FileNode, FolderNode
 from strategies import find_common_strategy, find_duplicates_strategy, utils
 from config import config
-import file_operations
 from project_manager import ProjectManager
 from interfaces.view_interface import IView
 from .application_state import ApplicationState
@@ -243,6 +242,10 @@ class FolderComparisonApp(IView):
         # Delegate to settings panel if it exists
         pass
 
+    def set_ui_state(self, enabled: bool):
+        """Enable/disable UI."""
+        self._set_main_ui_state('normal' if enabled else 'disabled')
+
     def _set_main_ui_state(self, state='normal'):
         def set_state_recursive(widget):
             if widget.winfo_class() == 'Menu': return
@@ -250,6 +253,11 @@ class FolderComparisonApp(IView):
             except tk.TclError: pass
             for child in widget.winfo_children(): set_state_recursive(child)
         set_state_recursive(self._main_container)
+
+    def remove_result_item(self, item_id: any):
+        """Remove an item from the results tree."""
+        if self.results_tree.exists(item_id):
+            self.results_tree.delete(item_id)
 
 
     def update_status(self, message, progress_value=None):
@@ -300,17 +308,12 @@ class FolderComparisonApp(IView):
             iid, full_path_str = self._get_selected_file_info()
         if not iid: return
 
-        dest_path = self.move_to_path.get()
-        if not dest_path:
+        dest_folder = self.move_to_path.get()
+        if not dest_folder:
             messagebox.showwarning("Warning", "Move-to folder is not set.")
             return
 
-        # We need to derive the base path and relative path from the full path
-        full_path = Path(full_path_str)
-        base_path = full_path.parent
-        relative_path = full_path.name
-
-        file_operations.move_file(self.controller, str(base_path), relative_path, dest_path, self.results_tree, iid, self.update_status)
+        self.controller.move_file(iid, full_path_str, dest_folder)
         if preview_window: preview_window.destroy()
 
     def _delete_file(self, iid=None, full_path_str=None, preview_window=None):
@@ -318,11 +321,7 @@ class FolderComparisonApp(IView):
             iid, full_path_str = self._get_selected_file_info()
         if not iid: return
 
-        full_path = Path(full_path_str)
-        base_path = full_path.parent
-        relative_path = full_path.name
-
-        file_operations.delete_file(self.controller, str(base_path), relative_path, self.results_tree, iid, self.update_status)
+        self.controller.delete_file(iid, full_path_str)
         if preview_window: preview_window.destroy()
 
     def _delete_file_from_preview(self, iid, full_path_str, preview_window):
@@ -335,7 +334,7 @@ class FolderComparisonApp(IView):
         _, full_path_str = self._get_selected_file_info()
         if not full_path_str: return
 
-        file_operations.open_containing_folder(str(Path(full_path_str).parent), "")
+        self.controller.open_folder(str(Path(full_path_str).parent))
 
     def _show_context_menu(self, event):
         iid = self.results_tree.identify_row(event.y)

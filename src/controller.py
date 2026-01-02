@@ -1,4 +1,5 @@
 import tkinter as tk
+from typing import List, Any
 from tkinter import messagebox
 import logging
 from pathlib import Path
@@ -13,14 +14,25 @@ from threading_utils import TaskRunner
 import threading
 from interfaces.view_interface import IView
 from domain.comparison_options import ComparisonOptions
+from services.file_service import FileService
+from services.comparison_service import ComparisonService
+from services.project_service import ProjectService
 from repositories.sqlite_repository import SQLiteRepository
 
 logger = logging.getLogger(__name__)
 
 class AppController:
-    def __init__(self, view: IView, is_test=False):
+    def __init__(self, view: IView, 
+                 file_service: FileService,
+                 comparison_service: ComparisonService,
+                 project_service: ProjectService,
+                 is_test=False):
         self.is_test = is_test
         self.view = view
+        self.file_service = file_service
+        self.comparison_service = comparison_service
+        self.project_service = project_service
+        
         self.project_manager = ProjectManager(self)
         self.task_runner = TaskRunner(self.view)
         self.repository = None # Initialized when project is active
@@ -148,6 +160,17 @@ class AppController:
         if hasattr(self.view, 'folder_list_box') and self.view.folder_list_box:
             self.view.folder_list_box.delete(0, tk.END)
 
+    def open_folder(self, path_str: str):
+        """Opens the containing folder of the given path."""
+        path = Path(path_str)
+        if not self.file_service.open_folder(path):
+            self.view.show_error("Error", f"Could not open folder: {path}")
+
+    def on_folders_changed(self, folders: List[str]):
+        # This method is called by the view when the folder list changes.
+        # It updates the project manager with the new list of folders.
+        self.project_manager.set_folders(folders)
+
     def _dict_to_structure(self, node_list):
         structure = []
         for node_dict in node_list:
@@ -262,12 +285,10 @@ class AppController:
         self.view.update_status(f"Building metadata for Folder {folder_index}...")
 
         def build_task():
-            conn = database.get_db_connection(self.project_manager.current_project_path)
-            inaccessible_paths = logic.build_folder_structure_db(
-                conn, folder_index, path, self.include_subfolders.get()
+            return self.project_service.sync_folders(
+                [folder_index], 
+                include_subfolders=self.include_subfolders.get()
             )
-            conn.close()
-            return inaccessible_paths
 
         def on_success(inaccessible_paths):
             logger.info(f"Successfully built folder structure for folder {folder_index} into DB.")
@@ -364,22 +385,23 @@ class AppController:
 
     def _run_action_db(self, options: ComparisonOptions, folders_in_list, file_infos=None):
         logger.info(f"Running DB action with options: {options}")
-        conn = database.get_db_connection(self.project_manager.current_project_path)
-        file_filter = options.file_type_filter
+        
+        folder_indices = [i+1 for i in range(len(folders_in_list))]
+        
+        self.task_runner.post_to_main_thread(self.view.update_status, "Syncing folders...")
+        self.project_service.sync_folders(folder_indices, options.include_subfolders)
+        
+        # We still need metadata calculation, which is currently in strategies.utils.
+        # Ideally this should be in ComparisonService too.
+        self.task_runner.post_to_main_thread(self.view.update_status, "Calculating metadata...")
         opts_dict = options.to_legacy_dict()
-
         all_file_infos = []
         for folder_index, path in enumerate(folders_in_list, 1):
-            folder_name = Path(path).name
-            self.task_runner.post_to_main_thread(self.view.update_status, f"Syncing folder: {folder_name}...")
-            logic.build_folder_structure_db(conn, folder_index, path, options.include_subfolders)
-            
-            self.task_runner.post_to_main_thread(self.view.update_status, f"Calculating metadata for {folder_name}...")
-            infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts_dict, file_type_filter=file_filter, llm_engine=self.llm_engine)
+            conn = self.repository.connection
+            infos, _ = utils.calculate_metadata_db(conn, folder_index, path, opts_dict, 
+                                                   file_type_filter=options.file_type_filter, 
+                                                   llm_engine=self.llm_engine)
             all_file_infos.extend(infos)
 
         self.task_runner.post_to_main_thread(self.view.update_status, "Finding duplicates...")
-        all_results = find_duplicates_strategy.run(conn, opts_dict, file_infos=all_file_infos, folder_index=[i+1 for i in range(len(folders_in_list))])
-
-        conn.close()
-        return all_results
+        return self.comparison_service.find_duplicates(folder_indices, options, file_infos=all_file_infos)

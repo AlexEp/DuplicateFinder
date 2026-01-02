@@ -32,6 +32,8 @@ class ProjectManager:
         if self.controller.repository:
             self.controller.repository.close()
         self.controller.repository = SQLiteRepository(path)
+        self.controller.project_service.set_repository(self.controller.repository)
+        self.controller.comparison_service._repository = self.controller.repository
         logger.info(f"Initialized repository for: {path}")
 
     def get_options(self) -> ComparisonOptions:

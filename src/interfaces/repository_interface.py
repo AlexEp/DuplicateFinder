@@ -2,6 +2,19 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+class IRepository(ABC):
+    """Base repository interface."""
+    
+    @abstractmethod
+    def connect(self, connection_string: str):
+        """Establish connection to data store."""
+        pass
+    
+    @abstractmethod
+    def disconnect(self):
+        """Close connection."""
+        pass
+
 class IFileRepository(ABC):
     """Interface for database/file operations."""
     
@@ -28,4 +41,15 @@ class IFileRepository(ABC):
     @abstractmethod
     def delete_file_by_path(self, path: str, name: str):
         """Delete a file from the repository."""
+        pass
+
+    @abstractmethod
+    def save_file_metadata_batch(self, metadata_list: List[Dict[str, Any]]):
+        """Save metadata for multiple files in a batch."""
+        pass
+
+    @property
+    @abstractmethod
+    def connection(self):
+        """The underlying database connection."""
         pass

@@ -47,9 +47,9 @@ class ComparisonOptions:
             return self.DEFAULT_OPTIONS[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
-    def to_legacy_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
-        Provides a dictionary compatible with legacy components.
+        Provides a dictionary compatible with legacy components (flattened with 'options' key).
         """
         flat = {
             "file_type_filter": self.file_type_filter,
@@ -60,6 +60,10 @@ class ComparisonOptions:
         # Nested 'options' part for find_duplicates_strategy.run logic
         flat["options"] = flat.copy()
         return flat
+
+    def to_legacy_dict(self) -> Dict[str, Any]:
+        """Alias for to_dict for backward compatibility."""
+        return self.to_dict()
 
     def to_save_dict(self) -> Dict[str, Any]:
         """Bridge method to return old-style nested options dictionary for database persistence."""

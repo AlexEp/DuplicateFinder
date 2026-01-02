@@ -9,9 +9,15 @@ class IView(ABC):
         """Update the status message and progress bar."""
         pass
 
+
     @abstractmethod
-    def _set_main_ui_state(self, state: str = 'normal'):
-        """Set the UI state (e.g., 'normal' or 'disabled')."""
+    def set_ui_state(self, enabled: bool):
+        """Enable/disable UI controls."""
+        pass
+
+    @abstractmethod
+    def remove_result_item(self, item_id: Any):
+        """Remove a specific item from the results view."""
         pass
 
     @property

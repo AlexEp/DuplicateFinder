@@ -164,4 +164,9 @@ This application is designed to be run from the source code. There is no separat
 -   **Missing Method Fix**: Restored the `update_action_button_text` method in `FolderComparisonApp` which was accidentally removed during the Phase 2 UI refactor. This resolved an `AttributeError` when loading projects or changing folder selections.
 -   **Data Synchronization**: Implemented automatic folder syncing during the comparison process. The application now re-scans folders to identify added, deleted, or modified files before running comparison strategies, ensuring results are always up-to-date.
 -   **Metadata Caching Optimization**: Refactored the metadata calculation engine to preserve expensive metadata (MD5, LLM embeddings, Histograms) if the file's size and modification date haven't changed. This significantly speeds up subsequent comparisons while maintaining accuracy.
--   **Documentation Update**: Updated `IMPROVEMENT_PLAN.md` to align with the current project status, marking Phase 3 as completed and noting implementation of Phase 4 features like metadata caching.
+-   **Refactor (Phase 4: Polish & Best Practices)**:
+    -   Introduced a **Service Layer** (`FileService`, `ComparisonService`, `ProjectService`) to separate business logic from UI coordination.
+    -   Implemented a custom **Error Handling** hierarchy and input validation system.
+    -   Optimized database performance with **batch metadata persistence** and improved caching.
+    -   Added comprehensive project documentation in the `docs/` directory, including architecture, API, and plugin guides.
+    -   Refactored `AppController` and `FolderComparisonApp` to support clean dependency injection and improved separation of concerns.

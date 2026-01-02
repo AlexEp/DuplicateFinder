@@ -26,13 +26,21 @@ class SynchronousTaskRunner:
                 
 class HeadlessAppController(AppController):
     """A version of AppController that doesn't require a real UI."""
-    def __init__(self, view=None):
+    def __init__(self, view=None, file_service=None, comparison_service=None, project_service=None):
         if view is None:
             view = MagicMock()
         
-        # Initialize mock variables instead of real tk variables
-        # to avoid "no default root window" errors
+        if file_service is None:
+            file_service = MagicMock()
+        if comparison_service is None:
+            comparison_service = MagicMock()
+        if project_service is None:
+            project_service = MagicMock()
+
         self.view = view
+        self.file_service = file_service
+        self.comparison_service = comparison_service
+        self.project_service = project_service
         self.is_test = True
         
         self.move_to_path = MagicMock()

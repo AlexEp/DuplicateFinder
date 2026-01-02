@@ -12,7 +12,20 @@ class TestAppController(unittest.TestCase):
     def setUp(self, mock_string_var, mock_boolean_var):
         self.mock_view = MagicMock()
         from controller import AppController
-        self.controller = AppController(self.mock_view)
+        from services.file_service import FileService
+        from services.comparison_service import ComparisonService
+        from services.project_service import ProjectService
+        
+        self.mock_file_service = MagicMock(spec=FileService)
+        self.mock_comparison_service = MagicMock(spec=ComparisonService)
+        self.mock_project_service = MagicMock(spec=ProjectService)
+        
+        self.controller = AppController(
+            self.mock_view, 
+            self.mock_file_service, 
+            self.mock_comparison_service, 
+            self.mock_project_service
+        )
         self.controller.project_manager = MagicMock()
         self.controller.task_runner = MagicMock()
 
@@ -65,16 +78,33 @@ class TestAppController(unittest.TestCase):
             self.mock_view.folder_list_box.get.return_value = [tmpdir]
             from domain.comparison_options import ComparisonOptions
             options = ComparisonOptions(
-                compare_size=True,
-                compare_date=True,
-                compare_content_md5=True
+                options={
+                    'compare_size': True,
+                    'compare_date': True,
+                    'compare_content_md5': True
+                }
             )
             self.controller.project_manager.get_options.return_value = options
 
-            # Run the build process to populate the database
-            conn = sqlite3.connect(self.controller.project_manager.current_project_path)
-            from database import create_tables
+            # Create DB and tables
+            from database import create_tables, get_db_connection
+            db_path = self.controller.project_manager.current_project_path
+            conn = get_db_connection(db_path)
             create_tables(conn)
+            
+            # Use real repository and services for integration testing
+            from repositories.sqlite_repository import SQLiteRepository
+            from services.project_service import ProjectService
+            repo = SQLiteRepository(db_path)
+            # Inject the connection into repo._conn for the test (hack since we want to keep it open for verification)
+            repo._conn = conn
+            self.controller.repository = repo
+            self.controller.project_service = ProjectService(repo)
+            # comparison_service doesn't strictly need repository if we mock the run call, 
+            # but we'll let it use the repo for integration.
+            self.controller.comparison_service._repository = repo
+
+            # Run the build process to populate the database
             from logic import build_folder_structure_db
             build_folder_structure_db(conn, 1, tmpdir)
 
