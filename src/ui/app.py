@@ -164,13 +164,22 @@ class FolderComparisonApp(IView):
         vars = {
             'file_type_filter': self.file_type_filter,
             'include_subfolders': self.include_subfolders,
-            'compare_name': self.compare_name,
-            'compare_size': self.compare_size,
-            'compare_date': self.compare_date,
-            'compare_content_md5': self.compare_content_md5,
-            'compare_histogram': self.compare_histogram,
-            'compare_llm': self.compare_llm,
         }
+        
+        # Add all compare_* strategy and threshold variables dynamically bound to `self`
+        from strategies.strategy_registry import get_all_strategies
+        for strategy in get_all_strategies():
+            key = strategy.metadata.option_key
+            if hasattr(self, key):
+                vars[key] = getattr(self, key)
+                
+            if strategy.metadata.has_threshold:
+                t_key = f"{key}_threshold"
+                if key == 'compare_histogram': t_key = 'histogram_threshold'
+                elif key == 'compare_llm': t_key = 'llm_similarity_threshold'
+                
+                if hasattr(self, t_key):
+                    vars[t_key] = getattr(self, t_key)
         self._settings_panel = SettingsPanel(left_panel, self._state.options, variables=vars)
         self._settings_panel.pack(fill=tk.X, pady=(0, 10))
 
@@ -226,9 +235,7 @@ class FolderComparisonApp(IView):
         # Try to get the relative path/filename from values
         text_to_copy = ""
         if item['values']:
-            if len(item['values']) > 2 and item['values'][2]:
-                text_to_copy = str(item['values'][2]).strip()
-            else:
+            if len(item['values']) > 0 and item['values'][0]:
                 text_to_copy = str(item['values'][0]).strip()
 
         if text_to_copy and "Duplicate Set" not in text_to_copy:
@@ -288,10 +295,10 @@ class FolderComparisonApp(IView):
 
         is_file_row = 'file_row' in item.get('tags', [])
         has_values = item.get('values')
-        has_full_path = has_values and len(has_values) > 2 and has_values[2]
+        has_full_path = has_values and len(has_values) > 0 and has_values[0]
 
         if is_file_row and has_full_path:
-            return iid, has_values[2].strip()
+            return iid, has_values[0].strip()
 
         return None, None
 
@@ -379,10 +386,10 @@ class FolderComparisonApp(IView):
         # Perform robust checks to ensure it's a valid file row with a path
         is_file_row = 'file_row' in item.get('tags', [])
         has_values = item.get('values')
-        has_path = has_values and len(has_values) > 3 and has_values[3]
+        has_path = has_values and len(has_values) > 0 and has_values[0]
 
         if is_file_row and has_path:
-            return iid, has_values[3].strip()
+            return iid, has_values[0].strip()
 
         return None, None
 

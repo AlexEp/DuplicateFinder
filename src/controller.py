@@ -335,7 +335,12 @@ class AppController:
                             base_path = folders_in_list[folder_index - 1]
                             display_path = str(Path(path_dir) / file_name) if path_dir else file_name
                             full_path = str(Path(base_path) / display_path)
-                            self.view.results_tree.insert(parent, tk.END, values=(f"  {file_name}", size, full_path, display_path), tags=('file_row',))
+                            modified_date = file_info.get('modified_date', 'N/A')
+                            if isinstance(modified_date, (int, float)):
+                                import datetime
+                                modified_date = datetime.datetime.fromtimestamp(modified_date).strftime('%Y-%m-%d %H:%M:%S')
+                            
+                            self.view.results_tree.insert(parent, tk.END, text=f"  {file_name}", values=(full_path, size, modified_date), tags=('file_row',))
                 
                 if total_matches == 0 and all_results:
                     message = "No matching files found."

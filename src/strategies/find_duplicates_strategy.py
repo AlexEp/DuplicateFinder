@@ -20,13 +20,13 @@ def run(conn, opts, folder_index=None, file_infos=None):
         return []
 
     group_by_parts = []
-    histogram_strategy = None
+    sim_strategies = []
+    
     for strategy in selected_strategies:
-        if hasattr(strategy, 'get_duplicates_query_part'):
-            if strategy.db_key == 'histogram':
-                histogram_strategy = strategy
-            else:
-                group_by_parts.append(strategy.get_duplicates_query_part())
+        if getattr(strategy, 'is_similarity_strategy', False):
+            sim_strategies.append(strategy)
+        elif hasattr(strategy, 'get_duplicates_query_part'):
+            group_by_parts.append(strategy.get_duplicates_query_part())
 
     duplicate_groups = []
     if group_by_parts:
@@ -77,7 +77,7 @@ def run(conn, opts, folder_index=None, file_infos=None):
             if rows:
                 columns = [
                     'id', 'folder_index', 'path', 'name', 'ext', 'last_seen',
-                    'size', 'modified_date', 'md5', 'llm_embedding'
+                    'size', 'modified_date', 'md5', 'llm_embedding', 'hash_fast', 'hash_accurate'
                 ]
                 for row in rows:
                     file_info = dict(zip(columns, row))
@@ -91,13 +91,13 @@ def run(conn, opts, folder_index=None, file_infos=None):
         duplicate_groups = [file_infos]
 
 
-    if histogram_strategy:
+    if sim_strategies:
         if not group_by_parts and not file_infos:
-            # If only histogram is selected, get all files as a single group
+            # If only similarity is selected, get all files as a single group
             rows = database.get_all_files(conn, folder_index, file_type_filter=opts.get("file_type_filter", "all"))
             columns = [
                 'id', 'folder_index', 'path', 'name', 'ext', 'last_seen',
-                'size', 'modified_date', 'md5', 'llm_embedding'
+                'size', 'modified_date', 'md5', 'llm_embedding', 'hash_fast', 'hash_accurate'
             ]
             file_infos = [dict(zip(columns, row)) for row in rows]
             for info in file_infos:
@@ -105,30 +105,38 @@ def run(conn, opts, folder_index=None, file_infos=None):
                     info['path'] = Path(info['path'])
             duplicate_groups = [file_infos]
 
-        # Further refine the groups based on histogram similarity
-        print("Performing histogram comparison")
-        final_groups = []
-        for group in duplicate_groups:
-            print(f"Processing group: {group}")
-            while len(group) > 1:
-                file1 = group.pop(0)
-                new_group = [file1]
-                remaining_files = []
-                for file2 in group:
-                    hist1 = file1.get('histogram')
-                    hist2 = file2.get('histogram')
-                    if hist1 and hist2:
-                        similarity = histogram_strategy.compare(hist1, hist2, opts.get('histogram_method'))
-                        print(f"Similarity between {file1['name']} and {file2['name']}: {similarity}")
-                        if similarity >= float(opts.get('histogram_threshold')):
-                            new_group.append(file2)
+        # Further refine the groups based on similarity
+        for strategy in sim_strategies:
+            print(f"Performing similarity comparison with {strategy.db_key}")
+            final_groups = []
+            for group in duplicate_groups:
+                print(f"Processing group: {[f['name'] for f in group]}")
+                while len(group) > 1:
+                    file1 = group.pop(0)
+                    new_group = [file1]
+                    remaining_files = []
+                    for file2 in group:
+                        # Keep backwards compatibility for Histogram
+                        if strategy.db_key == 'histogram':
+                            hist1 = file1.get('histogram')
+                            hist2 = file2.get('histogram')
+                            if hist1 and hist2:
+                                similarity = strategy.compare(hist1, hist2, opts.get('histogram_method'))
+                                if similarity >= float(opts.get('histogram_threshold')):
+                                    new_group.append(file2)
+                                else:
+                                    remaining_files.append(file2)
+                            else:
+                                remaining_files.append(file2)
                         else:
-                            remaining_files.append(file2)
-                    else:
-                        remaining_files.append(file2)
-                group = remaining_files
-                if len(new_group) > 1:
-                    final_groups.append(new_group)
-        return final_groups
+                            # Standard format: returns bool representing if it matches
+                            if strategy.compare(file1, file2, opts):
+                                new_group.append(file2)
+                            else:
+                                remaining_files.append(file2)
+                    group = remaining_files
+                    if len(new_group) > 1:
+                        final_groups.append(new_group)
+            duplicate_groups = final_groups
 
     return duplicate_groups

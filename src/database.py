@@ -4,7 +4,9 @@ from models import FileNode, FolderNode
 from config import config
 
 def get_db_connection(project_file):
-    return sqlite3.connect(project_file)
+    conn = sqlite3.connect(project_file)
+    create_tables(conn)
+    return conn
 
 def create_tables(conn):
     with conn:
@@ -42,6 +44,8 @@ def create_tables(conn):
                 modified_date REAL,
                 md5 TEXT,
                 llm_embedding BLOB,
+                hash_fast BLOB,
+                hash_accurate BLOB,
                 FOREIGN KEY (file_id) REFERENCES files(id)
             )
         """
@@ -83,6 +87,17 @@ def create_tables(conn):
         """
         )
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path_folder ON files (folder_index, path, name)")
+        
+        # Schema Migrations
+        try:
+            conn.execute("ALTER TABLE file_metadata ADD COLUMN hash_fast BLOB")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            conn.execute("ALTER TABLE file_metadata ADD COLUMN hash_accurate BLOB")
+        except sqlite3.OperationalError:
+            pass
 
 def save_setting(conn, key, value):
     with conn:
@@ -126,9 +141,9 @@ def insert_file_node(conn, node, folder_index, current_folder_path=''):
             """, (folder_index, current_folder_path, node.name, node.ext, node.metadata.get('last_seen')))
             file_id = cursor.lastrowid
             conn.execute("""
-                INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
-                VALUES (?, ?, ?, ?, ?)
-            """, (file_id, node.metadata.get('size'), node.metadata.get('date'), node.metadata.get('md5'), node.metadata.get('llm_embedding')))
+                INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding, hash_fast, hash_accurate)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (file_id, node.metadata.get('size'), node.metadata.get('date'), node.metadata.get('md5'), node.metadata.get('llm_embedding'), node.metadata.get('hash_fast'), node.metadata.get('hash_accurate')))
     elif isinstance(node, FolderNode):
         new_folder_path = f"{current_folder_path}/{node.name}" if current_folder_path else node.name
         for child in node.content:
@@ -139,7 +154,8 @@ def get_all_files(conn, folder_index, file_type_filter="all"):
     query = """
         SELECT
             f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
-            fm.size, fm.modified_date, fm.md5, fm.llm_embedding
+            fm.size, fm.modified_date, fm.md5, fm.llm_embedding,
+            fm.hash_fast, fm.hash_accurate
         FROM
             files f
         LEFT JOIN
@@ -165,7 +181,8 @@ def get_files_by_ids(conn, ids):
     query = f"""
         SELECT
             f.id, f.folder_index, f.path, f.name, f.ext, f.last_seen,
-            fm.size, fm.modified_date, fm.md5, fm.llm_embedding
+            fm.size, fm.modified_date, fm.md5, fm.llm_embedding,
+            fm.hash_fast, fm.hash_accurate
         FROM
             files f
         LEFT JOIN

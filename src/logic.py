@@ -78,10 +78,10 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                     database.clear_file_metadata(conn, file_id)
                     conn.execute(
                         """
-                        INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding, hash_fast, hash_accurate)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (file_id, node_data['size'], node_data['modified_date'], None, None)
+                        (file_id, node_data['size'], node_data['modified_date'], None, None, None, None)
                     )
                     logger.debug(f"File changed: {node_data['name']}. Metadata reset.")
                 else:
@@ -100,11 +100,12 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
                 file_id = cursor.lastrowid
                 conn.execute(
                     """
-                    INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO file_metadata (file_id, size, modified_date, md5, llm_embedding, hash_fast, hash_accurate)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (file_id, node_data['size'], node_data['modified_date'],
-                     node_data.get('md5'), node_data.get('llm_embedding'))
+                     node_data.get('md5'), node_data.get('llm_embedding'),
+                     node_data.get('hash_fast'), node_data.get('hash_accurate'))
                 )
 
         # Remove files that were not seen in this scan
@@ -128,8 +129,8 @@ def build_folder_structure_db(conn, folder_index, root_path, include_subfolders=
 
 def run_comparison(info1, info2, opts):
     """
-    Finds common files between two lists of file information using an efficient,
-    hash-based approach based on the selected comparison criteria.
+    Finds common files between two lists of file information.
+    First groups by exact match strategies, then refines groups using similarity strategies.
     Returns a list of groups, where each group contains matching files from both lists.
     """
     selected_strategies = []
@@ -143,33 +144,60 @@ def run_comparison(info1, info2, opts):
     if not selected_strategies:
         return []
 
-    # A function to create a hashable key from a file's metadata
-    def get_key(file_info):
-        key = tuple(file_info.get(s.db_key) for s in selected_strategies)
-        # If any part of the key is None, the file cannot be matched.
-        return None if any(k is None for k in key) else key
+    exact_strategies = [s for s in selected_strategies if not getattr(s, 'is_similarity_strategy', False)]
+    sim_strategies = [s for s in selected_strategies if getattr(s, 'is_similarity_strategy', False)]
 
-    # Build a hash map of all files from both lists.
-    # Key: tuple of metadata (e.g., (size, md5)), Value: list of file_info dicts
+    # If we have exact strategies, group by them. Otherwise, treat everything as one giant group.
     all_files_map = {}
-    for file_info in info1 + info2:
-        key = get_key(file_info)
-        if key is not None:
-            all_files_map.setdefault(key, []).append(file_info)
+    if exact_strategies:
+        def get_exact_key(file_info):
+            key = tuple(file_info.get(s.db_key) for s in exact_strategies)
+            return None if any(k is None for k in key) else key
 
-    # Filter out groups that don't have files from both sources
+        for file_info in info1 + info2:
+            key = get_exact_key(file_info)
+            if key is not None:
+                all_files_map.setdefault(key, []).append(file_info)
+    else:
+        # If there are only similarity strategies, all valid files go in one group
+        valid_files = [f for f in info1 + info2 if all(f.get(s.db_key) is not None for s in sim_strategies)]
+        if valid_files:
+            all_files_map["all_files"] = valid_files
+
     matches = []
     for key, group in all_files_map.items():
         if len(group) > 1:
             # Check if the group contains files from at least two different sources
-            folder_indices = {info.get('folder_index') for info in group}
-            if len(folder_indices) > 1:
-                # Also check if there are multiple unique file IDs in the group
-                # This handles the case where the same file is compared with itself
-                # if the same folder is added twice.
-                file_ids = {info.get('id') for info in group}
-                if len(file_ids) > 1:
-                    matches.append(group)
+            # We will do this check AFTER similarity refinement if needed, 
+            # but wait, it's more efficient to check now, wait! Similarity can split the group.
+            # So refinement first.
+            refined_groups = [group]
+            
+            for strategy in sim_strategies:
+                next_refined_groups = []
+                for rg in refined_groups:
+                    while len(rg) > 1:
+                        file1 = rg.pop(0)
+                        matched = [file1]
+                        unmatched = []
+                        for file2 in rg:
+                            if strategy.compare(file1, file2, opts):
+                                matched.append(file2)
+                            else:
+                                unmatched.append(file2)
+                        rg = unmatched
+                        if len(matched) > 1:
+                            next_refined_groups.append(matched)
+                refined_groups = next_refined_groups
+
+            # Now check that each refined group contains files from >= 2 different sources
+            for rg in refined_groups:
+                if len(rg) > 1:
+                    folder_indices = {info.get('folder_index') for info in rg}
+                    if len(folder_indices) > 1:
+                        file_ids = {info.get('id') for info in rg}
+                        if len(file_ids) > 1:
+                            matches.append(rg)
             
     return matches
 

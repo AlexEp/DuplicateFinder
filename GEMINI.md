@@ -100,6 +100,10 @@ This application is designed to be run from the source code. There is no separat
 
 ## 11. Improvements
 
+-   **Video Similarity Strategies**:
+    -   Implemented a "Video Fast" strategy utilizing the central frame of videos for rapid similarity checks using color histograms.
+    -   Implemented a "Video Accurate" strategy with 5 multi-frame extraction and pairwise histogram correlations. Includes a matching percentage threshold configuration.
+    -   Expanded the SQLite metadata caching to store and cache video frame representations automatically.
 -   **Refactor (Phase 1: Foundation & Abstractions)**: 
     -   Introduced `src/interfaces` layer to enable Dependency Inversion (DIP).
     -   Implemented the **Repository Pattern** with `SQLiteRepository` to decouple logic from the database.

@@ -28,7 +28,7 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
     file_infos = []
 
     for file_data in files:
-        file_id, _, path, name, ext, _, size, modified_date, md5, llm_embedding = file_data
+        file_id, _, path, name, ext, _, size, modified_date, md5, llm_embedding, hash_fast, hash_accurate = file_data
 
         file_info = {
             'id': file_id,
@@ -39,7 +39,9 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
             'size': size,
             'modified_date': modified_date,
             'md5': md5,
-            'llm_embedding': llm_embedding
+            'llm_embedding': llm_embedding,
+            'hash_fast': hash_fast,
+            'hash_accurate': hash_accurate
         }
 
         # This is a simplified representation of the FileNode.

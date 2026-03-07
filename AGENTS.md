@@ -99,6 +99,10 @@ This application is designed to be run from the source code. There is no separat
 
 ## 11. Improvements
 
+-   **Video Similarity Strategies**:
+    -   Implemented a "Video Fast" strategy utilizing the central frame of videos for rapid similarity checks using color histograms.
+    -   Implemented a "Video Accurate" strategy with 5 multi-frame extraction and pairwise histogram correlations. Includes a matching percentage threshold configuration.
+    -   Expanded the SQLite metadata caching to store and cache video frame representations automatically.
 -   **Refactor (Phase 2: God Class Elimination)**:
     -   Extracted modular UI components into `src/ui/components/`: `StatusBar`, `SettingsPanel`, `FolderSelection`, and `ResultsView`.
     -   Introduced `ApplicationState` to separate data state from UI logic.

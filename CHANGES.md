@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-03-07]
+- **Feature**: Video Similarity Options:
+  - Added "Video Fast (Middle Frame)" strategy that extracts the central frame of videos and calculates a color histogram to quickly find identical content, regardless of format.
+  - Added "Video Accurate (% Match)" strategy that extracts 5 evenly spaced frames from videos to compute visual similarity over time.
+  - Integrated full UX thresholds for the video strategies allowing flexible matching criteria.
+  - Extended SQLite metadata caching to store calculated `hash_fast` and `hash_accurate` embeddings, avoiding redundant processing.
+
 ## [2026-01-01]
 - **Documentation**: Updated `IMPROVEMENT_PLAN.md` to reflect completion of Phase 3 and implementation of metadata caching in Phase 4.
 

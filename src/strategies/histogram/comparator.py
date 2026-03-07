@@ -27,6 +27,10 @@ class HistogramComparator(BaseComparisonStrategy):
     def db_key(self):
         return 'histogram'
 
+    @property
+    def is_similarity_strategy(self):
+        return True
+
     def get_duplicates_query_part(self):
         return "fm.histogram"
 
