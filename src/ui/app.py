@@ -475,10 +475,9 @@ class FolderComparisonApp(IView):
                 return
 
             self.controller.project_manager.create_new_project_file(path, folders)
-            self._folder_selection.set_paths(folders)
-
-            self.update_action_button_text()
             self._set_main_ui_state('normal')
+            self._folder_selection.set_paths(folders)
+            self._on_folders_changed()
             dialog.destroy()
 
         save_button = tk.Button(button_frame, text="Save Project and Continue", command=on_save)
