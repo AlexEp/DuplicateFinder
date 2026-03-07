@@ -6,7 +6,7 @@
 ai-llm-plan.md
 
 **/__pycache__/
-
+_test/
 /models/
 !/models/README.md
 
