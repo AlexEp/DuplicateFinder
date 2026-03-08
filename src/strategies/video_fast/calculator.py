@@ -14,7 +14,7 @@ class VideoFastCalculator(BaseCalculator):
     def db_key(self):
         return 'hash_fast'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the fast hash of a video file.
         """

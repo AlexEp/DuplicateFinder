@@ -9,7 +9,7 @@ class MD5Calculator(BaseCalculator):
     def db_key(self):
         return 'md5'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the MD5 hash of a file.
 

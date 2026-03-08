@@ -16,7 +16,7 @@ class VideoAccurateCalculator(BaseCalculator):
     def db_key(self):
         return 'hash_accurate'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the accurate hash of a video file.
         """

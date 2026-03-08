@@ -9,7 +9,7 @@ class SizeCalculator(BaseCalculator):
     def db_key(self):
         return 'size'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the size of a file.
 

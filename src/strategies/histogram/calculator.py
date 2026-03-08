@@ -14,7 +14,7 @@ class HistogramCalculator(BaseCalculator):
     def db_key(self):
         return 'histogram'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the histogram of an image file.
 

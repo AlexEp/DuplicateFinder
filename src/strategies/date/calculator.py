@@ -9,7 +9,7 @@ class DateCalculator(BaseCalculator):
     def db_key(self):
         return 'modified_date'
 
-    def calculate(self, file_node, opts):
+    def _calculate(self, file_node, opts):
         """
         Calculates the modification date of a file.
 
