@@ -13,3 +13,6 @@ _test/
 # Log files
 logs/
 *.log
+
+# Cache files
+metric_cache.db
