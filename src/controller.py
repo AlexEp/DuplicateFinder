@@ -118,6 +118,47 @@ class AppController:
         # Pass the controller instance to the view
         self.view.controller = self
 
+    def on_folders_changed(self, folder_paths: list):
+        """Called when the user adds or removes a folder in the main folder selection.
+        Persists the updated folder list to the sources table in the project DB,
+        using a diff to avoid invalidating folder_index references in the files table.
+        """
+        if not self.project_manager.current_project_path:
+            # No project open yet — nothing to persist
+            return
+
+        # Normalize paths (e.g. forward slashes on Windows) for consistent comparison
+        folder_paths = [str(Path(p).as_posix()) if p else p for p in folder_paths]
+
+        logger.info(f"Folder list changed, syncing sources to DB: {folder_paths}")
+        try:
+            conn = database.get_db_connection(self.project_manager.current_project_path)
+            existing_sources = {path: sid for sid, path in database.get_sources(conn)}
+            new_paths = set(folder_paths)
+
+            # Remove sources that are no longer in the list (and their files)
+            for path, sid in existing_sources.items():
+                if path not in new_paths:
+                    logger.info(f"Removing source from DB: {path} (id={sid})")
+                    with conn:
+                        conn.execute("DELETE FROM files WHERE folder_index = ?", (sid,))
+                        conn.execute("DELETE FROM sources WHERE id = ?", (sid,))
+
+            # Add sources that are new
+            for path in folder_paths:
+                if path not in existing_sources:
+                    logger.info(f"Adding new source to DB: {path}")
+                    database.add_source(conn, path)
+
+            conn.close()
+            logger.info("Sources synced successfully in project DB.")
+            self.view.update_status(f"Source folders saved ({len(folder_paths)} folder(s)).")
+        except Exception as e:
+            logger.error("Failed to sync folder sources to project DB.", exc_info=True)
+            self.view.update_status(f"ERROR: Could not save source folders — {e}")
+            from tkinter import messagebox
+            messagebox.showerror("Save Error", f"Could not save source folder changes:\n{e}")
+
     def clear_all_settings(self):
         self.move_to_path.set("")
         self.include_subfolders.set(False)

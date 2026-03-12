@@ -86,6 +86,26 @@ class ProjectManager:
         logger.info(f"Saving project to {self.current_project_path} (DB)")
         try:
             conn = database.get_db_connection(self.current_project_path)
+
+            # Sync sources from the UI listbox as a safety net, using a diff approach
+            # so existing folder_index IDs in the files table are preserved.
+            from pathlib import Path as _Path
+            current_ui_folders = list(self.controller.view.folder_list_box.get(0, 'end'))
+            # Normalize to forward slashes for consistent storage
+            current_ui_folders = [str(_Path(p).as_posix()) if p else p for p in current_ui_folders]
+            existing_sources = {path: sid for sid, path in database.get_sources(conn)}
+            new_paths = set(current_ui_folders)
+            for path, sid in existing_sources.items():
+                if path not in new_paths:
+                    logger.info(f"Save: removing source from DB: {path} (id={sid})")
+                    conn.execute("DELETE FROM files WHERE folder_index = ?", (sid,))
+                    conn.execute("DELETE FROM sources WHERE id = ?", (sid,))
+            for path in current_ui_folders:
+                if path not in existing_sources:
+                    logger.info(f"Save: adding new source to DB: {path}")
+                    database.add_source(conn, path)
+            conn.commit()
+
             settings = self._gather_settings()
             database.save_setting(conn, 'project_settings', settings)
             conn.close()
