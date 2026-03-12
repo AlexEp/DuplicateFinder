@@ -12,6 +12,7 @@ class ComparisonOptions:
 
     DEFAULT_OPTIONS = {
         "compare_name": False,
+        "compare_name_threshold": 1.0,
         "compare_date": False,
         "compare_size": True,
         "compare_content_md5": False,
