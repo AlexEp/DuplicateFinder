@@ -39,8 +39,9 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
                     size INTEGER,
                     modified_date REAL,
                     md5 TEXT,
-                    histogram TEXT,
                     llm_embedding BLOB,
+                    hash_fast BLOB,
+                    hash_accurate BLOB,
                     FOREIGN KEY (file_id) REFERENCES files(id)
                 )
             """)
@@ -60,21 +61,21 @@ class TestFindDuplicatesStrategy(unittest.TestCase):
             (11, 2, 'video2.mp4', 'j', '.mp4', 0), # Dup size with 10
         ]
         metadata_data = [
-            (1, 1, 100, 12345.0, 'aaa', None, None),
-            (2, 2, 200, 12345.0, 'bbb', None, None),
-            (3, 3, 100, 54321.0, 'ccc', None, None),
-            (4, 4, 100, 12345.0, 'aaa', None, None),
-            (5, 5, 300, 67890.0, 'ddd', None, None),
-            (6, 6, 500, 77777.0, 'eee', None, None),
-            (7, 7, 500, 77777.0, 'fff', None, None),
-            (8, 8, 1024, 88888.0, 'ggg', None, None),
-            (9, 9, 1024, 99999.0, 'hhh', None, None),
-            (10, 10, 2048, 11111.0, 'iii', None, None),
-            (11, 11, 2048, 22222.0, 'jjj', None, None),
+            (1, 1, 100, 12345.0, 'aaa', None, None, None),
+            (2, 2, 200, 12345.0, 'bbb', None, None, None),
+            (3, 3, 100, 54321.0, 'ccc', None, None, None),
+            (4, 4, 100, 12345.0, 'aaa', None, None, None),
+            (5, 5, 300, 67890.0, 'ddd', None, None, None),
+            (6, 6, 500, 77777.0, 'eee', None, None, None),
+            (7, 7, 500, 77777.0, 'fff', None, None, None),
+            (8, 8, 1024, 88888.0, 'ggg', None, None, None),
+            (9, 9, 1024, 99999.0, 'hhh', None, None, None),
+            (10, 10, 2048, 11111.0, 'iii', None, None, None),
+            (11, 11, 2048, 22222.0, 'jjj', None, None, None),
         ]
         with self.conn:
             self.conn.executemany("INSERT INTO files VALUES (?,?,?,?,?,?)", files_data)
-            self.conn.executemany("INSERT INTO file_metadata VALUES (?,?,?,?,?,?,?)", metadata_data)
+            self.conn.executemany("INSERT INTO file_metadata VALUES (?,?,?,?,?,?,?,?)", metadata_data)
 
     def test_run_with_file_extension_filter(self):
         # NOTE: This test relies on the mock config in settings.json.

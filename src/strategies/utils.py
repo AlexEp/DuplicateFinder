@@ -33,7 +33,7 @@ def calculate_metadata_db(conn, folder_index, root_path, opts, file_type_filter=
         file_info = {
             'id': file_id,
             'folder_index': folder_index,
-            'relative_path': path,
+            'path': path,
             'name': name,
             'ext': ext,
             'size': size,

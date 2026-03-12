@@ -2,6 +2,8 @@ import sqlite3
 import time
 import json
 import logging
+import threading
+import queue
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,44 @@ class MetricCache:
                     PRIMARY KEY (file_path, file_size, metric_name)
                 )
             """)
+
+        self._write_queue = queue.Queue()
+        self._worker_thread = threading.Thread(target=self._writer_loop, daemon=True)
+        self._worker_thread.start()
+
+    def _writer_loop(self):
+        """Background thread loop that pulls from the queue and writes to SQLite."""
+        with sqlite3.connect(self.db_path) as conn:
+            while True:
+                try:
+                    item = self._write_queue.get()
+                    if item is None:  # Shutdown signal
+                        break
+                        
+                    file_path, file_size, metric_name, serialized_val, current_time = item
+                    
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO metrics (file_path, file_size, metric_name, metric_value, timestamp)
+                            VALUES (?, ?, ?, ?, ?)
+                            ON CONFLICT(file_path, file_size, metric_name) DO UPDATE SET
+                            metric_value = excluded.metric_value,
+                            timestamp = excluded.timestamp
+                            """,
+                            (file_path, file_size, metric_name, serialized_val, current_time)
+                        )
+                        conn.commit()
+                    except sqlite3.Error as e:
+                        logger.error(f"Error writing to metric cache: {e}")
+                        
+                    self._write_queue.task_done()
+                except Exception as e:
+                    logger.error(f"Unexpected error in metric cache writer loop: {e}")
+
+    def wait_for_writes(self):
+        """Blocks until all queued cache writes are processed."""
+        self._write_queue.join()
 
     def clean_old_cache(self, max_age_minutes=30):
         """Deletes cache entries older than the maximum age."""
@@ -81,28 +121,18 @@ class MetricCache:
 
     def set_metric(self, file_path, file_size, metric_name, value):
         """
-        Saves a newly calculated metric into the cache.
+        Asynchronously saves a newly calculated metric into the cache.
         """
         if value is None:
             return # Don't cache Nones
             
         try:
-            # Serialize
+            # Serialize synchronously since we want to catch JSON errors on the calling thread
             serialized_val = json.dumps(value)
             current_time = time.time()
             
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    """
-                    INSERT INTO metrics (file_path, file_size, metric_name, metric_value, timestamp)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(file_path, file_size, metric_name) DO UPDATE SET
-                    metric_value = excluded.metric_value,
-                    timestamp = excluded.timestamp
-                    """,
-                    (file_path, file_size, metric_name, serialized_val, current_time)
-                )
-        except sqlite3.Error as e:
-            logger.error(f"Error writing to metric cache: {e}")
+            # Offload the database write
+            self._write_queue.put((file_path, file_size, metric_name, serialized_val, current_time))
+            
         except TypeError as e:
             logger.error(f"Error encoding metric for {metric_name} on {file_path}: {e}")

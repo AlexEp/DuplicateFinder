@@ -7,3 +7,4 @@
 
 ### Fixed
 - Fixed bug in unit tests (`test_find_duplicates_strategy.py`) where `file_metadata` schema changes caused sqlite `OperationalError` failures for missing video hash columns. Tests updated.
+- Fixed a bug where similarity-only comparisons (like Video Accurate and Video Fast) caused file paths to be displayed incorrectly, preventing the UI Preview context menu action from working. Updated `utils.py` dictionary keys from `relative_path` to `path` to properly trace the file.
