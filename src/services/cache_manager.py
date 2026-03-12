@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class MetricCache:
     """
     Local SQLite-based cache for file calculation metrics.
-    Keeps computed metrics for a defined duration (default 30 mins) based on
+    Keeps computed metrics for a defined duration (default 24 hours) based on
     the composite key: (file_path, file_size, metric_name).
     """
     _instance = None
@@ -75,7 +75,7 @@ class MetricCache:
         """Blocks until all queued cache writes are processed."""
         self._write_queue.join()
 
-    def clean_old_cache(self, max_age_minutes=30):
+    def clean_old_cache(self, max_age_minutes=1440):
         """Deletes cache entries older than the maximum age."""
         cutoff_time = time.time() - (max_age_minutes * 60)
         try:
